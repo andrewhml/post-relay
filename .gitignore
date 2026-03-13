@@ -1,0 +1,26 @@
+code .gitignore
+```
+
+# Dependencies
+node_modules/
+
+# Environment variables (never commit these)
+.env
+.env.local
+.env.*
+
+# Build output
+dist/
+build/
+
+# OS clutter
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+
+# Data
+data/instagram/logs/
+data/instagram/cache/
