@@ -26,6 +26,7 @@ Post Relay is a local-first Instagram travel content workflow for Andrew's `andr
 - Immich/NAS can be added later as secondary enrichment, not as the v1 source of truth.
 - Candidate groups are currently built from indexed photo parent folders.
 - Multi-photo folders recommend `carousel`; one-photo folders recommend `single_image`.
+- Draft records can be created idempotently from candidate groups.
 
 ## Safety and product constraints
 
@@ -68,4 +69,4 @@ Post Relay is a local-first Instagram travel content workflow for Andrew's `andr
 
 ## Current next milestone
 
-See `docs/plans/current-agent-roadmap.md`. The next planned code milestone is currently `feat/draft-records-from-candidates` unless that roadmap has been updated.
+See `docs/plans/current-agent-roadmap.md`. The next planned code milestone is currently `feat/draft-review-package` unless that roadmap has been updated.

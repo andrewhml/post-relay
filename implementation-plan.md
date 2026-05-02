@@ -212,4 +212,4 @@ Andrew should continue with:
 - pausing on app publication/review until publish testing requires it
 
 ## Immediate Next Engineering Step
-Continue Phase 1 by creating draft records from candidate groups. The repo-level current roadmap is maintained in `docs/plans/current-agent-roadmap.md`; future agents should read `AGENTS.md` first, then the roadmap before implementing.
+Continue Phase 1 by creating structured draft review packages from draft records. The repo-level current roadmap is maintained in `docs/plans/current-agent-roadmap.md`; future agents should read `AGENTS.md` first, then the roadmap before implementing.

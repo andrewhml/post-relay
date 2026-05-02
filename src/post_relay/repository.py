@@ -37,6 +37,19 @@ class CandidateGroupRecord:
     photo_count: int
 
 
+@dataclass(frozen=True)
+class DraftRecord:
+    id: int
+    candidate_group_id: int
+    post_type: str
+    caption: Optional[str]
+    hashtags_json: Optional[str]
+    location_text: Optional[str]
+    alt_text: Optional[str]
+    status: str
+    scheduled_for: Optional[str]
+
+
 def upsert_photo_source(connection, source: PhotoSource) -> int:
     connection.execute(
         """
@@ -217,3 +230,93 @@ def list_candidate_groups(connection) -> list[CandidateGroupRecord]:
         )
         for row in rows
     ]
+
+
+def get_candidate_group(connection, candidate_group_id: int) -> Optional[CandidateGroupRecord]:
+    rows = connection.execute(
+        """
+        select
+            candidate_groups.id,
+            candidate_groups.title,
+            candidate_groups.source_name,
+            candidate_groups.source_folder,
+            candidate_groups.source_year,
+            candidate_groups.post_type_recommendation,
+            candidate_groups.confidence,
+            candidate_groups.reason,
+            candidate_groups.status,
+            count(candidate_group_items.photo_id) as photo_count
+        from candidate_groups
+        left join candidate_group_items on candidate_group_items.group_id = candidate_groups.id
+        where candidate_groups.id = ?
+        group by candidate_groups.id
+        """,
+        (candidate_group_id,),
+    ).fetchall()
+    if not rows:
+        return None
+    row = rows[0]
+    return CandidateGroupRecord(
+        id=int(row[0]),
+        title=row[1],
+        source_name=row[2],
+        source_folder=row[3],
+        source_year=row[4],
+        post_type_recommendation=row[5],
+        confidence=float(row[6]),
+        reason=row[7],
+        status=row[8],
+        photo_count=int(row[9]),
+    )
+
+
+def create_draft_record(
+    connection,
+    *,
+    candidate_group_id: int,
+    post_type: str,
+    status: str,
+) -> DraftRecord:
+    connection.execute(
+        """
+        insert or ignore into drafts (candidate_group_id, post_type, status)
+        values (?, ?, ?)
+        """,
+        (candidate_group_id, post_type, status),
+    )
+    row = connection.execute(
+        """
+        select id, candidate_group_id, post_type, caption, hashtags_json,
+               location_text, alt_text, status, scheduled_for
+        from drafts
+        where candidate_group_id = ?
+        """,
+        (candidate_group_id,),
+    ).fetchone()
+    return _draft_from_row(row)
+
+
+def list_drafts(connection) -> list[DraftRecord]:
+    rows = connection.execute(
+        """
+        select id, candidate_group_id, post_type, caption, hashtags_json,
+               location_text, alt_text, status, scheduled_for
+        from drafts
+        order by id
+        """
+    ).fetchall()
+    return [_draft_from_row(row) for row in rows]
+
+
+def _draft_from_row(row) -> DraftRecord:
+    return DraftRecord(
+        id=int(row[0]),
+        candidate_group_id=int(row[1]),
+        post_type=row[2],
+        caption=row[3],
+        hashtags_json=row[4],
+        location_text=row[5],
+        alt_text=row[6],
+        status=row[7],
+        scheduled_for=row[8],
+    )
