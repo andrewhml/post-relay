@@ -5,18 +5,21 @@ from typing import Optional
 
 import typer
 
+from post_relay.candidates import build_candidate_groups
 from post_relay.config import load_config
 from post_relay.db import connect_db, initialize_db
 from post_relay.indexer import index_photo_sources
-from post_relay.repository import get_library_stats
+from post_relay.repository import get_library_stats, list_candidate_groups
 
 app = typer.Typer(help="Post Relay local-first Instagram content workflow.")
 db_app = typer.Typer(help="Database commands.")
 index_app = typer.Typer(help="Media indexing commands.")
 library_app = typer.Typer(help="Library inspection commands.")
+candidates_app = typer.Typer(help="Candidate post group commands.")
 app.add_typer(db_app, name="db")
 app.add_typer(index_app, name="index")
 app.add_typer(library_app, name="library")
+app.add_typer(candidates_app, name="candidates")
 
 DEFAULT_DB_PATH = Path("data/post_relay.sqlite")
 
@@ -69,3 +72,35 @@ def library_stats(
         for year, count in stats.by_year.items():
             year_label: Optional[int | str] = year if year is not None else "unknown"
             typer.echo(f"  {year_label}: {count}")
+
+
+@candidates_app.command("build")
+def candidates_build(
+    db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
+) -> None:
+    """Build reviewable candidate groups from indexed photos."""
+    connection = connect_db(db)
+    initialize_db(connection)
+    result = build_candidate_groups(connection)
+    group_plural = "" if result.created_count == 1 else "s"
+    typer.echo(
+        f"Created {result.created_count} candidate group{group_plural} from {result.considered_photo_count} indexed photos."
+    )
+
+
+@candidates_app.command("list")
+def candidates_list(
+    db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
+) -> None:
+    """List candidate groups ready for review."""
+    connection = connect_db(db)
+    initialize_db(connection)
+    groups = list_candidate_groups(connection)
+    if not groups:
+        typer.echo("No candidate groups found.")
+        return
+    for group in groups:
+        photo_plural = "" if group.photo_count == 1 else "s"
+        typer.echo(
+            f"#{group.id} {group.title} — {group.post_type_recommendation}, {group.photo_count} photo{photo_plural}, confidence {group.confidence:.2f}"
+        )
