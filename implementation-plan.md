@@ -212,4 +212,4 @@ Andrew should continue with:
 - pausing on app publication/review until publish testing requires it
 
 ## Immediate Next Engineering Step
-Start Phase 1 and create the local data model + storage layout, while separately validating the exact publish/create endpoint requirements for the Facebook/Meta Graph route.
+Continue Phase 1 by creating draft records from candidate groups. The repo-level current roadmap is maintained in `docs/plans/current-agent-roadmap.md`; future agents should read `AGENTS.md` first, then the roadmap before implementing.

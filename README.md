@@ -20,9 +20,12 @@ Early local-first MVP scaffold with:
 - `graph.instagram.com` returned `Invalid platform app` in current setup
 
 ## Immediate goals
-1. Validate publish container creation safely
-2. Build local draft/queue data model
-3. Build Discord review workflow
+1. Build local draft/queue data model
+2. Build Discord review workflow
+3. Validate publish container creation safely
+
+## Agent handoff
+Future agents should start with `AGENTS.md`, then `docs/plans/current-agent-roadmap.md`.
 
 ## Local CLI
 Use the project virtualenv when running locally:
