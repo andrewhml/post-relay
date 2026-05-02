@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, Optional
+from typing import Dict, Optional, Sequence
 
 from post_relay.config import PhotoSource
 from post_relay.media.scanner import ScannedMedia
@@ -12,6 +12,29 @@ class LibraryStats:
     total_photos: int
     by_source: Dict[str, int]
     by_year: Dict[Optional[int], int]
+
+
+@dataclass(frozen=True)
+class PhotoForCandidate:
+    id: int
+    source_name: str
+    local_file_path: str
+    source_confidence: float
+    inferred_year: Optional[int]
+
+
+@dataclass(frozen=True)
+class CandidateGroupRecord:
+    id: int
+    title: str
+    source_name: str
+    source_folder: str
+    source_year: Optional[int]
+    post_type_recommendation: str
+    confidence: float
+    reason: str
+    status: str
+    photo_count: int
 
 
 def upsert_photo_source(connection, source: PhotoSource) -> int:
@@ -86,3 +109,111 @@ def get_library_stats(connection) -> LibraryStats:
         )
     }
     return LibraryStats(total_photos=total, by_source=by_source, by_year=by_year)
+
+
+def list_photos_for_candidates(connection) -> list[PhotoForCandidate]:
+    rows = connection.execute(
+        """
+        select id, source_name, local_file_path, source_confidence, inferred_year
+        from photos
+        where processed_status = 'processed'
+        order by source_name, local_file_path
+        """
+    ).fetchall()
+    return [
+        PhotoForCandidate(
+            id=int(row[0]),
+            source_name=row[1],
+            local_file_path=row[2],
+            source_confidence=float(row[3]),
+            inferred_year=row[4],
+        )
+        for row in rows
+    ]
+
+
+def create_candidate_group(
+    connection,
+    *,
+    title: str,
+    source_name: str,
+    source_folder: str,
+    source_year: Optional[int],
+    post_type_recommendation: str,
+    confidence: float,
+    reason: str,
+    photo_ids: Sequence[int],
+) -> Optional[int]:
+    cursor = connection.execute(
+        """
+        insert or ignore into candidate_groups (
+            title,
+            source_name,
+            source_folder,
+            source_year,
+            post_type_recommendation,
+            confidence,
+            reason
+        )
+        values (?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            title,
+            source_name,
+            source_folder,
+            source_year,
+            post_type_recommendation,
+            confidence,
+            reason,
+        ),
+    )
+    if cursor.rowcount == 0:
+        return None
+
+    group_id = int(cursor.lastrowid)
+    for sort_order, photo_id in enumerate(photo_ids, start=1):
+        connection.execute(
+            """
+            insert into candidate_group_items (group_id, photo_id, sort_order, role)
+            values (?, ?, ?, ?)
+            """,
+            (group_id, photo_id, sort_order, "primary" if sort_order == 1 else "support"),
+        )
+    return group_id
+
+
+def list_candidate_groups(connection) -> list[CandidateGroupRecord]:
+    rows = connection.execute(
+        """
+        select
+            candidate_groups.id,
+            candidate_groups.title,
+            candidate_groups.source_name,
+            candidate_groups.source_folder,
+            candidate_groups.source_year,
+            candidate_groups.post_type_recommendation,
+            candidate_groups.confidence,
+            candidate_groups.reason,
+            candidate_groups.status,
+            count(candidate_group_items.photo_id) as photo_count
+        from candidate_groups
+        left join candidate_group_items on candidate_group_items.group_id = candidate_groups.id
+        group by candidate_groups.id
+        order by candidate_groups.source_name, candidate_groups.source_folder
+        """
+    ).fetchall()
+    return [
+        CandidateGroupRecord(
+            id=int(row[0]),
+            title=row[1],
+            source_name=row[2],
+            source_folder=row[3],
+            source_year=row[4],
+            post_type_recommendation=row[5],
+            confidence=float(row[6]),
+            reason=row[7],
+            status=row[8],
+            photo_count=int(row[9]),
+        )
+        for row in rows
+    ]

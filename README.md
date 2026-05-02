@@ -3,7 +3,13 @@
 Local-first Instagram content workflow for Andrew's `andrewhml` creator account.
 
 ## Current status
-Scaffold only.
+Early local-first MVP scaffold with:
+- SQLite schema for sources, photos, candidate groups, drafts, and approvals
+- local photo source config loading
+- folder-based media indexing
+- library statistics CLI
+- candidate group builder/list CLI
+- guarded draft workflow state model
 
 ## Proven setup facts
 - Meta app: Post Relay
@@ -17,6 +23,20 @@ Scaffold only.
 1. Validate publish container creation safely
 2. Build local draft/queue data model
 3. Build Discord review workflow
+
+## Local CLI
+Use the project virtualenv when running locally:
+
+```bash
+.venv/bin/python -m pytest -q
+.venv/bin/post-relay db init --db data/post_relay.sqlite
+.venv/bin/post-relay index scan --config config/photo_sources.yaml --db data/post_relay.sqlite
+.venv/bin/post-relay library stats --db data/post_relay.sqlite
+.venv/bin/post-relay candidates build --db data/post_relay.sqlite
+.venv/bin/post-relay candidates list --db data/post_relay.sqlite
+```
+
+Candidate groups currently use the indexed photo file's parent folder as the first reviewable travel set boundary. A folder with multiple photos is recommended as a carousel; a one-photo folder is recommended as a single image post.
 
 ## Local secrets
 Use a private `.env` file based on `.env.example`.

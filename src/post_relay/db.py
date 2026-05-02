@@ -42,6 +42,8 @@ SCHEMA_STATEMENTS = [
         id integer primary key,
         title text not null,
         theme text,
+        source_name text,
+        source_folder text,
         source_year integer,
         location text,
         post_type_recommendation text,
@@ -49,7 +51,8 @@ SCHEMA_STATEMENTS = [
         reason text,
         status text not null default 'candidate',
         created_at text not null default current_timestamp,
-        updated_at text not null default current_timestamp
+        updated_at text not null default current_timestamp,
+        unique(source_name, source_folder)
     )
     """,
     """
