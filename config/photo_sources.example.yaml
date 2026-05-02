@@ -1,0 +1,17 @@
+# Copy this file to config/photo_sources.yaml and update the paths.
+# Start with one processed year folder before indexing the full archive.
+
+photo_sources:
+  - name: processed-2023
+    root: /Volumes/YourPhotos/Processed/2023
+    source_type: processed_folder
+    enabled: true
+    reliability_score: 1.0
+
+supported_image_extensions:
+  - .jpg
+  - .jpeg
+  - .png
+  - .heic
+  - .tif
+  - .tiff
