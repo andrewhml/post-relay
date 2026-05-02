@@ -71,7 +71,7 @@ SCHEMA_STATEMENTS = [
     """
     create table if not exists drafts (
         id integer primary key,
-        candidate_group_id integer,
+        candidate_group_id integer unique,
         post_type text not null,
         caption text,
         hashtags_json text,

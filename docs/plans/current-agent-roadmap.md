@@ -62,6 +62,21 @@ Important behavior:
 - Multi-photo folders recommend `carousel`.
 - One-photo folders recommend `single_image`.
 
+### Current milestone: Draft records from candidates
+
+Implemented:
+- `src/post_relay/drafts.py`
+- repository methods for draft creation/listing
+- `drafts create` and `drafts list` CLI commands
+- idempotent one-draft-per-candidate behavior
+- tests for draft persistence, idempotency, missing candidates, and CLI flow
+
+Important behavior:
+- `drafts create --candidate-id N` requires an existing candidate group.
+- Draft records inherit `post_type` from the candidate group's recommendation.
+- Initial draft status is `drafting` from the workflow state model.
+- Caption, hashtags, location, and alt text are intentionally empty placeholders for later drafting/review milestones.
+
 ## Current local verification command
 
 Run this before opening or merging any PR:
@@ -70,10 +85,10 @@ Run this before opening or merging any PR:
 .venv/bin/python -m pytest -q
 ```
 
-Expected current result after PR #4:
+Expected current result after draft-record milestone:
 
 ```text
-16 passed
+20 passed
 ```
 
 ## Milestone execution rules
@@ -128,55 +143,7 @@ Agents must preserve these unless Andrew explicitly changes the product directio
 
 ## Next planned milestones
 
-### Milestone 1: `feat/draft-records-from-candidates`
-
-**Goal:** Convert candidate groups into draft records that can enter the workflow state machine.
-
-**Objective:** Add CLI and repository support for creating a draft from a candidate group.
-
-**Files:**
-- Create or modify: `src/post_relay/drafts.py`
-- Modify: `src/post_relay/repository.py`
-- Modify: `src/post_relay/cli.py`
-- Test: `tests/test_drafts.py`
-- Test: `tests/test_cli.py`
-
-**Expected CLI:**
-
-```bash
-.venv/bin/post-relay drafts create --candidate-id 1 --db data/post_relay.sqlite
-.venv/bin/post-relay drafts list --db data/post_relay.sqlite
-```
-
-**Behavior:**
-- `drafts create` requires an existing candidate group.
-- It creates one draft linked to `candidate_group_id`.
-- Initial draft status should use the workflow state model: likely `drafting` for an empty content draft.
-- `post_type` defaults to the candidate group's `post_type_recommendation`.
-- Caption, hashtags, location, and alt text can be empty/null for now.
-- Draft creation should be idempotent for the first version: if a draft already exists for a candidate group, return/list the existing draft rather than duplicating.
-
-**TDD outline:**
-
-1. Write failing repository test: creating a draft from a candidate group persists one row with candidate id, post type, and `drafting` status.
-2. Run focused test and confirm failure because drafts module/repository method is missing.
-3. Implement minimal draft creation repository/service code.
-4. Run focused test and confirm pass.
-5. Write failing idempotency test.
-6. Implement idempotency.
-7. Write failing CLI test for `drafts create` and `drafts list`.
-8. Implement CLI commands.
-9. Run `.venv/bin/python -m pytest -q`.
-10. Open and merge PR.
-
-**Verification:**
-
-```bash
-.venv/bin/python -m pytest tests/test_drafts.py tests/test_cli.py -q
-.venv/bin/python -m pytest -q
-```
-
-### Milestone 2: `feat/draft-review-package`
+### Milestone 1: `feat/draft-review-package`
 
 **Goal:** Produce a structured review package for each draft before Discord integration.
 
@@ -199,7 +166,7 @@ Agents must preserve these unless Andrew explicitly changes the product directio
 
 **Reason:** This creates a stable, testable preview format before wiring Discord image/message delivery.
 
-### Milestone 3: `feat/context-placeholders-and-questions`
+### Milestone 2: `feat/context-placeholders-and-questions`
 
 **Goal:** Add missing-context detection and focused interview question records.
 
