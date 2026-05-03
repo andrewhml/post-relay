@@ -24,6 +24,8 @@ POST_RELAY_TEST_IMAGE_URL=<public HTTPS image URL for the exact safe test image>
 
 The test image URL must be publicly reachable by Meta. Local filesystem paths are not accepted by the Graph media container endpoint.
 
+`POST_RELAY_TEST_CAPTION`, if present in `.env`, is only a local smoke-test helper value. The live publish command publishes the caption stored on the draft record, not the caption from `.env`.
+
 ## Required draft state
 
 The draft must satisfy all of these:
@@ -141,3 +143,4 @@ Published media ID: 18085108061165756
 Implementation notes discovered during the smoke test:
 - The linked Instagram account read endpoint did not accept `account_type`; read-only validation now requests `id,username,media_count` and renders account type as `<unknown>`.
 - Meta media container creation and media publish endpoints require POST. Using GET did not create a container and returned no media container id.
+- The caption configured in `.env` was not picked up by the actual live post. This is expected for the longer-term workflow because publish execution uses the approved draft caption stored in SQLite; `.env` should not be treated as the source of truth for post content.

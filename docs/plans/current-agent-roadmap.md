@@ -199,6 +199,7 @@ Observed on 2026-05-03:
 - The first live publish attempt failed before creating a container because Post Relay used GET for media container creation; Meta did not return a container id. The failed local DB was archived as `data/post_relay.failed-get-publish-attempt.sqlite` for debugging only and is ignored by git.
 - After fixing publish requests to use POST for `/{ig-user-id}/media` and `/{ig-user-id}/media_publish`, the explicit live smoke test succeeded.
 - Published smoke-test result: container id `18585234496016605`, container status `FINISHED`, published media id `18085108061165756`, local draft status `posted`.
+- The caption value in local `.env` was not used for the live post; the publish path uses the approved draft caption stored in SQLite. This is acceptable for the long-term workflow because `.env` should only provide credentials/configuration, not canonical post content.
 - Full local test suite remained `57 passed` after the smoke-test fixes.
 
 ## Current local verification command
