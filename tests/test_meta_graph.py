@@ -84,7 +84,6 @@ def test_meta_graph_client_builds_readonly_account_requests_without_publishing()
             return {
                 "id": "17841400498120050",
                 "username": "andrewhml",
-                "account_type": "MEDIA_CREATOR",
                 "media_count": 722,
             }
         raise AssertionError(f"unexpected URL: {url}")
@@ -105,7 +104,7 @@ def test_meta_graph_client_builds_readonly_account_requests_without_publishing()
         page_name="Andrewhml",
         instagram_account_id="17841400498120050",
         instagram_username="andrewhml",
-        instagram_account_type="MEDIA_CREATOR",
+        instagram_account_type=None,
         instagram_media_count=722,
     )
     assert [url for url, _params in requested] == [
@@ -115,7 +114,7 @@ def test_meta_graph_client_builds_readonly_account_requests_without_publishing()
     ]
     assert all(params["access_token"] == "secret-token" for _url, params in requested)
     assert requested[1][1]["fields"] == "id,name,instagram_business_account"
-    assert requested[2][1]["fields"] == "id,username,account_type,media_count"
+    assert requested[2][1]["fields"] == "id,username,media_count"
 
 
 def test_meta_graph_client_redacts_token_from_request_errors():

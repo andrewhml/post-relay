@@ -110,7 +110,7 @@ class MetaGraphClient:
     def get_instagram_account(self, instagram_account_id: str) -> Mapping[str, Any]:
         return self._request(
             instagram_account_id,
-            {"fields": "id,username,account_type,media_count"},
+            {"fields": "id,username,media_count"},
         )
 
     def create_image_container(
@@ -160,7 +160,7 @@ class MetaGraphClient:
         return [
             self._url("me/accounts"),
             self._url(page_id) + "?fields=id,name,instagram_business_account&access_token=<redacted>",
-            self._url(instagram_account_id) + "?fields=id,username,account_type,media_count&access_token=<redacted>",
+            self._url(instagram_account_id) + "?fields=id,username,media_count&access_token=<redacted>",
         ]
 
     def _request(self, path: str, params: Mapping[str, str]) -> Mapping[str, Any]:
