@@ -31,6 +31,7 @@ Post Relay is a local-first Instagram travel content workflow for Andrew's `andr
 - Draft context questions can be generated/listed locally and included in draft previews.
 - Draft content direction can be submitted for review, approved for queueing, and invalidated by material edits.
 - Dry-run Discord preview payloads can be generated locally with ordered existing image paths and missing-file reporting.
+- Queue-approved drafts can be scheduled locally and moved through final publish approval without live API calls.
 - Live Discord delivery should only be added after the local payload harness remains green.
 
 ## Safety and product constraints
@@ -78,10 +79,13 @@ Post Relay is a local-first Instagram travel content workflow for Andrew's `andr
 .venv/bin/post-relay drafts submit --draft-id 1 --db data/post_relay.sqlite
 .venv/bin/post-relay drafts approve --draft-id 1 --approved-by andrew --notes "Content direction approved" --db data/post_relay.sqlite
 .venv/bin/post-relay drafts edit --draft-id 1 --caption "Draft caption" --db data/post_relay.sqlite
+.venv/bin/post-relay drafts schedule --draft-id 1 --scheduled-for "2026-05-05T09:30:00-07:00" --db data/post_relay.sqlite
+.venv/bin/post-relay drafts request-publish-approval --draft-id 1 --db data/post_relay.sqlite
+.venv/bin/post-relay drafts approve-publish --draft-id 1 --approved-by andrew --notes "Final approval" --db data/post_relay.sqlite
 .venv/bin/post-relay drafts questions generate --draft-id 1 --db data/post_relay.sqlite
 .venv/bin/post-relay drafts questions list --draft-id 1 --db data/post_relay.sqlite
 ```
 
 ## Current next milestone
 
-See `docs/plans/current-agent-roadmap.md`. The next planned code milestone is currently `feat/schedule-and-publish-approval-cli` unless that roadmap has been updated.
+See `docs/plans/current-agent-roadmap.md`. The next planned code milestone is currently `feat/meta-graph-client-readonly` unless that roadmap has been updated.

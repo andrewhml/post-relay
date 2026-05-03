@@ -212,4 +212,4 @@ Andrew should continue with:
 - pausing on app publication/review until publish testing requires it
 
 ## Immediate Next Engineering Step
-After this milestone, continue with local queue/scheduling and separate publish-approval CLI workflow without live API calls. Keep the dry-run Discord preview payload harness green before adding live Discord messaging. The repo-level current roadmap is maintained in `docs/plans/current-agent-roadmap.md`; future agents should read `AGENTS.md` first, then the roadmap before implementing.
+After this milestone, continue with a sanitized read-only Meta Graph client. It should load tokens from private local environment only, redact secrets from logs/errors, use `graph.facebook.com` by default, and read account/Page/IG information without publishing. The local schedule and publish-approval CLI workflow now exists, and the dry-run Discord preview payload harness should remain green before adding live Discord messaging. The repo-level current roadmap is maintained in `docs/plans/current-agent-roadmap.md`; future agents should read `AGENTS.md` first, then the roadmap before implementing.

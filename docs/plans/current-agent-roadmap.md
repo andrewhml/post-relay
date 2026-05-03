@@ -126,7 +126,7 @@ Important behavior:
 - Material edits after an active approval invalidate active approvals and move the draft to `needs_edits`.
 - This milestone still does not schedule or publish; publish approval remains a later, separate approval type.
 
-### Current milestone: Discord preview payload harness
+### PR #10: Discord preview payload harness
 
 Implemented:
 - `src/post_relay/discord_preview.py`
@@ -141,6 +141,21 @@ Important behavior:
 - Missing image files are reported separately and make `ready_to_send` false so live delivery can be blocked later.
 - This is the check-in harness required before live Discord message delivery.
 
+### Current milestone: Schedule and publish approval CLI
+
+Implemented:
+- `src/post_relay/scheduling.py`
+- repository helper for setting `scheduled_for` while updating draft status
+- `drafts schedule`, `drafts request-publish-approval`, and `drafts approve-publish` CLI commands
+- tests for scheduling guards, scheduled state persistence, publish approval request, final publish approval persistence, missing drafts, and CLI flow
+
+Important behavior:
+- `drafts schedule --draft-id N --scheduled-for ...` requires `approved_for_queue`, sets `scheduled_for`, and moves the draft to `scheduled`.
+- `drafts request-publish-approval --draft-id N` requires `scheduled` and moves the draft to `awaiting_publish_approval`.
+- `drafts approve-publish --draft-id N` requires `awaiting_publish_approval`, records an approval with type `publish`, and moves the draft to `ready_to_publish`.
+- This milestone does not call Meta, Discord, or any external publishing API; it only prepares the local state and audit trail.
+- Draft approval and publish approval remain separate active approval records unless a material edit invalidates them.
+
 ## Current local verification command
 
 Run this before opening or merging any PR:
@@ -149,10 +164,10 @@ Run this before opening or merging any PR:
 .venv/bin/python -m pytest -q
 ```
 
-Expected current result after discord-preview-payload-harness milestone:
+Expected current result after schedule-and-publish-approval-cli milestone:
 
 ```text
-40 passed
+46 passed
 ```
 
 ## Milestone execution rules
@@ -208,17 +223,7 @@ Agents must preserve these unless Andrew explicitly changes the product directio
 
 ## Next planned milestones
 
-### Milestone 1: `feat/schedule-and-publish-approval-cli`
-
-**Goal:** Add queue/scheduling and publish-approval workflow without live API calls.
-
-**Behavior:**
-- Set scheduled time/window.
-- Request/record `publish` approval separately from draft approval.
-- Move through `scheduled` -> `awaiting_publish_approval` -> `ready_to_publish`.
-- Do not publish; this milestone only prepares state and audit trail.
-
-### Milestone 2: `feat/meta-graph-client-readonly`
+### Milestone 1: `feat/meta-graph-client-readonly`
 
 **Goal:** Build a sanitized Meta Graph client for read-only validation.
 
@@ -229,7 +234,7 @@ Agents must preserve these unless Andrew explicitly changes the product directio
 - Read Page/IG account information only.
 - No publishing endpoints yet.
 
-### Milestone 3: `feat/controlled-image-publish-validation`
+### Milestone 2: `feat/controlled-image-publish-validation`
 
 **Goal:** Validate one controlled single-image publish using the official Meta route.
 

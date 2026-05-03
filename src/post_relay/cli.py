@@ -31,6 +31,14 @@ from post_relay.repository import (
     list_drafts,
 )
 from post_relay.review_package import DraftNotFound, build_draft_review_package
+from post_relay.scheduling import (
+    DraftNotFound as SchedulingDraftNotFound,
+    DraftNotReadyForPublishApproval,
+    DraftNotReadyForScheduling,
+    approve_draft_for_publishing,
+    request_publish_approval,
+    schedule_draft,
+)
 
 app = typer.Typer(help="Post Relay local-first Instagram content workflow.")
 db_app = typer.Typer(help="Database commands.")
@@ -263,6 +271,61 @@ def drafts_edit(
     if invalidated_count:
         message += f" Material edit invalidated active approvals: {invalidated_count}."
     typer.echo(message)
+
+
+@drafts_app.command("schedule")
+def drafts_schedule(
+    draft_id: int = typer.Option(..., "--draft-id", help="Draft id."),
+    scheduled_for: str = typer.Option(..., "--scheduled-for", help="Scheduled publish time/window."),
+    db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
+) -> None:
+    """Schedule a queue-approved draft without publishing."""
+    connection = connect_db(db)
+    initialize_db(connection)
+    try:
+        draft = schedule_draft(connection, draft_id, scheduled_for=scheduled_for)
+    except (SchedulingDraftNotFound, DraftNotReadyForScheduling) as error:
+        raise typer.BadParameter(str(error), param_hint="--draft-id") from error
+    typer.echo(f"Scheduled draft #{draft.id} for {draft.scheduled_for}; status is {draft.status}.")
+
+
+@drafts_app.command("request-publish-approval")
+def drafts_request_publish_approval(
+    draft_id: int = typer.Option(..., "--draft-id", help="Draft id."),
+    db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
+) -> None:
+    """Move a scheduled draft into final publish-approval review."""
+    connection = connect_db(db)
+    initialize_db(connection)
+    try:
+        draft = request_publish_approval(connection, draft_id)
+    except (SchedulingDraftNotFound, DraftNotReadyForPublishApproval) as error:
+        raise typer.BadParameter(str(error), param_hint="--draft-id") from error
+    typer.echo(f"Requested publish approval for draft #{draft.id}; status is {draft.status}.")
+
+
+@drafts_app.command("approve-publish")
+def drafts_approve_publish(
+    draft_id: int = typer.Option(..., "--draft-id", help="Draft id."),
+    approved_by: Optional[str] = typer.Option(None, "--approved-by", help="Approver name."),
+    notes: Optional[str] = typer.Option(None, "--notes", help="Approval notes."),
+    source_message_ref: Optional[str] = typer.Option(None, "--source-message-ref", help="Source message reference."),
+    db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
+) -> None:
+    """Record final publish approval without calling any publish API."""
+    connection = connect_db(db)
+    initialize_db(connection)
+    try:
+        approval = approve_draft_for_publishing(
+            connection,
+            draft_id,
+            approved_by=approved_by,
+            notes=notes,
+            source_message_ref=source_message_ref,
+        )
+    except (SchedulingDraftNotFound, DraftNotReadyForPublishApproval) as error:
+        raise typer.BadParameter(str(error), param_hint="--draft-id") from error
+    typer.echo(f"Approved draft #{approval.draft_id} for publishing with approval #{approval.id}.")
 
 
 @draft_questions_app.command("generate")
