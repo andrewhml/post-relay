@@ -204,6 +204,74 @@ photo_sources:
     assert "needs_edits" in list_result.output
 
 
+def test_cli_schedule_and_publish_approval_flow(tmp_path: Path):
+    root = tmp_path / "processed"
+    folder = root / "2023" / "kyoto"
+    folder.mkdir(parents=True)
+    (folder / "temple.jpg").write_bytes(b"fake image")
+    (folder / "garden.jpg").write_bytes(b"fake image")
+    config_path = tmp_path / "photo_sources.yaml"
+    config_path.write_text(
+        f"""
+photo_sources:
+  - name: processed
+    root: {root.as_posix()}
+    source_type: processed_folder
+""".strip()
+    )
+    db_path = tmp_path / "post_relay.sqlite"
+
+    runner.invoke(app, ["index", "scan", "--config", str(config_path), "--db", str(db_path)])
+    runner.invoke(app, ["candidates", "build", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "create", "--candidate-id", "1", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "submit", "--draft-id", "1", "--db", str(db_path)])
+    runner.invoke(
+        app,
+        ["drafts", "approve", "--draft-id", "1", "--approved-by", "andrew", "--db", str(db_path)],
+    )
+    schedule_result = runner.invoke(
+        app,
+        [
+            "drafts",
+            "schedule",
+            "--draft-id",
+            "1",
+            "--scheduled-for",
+            "2026-05-05T09:30:00-07:00",
+            "--db",
+            str(db_path),
+        ],
+    )
+    request_result = runner.invoke(
+        app, ["drafts", "request-publish-approval", "--draft-id", "1", "--db", str(db_path)]
+    )
+    approve_publish_result = runner.invoke(
+        app,
+        [
+            "drafts",
+            "approve-publish",
+            "--draft-id",
+            "1",
+            "--approved-by",
+            "andrew",
+            "--notes",
+            "Ready for the scheduled queue.",
+            "--db",
+            str(db_path),
+        ],
+    )
+    list_result = runner.invoke(app, ["drafts", "list", "--db", str(db_path)])
+
+    assert schedule_result.exit_code == 0
+    assert "Scheduled draft #1 for 2026-05-05T09:30:00-07:00" in schedule_result.output
+    assert request_result.exit_code == 0
+    assert "Requested publish approval for draft #1" in request_result.output
+    assert approve_publish_result.exit_code == 0
+    assert "Approved draft #1 for publishing" in approve_publish_result.output
+    assert list_result.exit_code == 0
+    assert "ready_to_publish" in list_result.output
+
+
 
 def test_cli_draft_discord_preview_payload_dry_run_reports_images(tmp_path: Path):
     root = tmp_path / "processed"

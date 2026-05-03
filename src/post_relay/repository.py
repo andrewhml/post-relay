@@ -399,6 +399,26 @@ def update_draft_status(connection, draft_id: int, status: str) -> Optional[Draf
     return get_draft(connection, draft_id)
 
 
+def update_draft_schedule(
+    connection,
+    draft_id: int,
+    *,
+    scheduled_for: str,
+    status: str,
+) -> Optional[DraftRecord]:
+    connection.execute(
+        """
+        update drafts
+        set scheduled_for = ?,
+            status = ?,
+            updated_at = current_timestamp
+        where id = ?
+        """,
+        (scheduled_for, status, draft_id),
+    )
+    return get_draft(connection, draft_id)
+
+
 def update_draft_content(
     connection,
     draft_id: int,

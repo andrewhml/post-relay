@@ -13,6 +13,7 @@ Early local-first MVP scaffold with:
 - draft context question generate/list CLI
 - draft approval/edit CLI with approval invalidation on material edits
 - dry-run Discord preview payload CLI with ordered image path and missing-file checks
+- schedule and publish-approval CLI without live publishing
 - guarded draft workflow state model
 
 ## Proven setup facts
@@ -48,11 +49,14 @@ Use the project virtualenv when running locally:
 .venv/bin/post-relay drafts submit --draft-id 1 --db data/post_relay.sqlite
 .venv/bin/post-relay drafts approve --draft-id 1 --approved-by andrew --notes "Content direction approved" --db data/post_relay.sqlite
 .venv/bin/post-relay drafts edit --draft-id 1 --caption "Draft caption" --db data/post_relay.sqlite
+.venv/bin/post-relay drafts schedule --draft-id 1 --scheduled-for "2026-05-05T09:30:00-07:00" --db data/post_relay.sqlite
+.venv/bin/post-relay drafts request-publish-approval --draft-id 1 --db data/post_relay.sqlite
+.venv/bin/post-relay drafts approve-publish --draft-id 1 --approved-by andrew --notes "Final approval" --db data/post_relay.sqlite
 .venv/bin/post-relay drafts questions generate --draft-id 1 --db data/post_relay.sqlite
 .venv/bin/post-relay drafts questions list --draft-id 1 --db data/post_relay.sqlite
 ```
 
-Candidate groups currently use the indexed photo file's parent folder as the first reviewable travel set boundary. A folder with multiple photos is recommended as a carousel; a one-photo folder is recommended as a single image post. Draft records can be created from candidate groups and start in the `drafting` state with placeholder caption/location/hashtag fields. Draft preview packages print a stable local review format with ordered photo paths, unresolved context notes, persisted context questions, and allowed next actions before Discord delivery is added. Drafts can be submitted for review, approved for queueing, and edited locally; material edits after approval invalidate active approvals and move the draft back to `needs_edits`. Dry-run Discord preview payloads reuse the draft review text, list ordered existing image attachment paths, and report missing image files without sending anything.
+Candidate groups currently use the indexed photo file's parent folder as the first reviewable travel set boundary. A folder with multiple photos is recommended as a carousel; a one-photo folder is recommended as a single image post. Draft records can be created from candidate groups and start in the `drafting` state with placeholder caption/location/hashtag fields. Draft preview packages print a stable local review format with ordered photo paths, unresolved context notes, persisted context questions, and allowed next actions before Discord delivery is added. Drafts can be submitted for review, approved for queueing, and edited locally; material edits after approval invalidate active approvals and move the draft back to `needs_edits`. Dry-run Discord preview payloads reuse the draft review text, list ordered existing image attachment paths, and report missing image files without sending anything. Queue-approved drafts can be scheduled, moved into final publish-approval review, and explicitly approved for publishing; this only updates local state and approval records and does not call any live publishing API.
 
 Discord/image-preview development should use check-in tests before live messaging: start with a local directory of fixture photos, verify the dry-run payload includes the expected image paths/order, then smoke-test Discord delivery only after the local payload behavior is stable.
 
