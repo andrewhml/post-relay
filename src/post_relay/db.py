@@ -96,6 +96,20 @@ SCHEMA_STATEMENTS = [
         foreign key(draft_id) references drafts(id)
     )
     """,
+    """
+    create table if not exists context_questions (
+        id integer primary key,
+        draft_id integer not null,
+        field_name text not null,
+        question_text text not null,
+        status text not null default 'unresolved',
+        answer_text text,
+        created_at text not null default current_timestamp,
+        updated_at text not null default current_timestamp,
+        unique(draft_id, field_name),
+        foreign key(draft_id) references drafts(id)
+    )
+    """,
 ]
 
 

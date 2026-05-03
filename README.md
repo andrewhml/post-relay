@@ -10,6 +10,7 @@ Early local-first MVP scaffold with:
 - library statistics CLI
 - candidate group builder/list CLI
 - draft create/list/preview CLI
+- draft context question generate/list CLI
 - guarded draft workflow state model
 
 ## Proven setup facts
@@ -41,9 +42,13 @@ Use the project virtualenv when running locally:
 .venv/bin/post-relay drafts create --candidate-id 1 --db data/post_relay.sqlite
 .venv/bin/post-relay drafts list --db data/post_relay.sqlite
 .venv/bin/post-relay drafts preview --draft-id 1 --db data/post_relay.sqlite
+.venv/bin/post-relay drafts questions generate --draft-id 1 --db data/post_relay.sqlite
+.venv/bin/post-relay drafts questions list --draft-id 1 --db data/post_relay.sqlite
 ```
 
-Candidate groups currently use the indexed photo file's parent folder as the first reviewable travel set boundary. A folder with multiple photos is recommended as a carousel; a one-photo folder is recommended as a single image post. Draft records can be created from candidate groups and start in the `drafting` state with placeholder caption/location/hashtag fields. Draft preview packages print a stable local review format with ordered photo paths, unresolved context notes, and allowed next actions before Discord delivery is added.
+Candidate groups currently use the indexed photo file's parent folder as the first reviewable travel set boundary. A folder with multiple photos is recommended as a carousel; a one-photo folder is recommended as a single image post. Draft records can be created from candidate groups and start in the `drafting` state with placeholder caption/location/hashtag fields. Draft preview packages print a stable local review format with ordered photo paths, unresolved context notes, persisted context questions, and allowed next actions before Discord delivery is added.
+
+Discord/image-preview development should use check-in tests before live messaging: start with a local directory of fixture photos, verify the dry-run payload includes the expected image paths/order, then smoke-test Discord delivery only after the local payload behavior is stable.
 
 ## Local secrets
 Use a private `.env` file based on `.env.example`.

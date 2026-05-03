@@ -5,9 +5,11 @@ from dataclasses import dataclass
 from typing import List, Optional
 
 from post_relay.repository import (
+    ContextQuestionRecord,
     get_candidate_group,
     get_draft,
     list_candidate_group_photo_paths,
+    list_unresolved_context_questions,
 )
 
 
@@ -27,6 +29,7 @@ class DraftReviewPackage:
     hashtags: List[str]
     alt_text: str
     unresolved_context_notes: List[str]
+    context_questions: List[ContextQuestionRecord]
     allowed_next_actions: List[str]
 
     def to_text(self) -> str:
@@ -55,6 +58,8 @@ class DraftReviewPackage:
             ]
         )
         lines.extend(_format_bullets(self.unresolved_context_notes))
+        lines.append("Context questions:")
+        lines.extend(_format_context_questions(self.context_questions))
         lines.append("Allowed next actions:")
         lines.extend(_format_bullets(self.allowed_next_actions))
         return "\n".join(lines)
@@ -89,6 +94,7 @@ def build_draft_review_package(connection, draft_id: int) -> DraftReviewPackage:
             hashtags=hashtags,
             alt_text=alt_text,
         ),
+        context_questions=list_unresolved_context_questions(connection, draft.id),
         allowed_next_actions=[
             "add caption/context",
             "answer unresolved context notes",
@@ -132,3 +138,12 @@ def _format_bullets(items: List[str]) -> List[str]:
     if not items:
         return ["  - <none>"]
     return [f"  - {item}" for item in items]
+
+
+def _format_context_questions(questions: List[ContextQuestionRecord]) -> List[str]:
+    if not questions:
+        return ["  - <none>"]
+    return [
+        f"  - [{question.field_name}] {question.question_text}"
+        for question in questions
+    ]

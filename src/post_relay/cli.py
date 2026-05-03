@@ -7,10 +7,19 @@ import typer
 
 from post_relay.candidates import build_candidate_groups
 from post_relay.config import load_config
+from post_relay.context_questions import (
+    DraftNotFound as ContextDraftNotFound,
+    generate_context_questions_for_draft,
+)
 from post_relay.db import connect_db, initialize_db
 from post_relay.drafts import CandidateNotFound, create_draft_from_candidate
 from post_relay.indexer import index_photo_sources
-from post_relay.repository import get_library_stats, list_candidate_groups, list_drafts
+from post_relay.repository import (
+    get_library_stats,
+    list_candidate_groups,
+    list_context_questions,
+    list_drafts,
+)
 from post_relay.review_package import DraftNotFound, build_draft_review_package
 
 app = typer.Typer(help="Post Relay local-first Instagram content workflow.")
@@ -19,11 +28,13 @@ index_app = typer.Typer(help="Media indexing commands.")
 library_app = typer.Typer(help="Library inspection commands.")
 candidates_app = typer.Typer(help="Candidate post group commands.")
 drafts_app = typer.Typer(help="Draft record commands.")
+draft_questions_app = typer.Typer(help="Draft context question commands.")
 app.add_typer(db_app, name="db")
 app.add_typer(index_app, name="index")
 app.add_typer(library_app, name="library")
 app.add_typer(candidates_app, name="candidates")
 app.add_typer(drafts_app, name="drafts")
+drafts_app.add_typer(draft_questions_app, name="questions")
 
 DEFAULT_DB_PATH = Path("data/post_relay.sqlite")
 
@@ -155,3 +166,36 @@ def drafts_preview(
     except DraftNotFound as error:
         raise typer.BadParameter(str(error), param_hint="--draft-id") from error
     typer.echo(package.to_text())
+
+
+@draft_questions_app.command("generate")
+def draft_questions_generate(
+    draft_id: int = typer.Option(..., "--draft-id", help="Draft id."),
+    db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
+) -> None:
+    """Generate lightweight missing-context questions for a draft."""
+    connection = connect_db(db)
+    initialize_db(connection)
+    try:
+        questions = generate_context_questions_for_draft(connection, draft_id)
+    except ContextDraftNotFound as error:
+        raise typer.BadParameter(str(error), param_hint="--draft-id") from error
+    typer.echo(
+        f"Generated {len(questions)} unresolved context questions for draft #{draft_id}."
+    )
+
+
+@draft_questions_app.command("list")
+def draft_questions_list(
+    draft_id: int = typer.Option(..., "--draft-id", help="Draft id."),
+    db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
+) -> None:
+    """List context questions for a draft."""
+    connection = connect_db(db)
+    initialize_db(connection)
+    questions = list_context_questions(connection, draft_id)
+    if not questions:
+        typer.echo("No context questions found.")
+        return
+    for question in questions:
+        typer.echo(f"[{question.field_name}] {question.question_text} — {question.status}")

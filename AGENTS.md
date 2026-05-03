@@ -28,6 +28,8 @@ Post Relay is a local-first Instagram travel content workflow for Andrew's `andr
 - Multi-photo folders recommend `carousel`; one-photo folders recommend `single_image`.
 - Draft records can be created idempotently from candidate groups.
 - Draft preview packages can be rendered locally before Discord delivery exists.
+- Draft context questions can be generated/listed locally and included in draft previews.
+- Before Discord media delivery, build a local directory-backed preview harness with check-in tests for payloads and image paths.
 
 ## Safety and product constraints
 
@@ -54,6 +56,7 @@ Post Relay is a local-first Instagram travel content workflow for Andrew's `andr
   3. implement the minimum code
   4. run focused tests
   5. run the full suite
+- For integration-like features such as Discord messaging or image previews, add narrow check-in tests before building the full integration. Prefer local/dry-run payload tests from a fixture photo directory before live Discord delivery.
 - For docs-only changes, still run the existing test suite before merging.
 - Squash merge PRs to `main`, delete the feature branch, then sync local `main` before starting another milestone.
 
@@ -69,8 +72,10 @@ Post Relay is a local-first Instagram travel content workflow for Andrew's `andr
 .venv/bin/post-relay drafts create --candidate-id 1 --db data/post_relay.sqlite
 .venv/bin/post-relay drafts list --db data/post_relay.sqlite
 .venv/bin/post-relay drafts preview --draft-id 1 --db data/post_relay.sqlite
+.venv/bin/post-relay drafts questions generate --draft-id 1 --db data/post_relay.sqlite
+.venv/bin/post-relay drafts questions list --draft-id 1 --db data/post_relay.sqlite
 ```
 
 ## Current next milestone
 
-See `docs/plans/current-agent-roadmap.md`. The next planned code milestone is currently `feat/context-placeholders-and-questions` unless that roadmap has been updated.
+See `docs/plans/current-agent-roadmap.md`. The next planned code milestone is currently `feat/draft-approval-cli` unless that roadmap has been updated.

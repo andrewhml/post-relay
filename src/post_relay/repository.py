@@ -50,6 +50,16 @@ class DraftRecord:
     scheduled_for: Optional[str]
 
 
+@dataclass(frozen=True)
+class ContextQuestionRecord:
+    id: int
+    draft_id: int
+    field_name: str
+    question_text: str
+    status: str
+    answer_text: Optional[str]
+
+
 def upsert_photo_source(connection, source: PhotoSource) -> int:
     connection.execute(
         """
@@ -337,6 +347,58 @@ def list_candidate_group_photo_paths(connection, candidate_group_id: int) -> lis
     return [row[0] for row in rows]
 
 
+def create_context_question(
+    connection,
+    *,
+    draft_id: int,
+    field_name: str,
+    question_text: str,
+    status: str = "unresolved",
+) -> ContextQuestionRecord:
+    connection.execute(
+        """
+        insert or ignore into context_questions (draft_id, field_name, question_text, status)
+        values (?, ?, ?, ?)
+        """,
+        (draft_id, field_name, question_text, status),
+    )
+    row = connection.execute(
+        """
+        select id, draft_id, field_name, question_text, status, answer_text
+        from context_questions
+        where draft_id = ? and field_name = ?
+        """,
+        (draft_id, field_name),
+    ).fetchone()
+    return _context_question_from_row(row)
+
+
+def list_context_questions(connection, draft_id: int) -> list[ContextQuestionRecord]:
+    rows = connection.execute(
+        """
+        select id, draft_id, field_name, question_text, status, answer_text
+        from context_questions
+        where draft_id = ?
+        order by id
+        """,
+        (draft_id,),
+    ).fetchall()
+    return [_context_question_from_row(row) for row in rows]
+
+
+def list_unresolved_context_questions(connection, draft_id: int) -> list[ContextQuestionRecord]:
+    rows = connection.execute(
+        """
+        select id, draft_id, field_name, question_text, status, answer_text
+        from context_questions
+        where draft_id = ? and status = 'unresolved'
+        order by id
+        """,
+        (draft_id,),
+    ).fetchall()
+    return [_context_question_from_row(row) for row in rows]
+
+
 def _draft_from_row(row) -> DraftRecord:
     return DraftRecord(
         id=int(row[0]),
@@ -348,4 +410,15 @@ def _draft_from_row(row) -> DraftRecord:
         alt_text=row[6],
         status=row[7],
         scheduled_for=row[8],
+    )
+
+
+def _context_question_from_row(row) -> ContextQuestionRecord:
+    return ContextQuestionRecord(
+        id=int(row[0]),
+        draft_id=int(row[1]),
+        field_name=row[2],
+        question_text=row[3],
+        status=row[4],
+        answer_text=row[5],
     )

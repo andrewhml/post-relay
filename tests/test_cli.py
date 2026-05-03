@@ -140,3 +140,38 @@ photo_sources:
     assert "Caption: <empty>" in preview_result.output
     assert "Unresolved context notes:" in preview_result.output
     assert "Allowed next actions:" in preview_result.output
+
+
+def test_cli_draft_context_questions_generate_and_list(tmp_path: Path):
+    root = tmp_path / "processed"
+    folder = root / "2023" / "kyoto"
+    folder.mkdir(parents=True)
+    (folder / "temple.jpg").write_bytes(b"fake image")
+    (folder / "garden.jpg").write_bytes(b"fake image")
+    config_path = tmp_path / "photo_sources.yaml"
+    config_path.write_text(
+        f"""
+photo_sources:
+  - name: processed
+    root: {root.as_posix()}
+    source_type: processed_folder
+""".strip()
+    )
+    db_path = tmp_path / "post_relay.sqlite"
+
+    runner.invoke(app, ["index", "scan", "--config", str(config_path), "--db", str(db_path)])
+    runner.invoke(app, ["candidates", "build", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "create", "--candidate-id", "1", "--db", str(db_path)])
+    generate_result = runner.invoke(
+        app, ["drafts", "questions", "generate", "--draft-id", "1", "--db", str(db_path)]
+    )
+    list_result = runner.invoke(
+        app, ["drafts", "questions", "list", "--draft-id", "1", "--db", str(db_path)]
+    )
+
+    assert generate_result.exit_code == 0
+    assert "Generated 5 unresolved context questions for draft #1" in generate_result.output
+    assert list_result.exit_code == 0
+    assert "[place] Where exactly was this photo set taken?" in list_result.output
+    assert "[trip_name] What trip or collection should this post be associated with?" in list_result.output
+    assert "[approximate_date] Should this be described as part of the 2023 trip" in list_result.output
