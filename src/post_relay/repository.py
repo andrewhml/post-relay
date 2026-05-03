@@ -86,6 +86,8 @@ class PublishAttemptRecord:
     status: str
     status_code: Optional[str]
     status_message: Optional[str]
+    image_urls: list[str]
+    child_container_ids: list[str]
 
 
 def upsert_photo_source(connection, source: PhotoSource) -> int:
@@ -552,7 +554,13 @@ def create_publish_attempt(
     published_media_id: Optional[str] = None,
     status_code: Optional[str] = None,
     status_message: Optional[str] = None,
+    image_urls: Optional[Sequence[str]] = None,
+    child_container_ids: Optional[Sequence[str]] = None,
 ) -> PublishAttemptRecord:
+    image_urls_json = json.dumps(list(image_urls)) if image_urls is not None else None
+    child_container_ids_json = (
+        json.dumps(list(child_container_ids)) if child_container_ids is not None else None
+    )
     cursor = connection.execute(
         """
         insert into publish_attempts (
@@ -564,9 +572,11 @@ def create_publish_attempt(
             published_media_id,
             status,
             status_code,
-            status_message
+            status_message,
+            image_urls_json,
+            child_container_ids_json
         )
-        values (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             draft_id,
@@ -578,6 +588,8 @@ def create_publish_attempt(
             status,
             status_code,
             status_message,
+            image_urls_json,
+            child_container_ids_json,
         ),
     )
     return get_publish_attempt(connection, int(cursor.lastrowid))
@@ -592,7 +604,13 @@ def update_publish_attempt(
     published_media_id: Optional[str] = None,
     status_code: Optional[str] = None,
     status_message: Optional[str] = None,
+    image_urls: Optional[Sequence[str]] = None,
+    child_container_ids: Optional[Sequence[str]] = None,
 ) -> PublishAttemptRecord:
+    image_urls_json = json.dumps(list(image_urls)) if image_urls is not None else None
+    child_container_ids_json = (
+        json.dumps(list(child_container_ids)) if child_container_ids is not None else None
+    )
     connection.execute(
         """
         update publish_attempts
@@ -601,10 +619,21 @@ def update_publish_attempt(
             published_media_id = coalesce(?, published_media_id),
             status_code = coalesce(?, status_code),
             status_message = coalesce(?, status_message),
+            image_urls_json = coalesce(?, image_urls_json),
+            child_container_ids_json = coalesce(?, child_container_ids_json),
             updated_at = current_timestamp
         where id = ?
         """,
-        (status, container_id, published_media_id, status_code, status_message, attempt_id),
+        (
+            status,
+            container_id,
+            published_media_id,
+            status_code,
+            status_message,
+            image_urls_json,
+            child_container_ids_json,
+            attempt_id,
+        ),
     )
     return get_publish_attempt(connection, attempt_id)
 
@@ -613,7 +642,8 @@ def get_publish_attempt(connection, attempt_id: int) -> Optional[PublishAttemptR
     row = connection.execute(
         """
         select id, draft_id, post_type, image_url, caption, container_id,
-               published_media_id, status, status_code, status_message
+               published_media_id, status, status_code, status_message,
+               image_urls_json, child_container_ids_json
         from publish_attempts
         where id = ?
         """,
@@ -628,7 +658,8 @@ def list_publish_attempts(connection, draft_id: int) -> list[PublishAttemptRecor
     rows = connection.execute(
         """
         select id, draft_id, post_type, image_url, caption, container_id,
-               published_media_id, status, status_code, status_message
+               published_media_id, status, status_code, status_message,
+               image_urls_json, child_container_ids_json
         from publish_attempts
         where draft_id = ?
         order by id
@@ -677,7 +708,18 @@ def _publish_attempt_from_row(row) -> PublishAttemptRecord:
         status=row[7],
         status_code=row[8],
         status_message=row[9],
+        image_urls=_json_list(row[10]),
+        child_container_ids=_json_list(row[11]),
     )
+
+
+def _json_list(value: Optional[str]) -> list[str]:
+    if not value:
+        return []
+    parsed = json.loads(value)
+    if not isinstance(parsed, list):
+        return []
+    return [str(item) for item in parsed]
 
 
 def _draft_from_row(row) -> DraftRecord:

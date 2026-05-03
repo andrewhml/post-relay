@@ -12,7 +12,9 @@ from post_relay.meta_graph import MetaGraphClient, MetaGraphConfig
 from post_relay.publishing import (
     DraftNotReadyForImagePublish,
     UnsupportedPublishDraft,
+    execute_carousel_publish_validation,
     execute_single_image_publish_validation,
+    prepare_carousel_publish_validation,
     prepare_single_image_publish_validation,
 )
 from post_relay.repository import get_draft, list_candidate_groups, list_publish_attempts
@@ -29,6 +31,33 @@ def _build_single_image_ready_draft(tmp_path: Path, *, caption: str = "A quiet t
     folder = root / "2023" / "kyoto"
     folder.mkdir(parents=True)
     (folder / "temple.jpg").write_bytes(b"fake image")
+    connection = connect_db(tmp_path / "post_relay.sqlite")
+    initialize_db(connection)
+    config = PostRelayConfig(
+        photo_sources=[PhotoSource(name="processed", root=root, source_type="processed_folder")]
+    )
+    index_photo_sources(connection, config)
+    build_candidate_groups(connection)
+    candidate = list_candidate_groups(connection)[0]
+    draft = create_draft_from_candidate(connection, candidate.id)
+    connection.execute(
+        "update drafts set caption = ?, status = ? where id = ?",
+        (caption, DraftState.DRAFTING.value, draft.id),
+    )
+    submit_draft_for_review(connection, draft.id)
+    approve_draft_content(connection, draft.id, approved_by="andrew")
+    schedule_draft(connection, draft.id, scheduled_for="2026-05-05T09:30:00-07:00")
+    request_publish_approval(connection, draft.id)
+    approve_draft_for_publishing(connection, draft.id, approved_by="andrew")
+    return connection, get_draft(connection, draft.id)
+
+
+def _build_carousel_ready_draft(tmp_path: Path, *, caption: str = "A quiet carousel."):
+    root = tmp_path / "processed"
+    folder = root / "2023" / "kyoto"
+    folder.mkdir(parents=True)
+    (folder / "temple.jpg").write_bytes(b"fake image")
+    (folder / "garden.jpg").write_bytes(b"fake image")
     connection = connect_db(tmp_path / "post_relay.sqlite")
     initialize_db(connection)
     config = PostRelayConfig(
@@ -146,4 +175,86 @@ def test_execute_single_image_publish_validation_creates_polls_and_publishes_aft
     attempts = list_publish_attempts(connection, draft.id)
     assert attempts[0].container_id == "creation-123"
     assert attempts[0].published_media_id == "media-456"
+    assert attempts[0].status == "published"
+
+
+def test_prepare_carousel_publish_validation_records_sanitized_dry_run_attempt(tmp_path: Path):
+    connection, draft = _build_carousel_ready_draft(tmp_path, caption="Kyoto garden sequence.")
+
+    result = prepare_carousel_publish_validation(
+        connection,
+        draft.id,
+        image_urls=[
+            "https://example.com/temple.jpg?token=abc123",
+            "https://example.com/garden.jpg?signature=def456",
+        ],
+    )
+
+    assert result.status == "planned"
+    assert result.image_urls == [
+        "https://example.com/temple.jpg?token=<redacted>",
+        "https://example.com/garden.jpg?signature=<redacted>",
+    ]
+    assert result.container_id is None
+    assert result.child_container_ids == []
+    assert result.to_text().startswith("Carousel publish validation")
+    attempts = list_publish_attempts(connection, draft.id)
+    assert len(attempts) == 1
+    assert attempts[0].post_type == "carousel"
+    assert attempts[0].status == "planned"
+    assert attempts[0].image_urls == result.image_urls
+    assert attempts[0].child_container_ids == []
+    assert attempts[0].caption == "Kyoto garden sequence."
+
+
+def test_execute_carousel_publish_validation_creates_child_and_carousel_containers_then_publishes(tmp_path: Path):
+    connection, draft = _build_carousel_ready_draft(tmp_path, caption="Kyoto garden sequence.")
+    requested = []
+
+    def fake_transport(method, url, params):
+        requested.append((method, url, dict(params)))
+        media_url = "https://graph.facebook.com/v19.0/17841400498120050/media"
+        if url == media_url and params.get("image_url") == "https://example.com/temple.jpg":
+            return {"id": "child-1"}
+        if url == media_url and params.get("image_url") == "https://example.com/garden.jpg":
+            return {"id": "child-2"}
+        if url == media_url and params.get("media_type") == "CAROUSEL":
+            return {"id": "carousel-123"}
+        if url.endswith("/carousel-123"):
+            return {"id": "carousel-123", "status_code": "FINISHED"}
+        if url.endswith("/17841400498120050/media_publish"):
+            return {"id": "media-789"}
+        raise AssertionError(f"unexpected request: {method} {url} {params}")
+
+    client = MetaGraphClient(
+        MetaGraphConfig(access_token="secret-token", instagram_account_id="17841400498120050"),
+        transport=fake_transport,
+    )
+
+    result = execute_carousel_publish_validation(
+        connection,
+        draft.id,
+        image_urls=["https://example.com/temple.jpg", "https://example.com/garden.jpg"],
+        client=client,
+    )
+
+    assert result.status == "published"
+    assert result.child_container_ids == ["child-1", "child-2"]
+    assert result.container_id == "carousel-123"
+    assert result.status_code == "FINISHED"
+    assert result.published_media_id == "media-789"
+    assert get_draft(connection, draft.id).status == DraftState.POSTED.value
+    assert [method for method, _url, _params in requested] == ["POST", "POST", "POST", "GET", "POST"]
+    assert requested[0][2]["is_carousel_item"] == "true"
+    assert requested[1][2]["is_carousel_item"] == "true"
+    assert requested[2][2]["media_type"] == "CAROUSEL"
+    assert requested[2][2]["children"] == "child-1,child-2"
+    assert requested[2][2]["caption"] == "Kyoto garden sequence."
+    assert requested[3][2]["fields"] == "id,status_code"
+    assert requested[4][2]["creation_id"] == "carousel-123"
+    assert all(params["access_token"] == "secret-token" for _method, _url, params in requested)
+    attempts = list_publish_attempts(connection, draft.id)
+    assert attempts[0].child_container_ids == ["child-1", "child-2"]
+    assert attempts[0].container_id == "carousel-123"
+    assert attempts[0].published_media_id == "media-789"
     assert attempts[0].status == "published"
