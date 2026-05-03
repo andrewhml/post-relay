@@ -23,6 +23,12 @@ from post_relay.drafts import CandidateNotFound, create_draft_from_candidate
 from post_relay.discord_preview import DraftNotFound as DiscordPreviewDraftNotFound
 from post_relay.discord_preview import build_discord_preview_payload
 from post_relay.indexer import index_photo_sources
+from post_relay.meta_graph import (
+    MetaGraphClient,
+    MetaGraphConfigError,
+    MetaGraphRequestError,
+    load_meta_graph_config,
+)
 from post_relay.repository import (
     get_library_stats,
     list_active_approvals,
@@ -44,12 +50,14 @@ app = typer.Typer(help="Post Relay local-first Instagram content workflow.")
 db_app = typer.Typer(help="Database commands.")
 index_app = typer.Typer(help="Media indexing commands.")
 library_app = typer.Typer(help="Library inspection commands.")
+meta_app = typer.Typer(help="Meta Graph validation commands.")
 candidates_app = typer.Typer(help="Candidate post group commands.")
 drafts_app = typer.Typer(help="Draft record commands.")
 draft_questions_app = typer.Typer(help="Draft context question commands.")
 app.add_typer(db_app, name="db")
 app.add_typer(index_app, name="index")
 app.add_typer(library_app, name="library")
+app.add_typer(meta_app, name="meta")
 app.add_typer(candidates_app, name="candidates")
 app.add_typer(drafts_app, name="drafts")
 drafts_app.add_typer(draft_questions_app, name="questions")
@@ -105,6 +113,34 @@ def library_stats(
         for year, count in stats.by_year.items():
             year_label: Optional[int | str] = year if year is not None else "unknown"
             typer.echo(f"  {year_label}: {count}")
+
+
+@meta_app.command("validate-readonly")
+def meta_validate_readonly(
+    env_file: Optional[Path] = typer.Option(Path(".env"), "--env-file", help="Private .env file path."),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Print sanitized planned read-only requests without calling Meta."),
+) -> None:
+    """Validate read-only Meta Graph account visibility without publishing."""
+    try:
+        config = load_meta_graph_config(env_file=env_file)
+    except MetaGraphConfigError as error:
+        raise typer.BadParameter(str(error), param_hint="--env-file") from error
+
+    client = MetaGraphClient(config)
+    if dry_run:
+        typer.echo("Meta Graph read-only validation (dry run)")
+        typer.echo(config.safe_summary())
+        typer.echo("Read-only requests:")
+        for url in client.dry_run_urls():
+            typer.echo(f"  - {url}")
+        typer.echo("No publishing endpoints will be called.")
+        return
+
+    try:
+        result = client.validate_readonly_access()
+    except MetaGraphRequestError as error:
+        raise typer.BadParameter(str(error), param_hint="--env-file") from error
+    typer.echo(result.to_text())
 
 
 @candidates_app.command("build")

@@ -141,7 +141,7 @@ Important behavior:
 - Missing image files are reported separately and make `ready_to_send` false so live delivery can be blocked later.
 - This is the check-in harness required before live Discord message delivery.
 
-### Current milestone: Schedule and publish approval CLI
+### PR #11: Schedule and publish approval CLI
 
 Implemented:
 - `src/post_relay/scheduling.py`
@@ -156,6 +156,25 @@ Important behavior:
 - This milestone does not call Meta, Discord, or any external publishing API; it only prepares the local state and audit trail.
 - Draft approval and publish approval remain separate active approval records unless a material edit invalidates them.
 
+### Current milestone: Meta Graph client readonly
+
+Implemented:
+- `src/post_relay/meta_graph.py`
+- `MetaGraphConfig` and `.env`/environment loader for Meta Graph settings
+- token/app-secret redaction helper for safe errors and summaries
+- injectable read-only Meta Graph client transport for tested account validation without live calls
+- `meta validate-readonly` CLI command with `--dry-run` for sanitized planned requests
+- `.env.example` entries for Graph base URL and API version
+- tests for config loading, environment precedence, missing token errors, redaction, read-only request construction, sanitized request errors, and CLI dry-run output
+
+Important behavior:
+- `POST_RELAY_USER_ACCESS_TOKEN` is required for validation and is loaded only from environment or private `.env` files.
+- Environment variables override `.env` values.
+- Default route remains `https://graph.facebook.com`.
+- The client only calls read-only visibility endpoints: `/me/accounts`, the configured/visible Page with `instagram_business_account`, and the linked Instagram account fields.
+- Tokens are included in requests but redacted from summaries, CLI dry-run output, and wrapped request errors.
+- No publishing endpoints or media container endpoints are implemented in this milestone.
+
 ## Current local verification command
 
 Run this before opening or merging any PR:
@@ -164,10 +183,10 @@ Run this before opening or merging any PR:
 .venv/bin/python -m pytest -q
 ```
 
-Expected current result after schedule-and-publish-approval-cli milestone:
+Expected current result after meta-graph-client-readonly milestone:
 
 ```text
-46 passed
+53 passed
 ```
 
 ## Milestone execution rules
@@ -223,18 +242,7 @@ Agents must preserve these unless Andrew explicitly changes the product directio
 
 ## Next planned milestones
 
-### Milestone 1: `feat/meta-graph-client-readonly`
-
-**Goal:** Build a sanitized Meta Graph client for read-only validation.
-
-**Behavior:**
-- Load tokens from environment or private `.env`, never committed.
-- Use `graph.facebook.com` by default.
-- Redact tokens from logs/errors.
-- Read Page/IG account information only.
-- No publishing endpoints yet.
-
-### Milestone 2: `feat/controlled-image-publish-validation`
+### Milestone 1: `feat/controlled-image-publish-validation`
 
 **Goal:** Validate one controlled single-image publish using the official Meta route.
 

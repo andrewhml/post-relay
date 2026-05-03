@@ -309,6 +309,33 @@ photo_sources:
 
 
 
+def test_cli_meta_validate_readonly_dry_run_redacts_token(tmp_path: Path):
+    env_file = tmp_path / ".env"
+    env_file.write_text(
+        "\n".join(
+            [
+                "POST_RELAY_USER_ACCESS_TOKEN=super-secret-token",
+                "POST_RELAY_FACEBOOK_PAGE_ID=998312870038313",
+                "POST_RELAY_INSTAGRAM_ACCOUNT_ID=17841400498120050",
+            ]
+        )
+    )
+
+    result = runner.invoke(
+        app, ["meta", "validate-readonly", "--env-file", str(env_file), "--dry-run"]
+    )
+
+    assert result.exit_code == 0
+    assert "Meta Graph read-only validation (dry run)" in result.output
+    assert "graph.facebook.com" in result.output
+    assert "998312870038313" in result.output
+    assert "17841400498120050" in result.output
+    assert "super-secret-token" not in result.output
+    assert "<redacted>" in result.output
+    assert "No publishing endpoints will be called." in result.output
+
+
+
 def test_cli_draft_context_questions_generate_and_list(tmp_path: Path):
     root = tmp_path / "processed"
     folder = root / "2023" / "kyoto"
