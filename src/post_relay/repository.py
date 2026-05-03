@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Dict, Optional, Sequence
+import json
 
 from post_relay.config import PhotoSource
 from post_relay.media.scanner import ScannedMedia
@@ -58,6 +59,19 @@ class ContextQuestionRecord:
     question_text: str
     status: str
     answer_text: Optional[str]
+
+
+@dataclass(frozen=True)
+class ApprovalRecord:
+    id: int
+    draft_id: int
+    approval_type: str
+    approved_by: Optional[str]
+    approved_at: str
+    source_message_ref: Optional[str]
+    notes: Optional[str]
+    invalidated_at: Optional[str]
+    invalidation_reason: Optional[str]
 
 
 def upsert_photo_source(connection, source: PhotoSource) -> int:
@@ -373,6 +387,112 @@ def create_context_question(
     return _context_question_from_row(row)
 
 
+def update_draft_status(connection, draft_id: int, status: str) -> Optional[DraftRecord]:
+    connection.execute(
+        """
+        update drafts
+        set status = ?, updated_at = current_timestamp
+        where id = ?
+        """,
+        (status, draft_id),
+    )
+    return get_draft(connection, draft_id)
+
+
+def update_draft_content(
+    connection,
+    draft_id: int,
+    *,
+    caption: Optional[str] = None,
+    hashtags: Optional[Sequence[str]] = None,
+    location_text: Optional[str] = None,
+    alt_text: Optional[str] = None,
+    status: Optional[str] = None,
+) -> Optional[DraftRecord]:
+    hashtags_json = json.dumps(list(hashtags)) if hashtags is not None else None
+    connection.execute(
+        """
+        update drafts
+        set
+            caption = coalesce(?, caption),
+            hashtags_json = coalesce(?, hashtags_json),
+            location_text = coalesce(?, location_text),
+            alt_text = coalesce(?, alt_text),
+            status = coalesce(?, status),
+            updated_at = current_timestamp
+        where id = ?
+        """,
+        (caption, hashtags_json, location_text, alt_text, status, draft_id),
+    )
+    return get_draft(connection, draft_id)
+
+
+def create_approval_record(
+    connection,
+    *,
+    draft_id: int,
+    approval_type: str,
+    approved_by: Optional[str] = None,
+    source_message_ref: Optional[str] = None,
+    notes: Optional[str] = None,
+) -> ApprovalRecord:
+    cursor = connection.execute(
+        """
+        insert into approvals (draft_id, approval_type, approved_by, source_message_ref, notes)
+        values (?, ?, ?, ?, ?)
+        """,
+        (draft_id, approval_type, approved_by, source_message_ref, notes),
+    )
+    return get_approval(connection, int(cursor.lastrowid))
+
+
+def get_approval(connection, approval_id: int) -> Optional[ApprovalRecord]:
+    row = connection.execute(
+        """
+        select id, draft_id, approval_type, approved_by, approved_at,
+               source_message_ref, notes, invalidated_at, invalidation_reason
+        from approvals
+        where id = ?
+        """,
+        (approval_id,),
+    ).fetchone()
+    if row is None:
+        return None
+    return _approval_from_row(row)
+
+
+def list_active_approvals(connection, draft_id: int) -> list[ApprovalRecord]:
+    rows = connection.execute(
+        """
+        select id, draft_id, approval_type, approved_by, approved_at,
+               source_message_ref, notes, invalidated_at, invalidation_reason
+        from approvals
+        where draft_id = ? and invalidated_at is null
+        order by id
+        """,
+        (draft_id,),
+    ).fetchall()
+    return [_approval_from_row(row) for row in rows]
+
+
+def invalidate_active_approvals(
+    connection,
+    draft_id: int,
+    *,
+    reason: str,
+) -> int:
+    cursor = connection.execute(
+        """
+        update approvals
+        set invalidated_at = current_timestamp,
+            invalidation_reason = ?
+        where draft_id = ? and invalidated_at is null
+        """,
+        (reason, draft_id),
+    )
+    return int(cursor.rowcount)
+
+
 def list_context_questions(connection, draft_id: int) -> list[ContextQuestionRecord]:
     rows = connection.execute(
         """
@@ -397,6 +517,20 @@ def list_unresolved_context_questions(connection, draft_id: int) -> list[Context
         (draft_id,),
     ).fetchall()
     return [_context_question_from_row(row) for row in rows]
+
+
+def _approval_from_row(row) -> ApprovalRecord:
+    return ApprovalRecord(
+        id=int(row[0]),
+        draft_id=int(row[1]),
+        approval_type=row[2],
+        approved_by=row[3],
+        approved_at=row[4],
+        source_message_ref=row[5],
+        notes=row[6],
+        invalidated_at=row[7],
+        invalidation_reason=row[8],
+    )
 
 
 def _draft_from_row(row) -> DraftRecord:
