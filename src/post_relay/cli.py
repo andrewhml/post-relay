@@ -29,6 +29,14 @@ from post_relay.meta_graph import (
     MetaGraphRequestError,
     load_meta_graph_config,
 )
+from post_relay.publishing import (
+    DraftNotFound as PublishDraftNotFound,
+    DraftNotReadyForImagePublish,
+    PublishValidationError,
+    UnsupportedPublishDraft,
+    execute_single_image_publish_validation,
+    prepare_single_image_publish_validation,
+)
 from post_relay.repository import (
     get_library_stats,
     list_active_approvals,
@@ -139,6 +147,46 @@ def meta_validate_readonly(
     try:
         result = client.validate_readonly_access()
     except MetaGraphRequestError as error:
+        raise typer.BadParameter(str(error), param_hint="--env-file") from error
+    typer.echo(result.to_text())
+
+
+@meta_app.command("validate-image-publish")
+def meta_validate_image_publish(
+    draft_id: int = typer.Option(..., "--draft-id", help="Ready-to-publish single-image draft id."),
+    image_url: str = typer.Option(..., "--image-url", help="Public HTTPS image URL for Meta container creation."),
+    db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
+    env_file: Optional[Path] = typer.Option(Path(".env"), "--env-file", help="Private .env file path."),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Record and print the sanitized plan without calling Meta."),
+    execute: bool = typer.Option(False, "--execute", help="Actually create, poll, and publish through Meta Graph."),
+) -> None:
+    """Validate a controlled single-image publish after explicit publish approval."""
+    connection = connect_db(db)
+    initialize_db(connection)
+    if dry_run or not execute:
+        try:
+            result = prepare_single_image_publish_validation(connection, draft_id, image_url=image_url)
+        except (PublishDraftNotFound, DraftNotReadyForImagePublish, UnsupportedPublishDraft) as error:
+            raise typer.BadParameter(str(error), param_hint="--draft-id") from error
+        typer.echo(result.to_text())
+        typer.echo("No Meta publishing endpoints were called.")
+        return
+
+    try:
+        config = load_meta_graph_config(env_file=env_file)
+    except MetaGraphConfigError as error:
+        raise typer.BadParameter(str(error), param_hint="--env-file") from error
+
+    try:
+        result = execute_single_image_publish_validation(
+            connection,
+            draft_id,
+            image_url=image_url,
+            client=MetaGraphClient(config),
+        )
+    except (PublishDraftNotFound, DraftNotReadyForImagePublish, UnsupportedPublishDraft) as error:
+        raise typer.BadParameter(str(error), param_hint="--draft-id") from error
+    except PublishValidationError as error:
         raise typer.BadParameter(str(error), param_hint="--env-file") from error
     typer.echo(result.to_text())
 
