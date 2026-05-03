@@ -20,6 +20,8 @@ from post_relay.context_questions import (
 )
 from post_relay.db import connect_db, initialize_db
 from post_relay.drafts import CandidateNotFound, create_draft_from_candidate
+from post_relay.discord_preview import DraftNotFound as DiscordPreviewDraftNotFound
+from post_relay.discord_preview import build_discord_preview_payload
 from post_relay.indexer import index_photo_sources
 from post_relay.repository import (
     get_library_stats,
@@ -174,6 +176,21 @@ def drafts_preview(
     except DraftNotFound as error:
         raise typer.BadParameter(str(error), param_hint="--draft-id") from error
     typer.echo(package.to_text())
+
+
+@drafts_app.command("discord-preview")
+def drafts_discord_preview(
+    draft_id: int = typer.Option(..., "--draft-id", help="Draft id."),
+    db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
+) -> None:
+    """Print a dry-run Discord preview payload with ordered image paths."""
+    connection = connect_db(db)
+    initialize_db(connection)
+    try:
+        payload = build_discord_preview_payload(connection, draft_id)
+    except DiscordPreviewDraftNotFound as error:
+        raise typer.BadParameter(str(error), param_hint="--draft-id") from error
+    typer.echo(payload.to_text())
 
 
 @drafts_app.command("submit")

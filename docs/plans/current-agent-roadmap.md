@@ -109,7 +109,7 @@ Important behavior:
 - Draft previews include persisted unresolved context questions in addition to placeholder notes.
 - Discord/image preview work should be built behind narrow check-in tests using local fixture photo directories before live Discord delivery.
 
-### Current milestone: Draft approval CLI
+### PR #9: Draft approval CLI
 
 Implemented:
 - `src/post_relay/approvals.py`
@@ -126,6 +126,21 @@ Important behavior:
 - Material edits after an active approval invalidate active approvals and move the draft to `needs_edits`.
 - This milestone still does not schedule or publish; publish approval remains a later, separate approval type.
 
+### Current milestone: Discord preview payload harness
+
+Implemented:
+- `src/post_relay/discord_preview.py`
+- `DiscordPreviewPayload` model for dry-run delivery payloads
+- `drafts discord-preview` CLI command
+- tests for ordered existing image paths, missing image reporting, stable dry-run rendering, missing drafts, and CLI smoke behavior
+
+Important behavior:
+- `drafts discord-preview --draft-id N` builds a dry-run payload only; it does not call Discord or any external messaging API.
+- Payload message text reuses the local draft review package, so Discord-facing text stays aligned with `drafts preview`.
+- Payload image attachments preserve candidate item order and include only files that still exist locally.
+- Missing image files are reported separately and make `ready_to_send` false so live delivery can be blocked later.
+- This is the check-in harness required before live Discord message delivery.
+
 ## Current local verification command
 
 Run this before opening or merging any PR:
@@ -134,10 +149,10 @@ Run this before opening or merging any PR:
 .venv/bin/python -m pytest -q
 ```
 
-Expected current result after draft-approval-cli milestone:
+Expected current result after discord-preview-payload-harness milestone:
 
 ```text
-35 passed
+40 passed
 ```
 
 ## Milestone execution rules
@@ -193,17 +208,7 @@ Agents must preserve these unless Andrew explicitly changes the product directio
 
 ## Next planned milestones
 
-### Milestone 1: `feat/discord-preview-payload-harness`
-
-**Goal:** Create a local/dry-run preview payload harness for Discord messaging with image previews pulled from a directory of photos.
-
-**Behavior:**
-- Use a fixture directory of photos to build draft/candidate preview payloads without sending Discord messages.
-- Verify image path ordering, missing-file reporting, and payload text before adding live delivery.
-- Add CLI smoke commands for a dry-run preview payload.
-- Keep this as a check-in milestone before live Discord send tests.
-
-### Milestone 2: `feat/schedule-and-publish-approval-cli`
+### Milestone 1: `feat/schedule-and-publish-approval-cli`
 
 **Goal:** Add queue/scheduling and publish-approval workflow without live API calls.
 
@@ -213,7 +218,7 @@ Agents must preserve these unless Andrew explicitly changes the product directio
 - Move through `scheduled` -> `awaiting_publish_approval` -> `ready_to_publish`.
 - Do not publish; this milestone only prepares state and audit trail.
 
-### Milestone 3: `feat/meta-graph-client-readonly`
+### Milestone 2: `feat/meta-graph-client-readonly`
 
 **Goal:** Build a sanitized Meta Graph client for read-only validation.
 
@@ -224,7 +229,7 @@ Agents must preserve these unless Andrew explicitly changes the product directio
 - Read Page/IG account information only.
 - No publishing endpoints yet.
 
-### Milestone 4: `feat/controlled-image-publish-validation`
+### Milestone 3: `feat/controlled-image-publish-validation`
 
 **Goal:** Validate one controlled single-image publish using the official Meta route.
 
