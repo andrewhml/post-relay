@@ -261,6 +261,10 @@ Agents must preserve these unless Andrew explicitly changes the product directio
 
 **Goal:** Run one controlled live single-image publish with Andrew-selected safe media using the new guarded CLI, then document the observed Meta behavior.
 
+**Runbook:** `docs/publishing/single-image-smoke-test.md`
+
+**Current preflight status:** blocked as of 2026-05-03. The local working tree did not have `.env`, `POST_RELAY_USER_ACCESS_TOKEN`, `POST_RELAY_INSTAGRAM_ACCOUNT_ID`, `POST_RELAY_TEST_IMAGE_URL`, `data/post_relay.sqlite`, or a ready approved single-image draft. No live Meta publish was attempted.
+
 **Preconditions:**
 - Andrew explicitly sets local token environment variables in private `.env` or shell.
 - A public HTTPS image URL is available for the exact safe test image.
@@ -268,6 +272,7 @@ Agents must preserve these unless Andrew explicitly changes the product directio
 - Andrew explicitly authorizes the live `--execute` smoke test in the session.
 
 **Behavior:**
+- Run `scripts/check_publish_smoke_readiness.py` and confirm prerequisites without printing secrets.
 - Run `meta validate-image-publish --dry-run` first and inspect sanitized output.
 - Run `meta validate-image-publish --execute` only after explicit authorization.
 - Verify the remote media id/result and local `posted` state.
