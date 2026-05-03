@@ -32,6 +32,7 @@ Post Relay is a local-first Instagram travel content workflow for Andrew's `andr
 - Draft content direction can be submitted for review, approved for queueing, and invalidated by material edits.
 - Dry-run Discord preview payloads can be generated locally with ordered existing image paths and missing-file reporting.
 - Queue-approved drafts can be scheduled locally and moved through final publish approval without live API calls.
+- A sanitized read-only Meta Graph client/CLI can validate Page and linked Instagram account visibility without publishing.
 - Live Discord delivery should only be added after the local payload harness remains green.
 
 ## Safety and product constraints
@@ -70,6 +71,7 @@ Post Relay is a local-first Instagram travel content workflow for Andrew's `andr
 .venv/bin/post-relay db init --db data/post_relay.sqlite
 .venv/bin/post-relay index scan --config config/photo_sources.yaml --db data/post_relay.sqlite
 .venv/bin/post-relay library stats --db data/post_relay.sqlite
+.venv/bin/post-relay meta validate-readonly --env-file .env --dry-run
 .venv/bin/post-relay candidates build --db data/post_relay.sqlite
 .venv/bin/post-relay candidates list --db data/post_relay.sqlite
 .venv/bin/post-relay drafts create --candidate-id 1 --db data/post_relay.sqlite
@@ -88,4 +90,4 @@ Post Relay is a local-first Instagram travel content workflow for Andrew's `andr
 
 ## Current next milestone
 
-See `docs/plans/current-agent-roadmap.md`. The next planned code milestone is currently `feat/meta-graph-client-readonly` unless that roadmap has been updated.
+See `docs/plans/current-agent-roadmap.md`. The next planned code milestone is currently `feat/controlled-image-publish-validation` unless that roadmap has been updated.
