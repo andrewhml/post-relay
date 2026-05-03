@@ -212,4 +212,4 @@ Andrew should continue with:
 - pausing on app publication/review until publish testing requires it
 
 ## Immediate Next Engineering Step
-Continue Phase 1 by implementing explicit draft approval and edit invalidation locally. Before live Discord messaging or image delivery, add a local/dry-run Discord preview payload harness that pulls images from a fixture photo directory and verifies payload text, image path ordering, and missing-file handling as check-in tests. The repo-level current roadmap is maintained in `docs/plans/current-agent-roadmap.md`; future agents should read `AGENTS.md` first, then the roadmap before implementing.
+After this milestone, start the local/dry-run Discord preview payload harness before live Discord messaging or image delivery. The harness should pull images from a fixture photo directory and verify payload text, image path ordering, and missing-file handling as check-in tests. The repo-level current roadmap is maintained in `docs/plans/current-agent-roadmap.md`; future agents should read `AGENTS.md` first, then the roadmap before implementing.

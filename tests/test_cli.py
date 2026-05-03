@@ -142,6 +142,69 @@ photo_sources:
     assert "Allowed next actions:" in preview_result.output
 
 
+def test_cli_draft_approval_and_edit_invalidation_flow(tmp_path: Path):
+    root = tmp_path / "processed"
+    folder = root / "2023" / "kyoto"
+    folder.mkdir(parents=True)
+    (folder / "temple.jpg").write_bytes(b"fake image")
+    (folder / "garden.jpg").write_bytes(b"fake image")
+    config_path = tmp_path / "photo_sources.yaml"
+    config_path.write_text(
+        f"""
+photo_sources:
+  - name: processed
+    root: {root.as_posix()}
+    source_type: processed_folder
+""".strip()
+    )
+    db_path = tmp_path / "post_relay.sqlite"
+
+    runner.invoke(app, ["index", "scan", "--config", str(config_path), "--db", str(db_path)])
+    runner.invoke(app, ["candidates", "build", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "create", "--candidate-id", "1", "--db", str(db_path)])
+    submit_result = runner.invoke(app, ["drafts", "submit", "--draft-id", "1", "--db", str(db_path)])
+    approve_result = runner.invoke(
+        app,
+        [
+            "drafts",
+            "approve",
+            "--draft-id",
+            "1",
+            "--approved-by",
+            "andrew",
+            "--notes",
+            "Carousel direction approved.",
+            "--db",
+            str(db_path),
+        ],
+    )
+    edit_result = runner.invoke(
+        app,
+        [
+            "drafts",
+            "edit",
+            "--draft-id",
+            "1",
+            "--caption",
+            "A quiet morning wandering through Kyoto temple gardens.",
+            "--db",
+            str(db_path),
+        ],
+    )
+    list_result = runner.invoke(app, ["drafts", "list", "--db", str(db_path)])
+
+    assert submit_result.exit_code == 0
+    assert "Submitted draft #1 for review" in submit_result.output
+    assert approve_result.exit_code == 0
+    assert "Approved draft #1 for queue" in approve_result.output
+    assert edit_result.exit_code == 0
+    assert "Updated draft #1" in edit_result.output
+    assert "invalidated active approvals" in edit_result.output
+    assert list_result.exit_code == 0
+    assert "needs_edits" in list_result.output
+
+
+
 def test_cli_draft_context_questions_generate_and_list(tmp_path: Path):
     root = tmp_path / "processed"
     folder = root / "2023" / "kyoto"

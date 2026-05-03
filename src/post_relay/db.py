@@ -93,6 +93,8 @@ SCHEMA_STATEMENTS = [
         approved_at text not null default current_timestamp,
         source_message_ref text,
         notes text,
+        invalidated_at text,
+        invalidation_reason text,
         foreign key(draft_id) references drafts(id)
     )
     """,
@@ -123,4 +125,19 @@ def connect_db(path: Path) -> sqlite3.Connection:
 def initialize_db(connection: sqlite3.Connection) -> None:
     for statement in SCHEMA_STATEMENTS:
         connection.execute(statement)
+    _ensure_column(connection, "approvals", "invalidated_at", "text")
+    _ensure_column(connection, "approvals", "invalidation_reason", "text")
     connection.commit()
+
+
+def _ensure_column(
+    connection: sqlite3.Connection,
+    table_name: str,
+    column_name: str,
+    column_definition: str,
+) -> None:
+    existing_columns = {
+        row[1] for row in connection.execute(f"pragma table_info({table_name})").fetchall()
+    }
+    if column_name not in existing_columns:
+        connection.execute(f"alter table {table_name} add column {column_name} {column_definition}")
