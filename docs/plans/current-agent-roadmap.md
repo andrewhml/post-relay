@@ -77,7 +77,7 @@ Important behavior:
 - Initial draft status is `drafting` from the workflow state model.
 - Caption, hashtags, location, and alt text are intentionally empty placeholders for later drafting/review milestones.
 
-### Current milestone: Draft review package
+### PR #7: Draft review package
 
 Implemented:
 - `src/post_relay/review_package.py`
@@ -92,6 +92,23 @@ Important behavior:
 - Empty caption/location/hashtags/alt text are rendered as explicit `<empty>` placeholders.
 - Photo paths are ordered by candidate group item sort order.
 
+### Current milestone: Context placeholders and questions
+
+Implemented:
+- `src/post_relay/context_questions.py`
+- `context_questions` SQLite table
+- repository methods for creating/listing context questions
+- `drafts questions generate` and `drafts questions list` CLI commands
+- draft preview integration for persisted unresolved context questions
+- tests for context question generation, idempotency, missing drafts, preview integration, and CLI flow
+
+Important behavior:
+- Context question generation is idempotent by `(draft_id, field_name)`.
+- Generated starter questions cover place, trip name, approximate date, mood, and story angle.
+- Approximate-date wording uses the candidate source year when available.
+- Draft previews include persisted unresolved context questions in addition to placeholder notes.
+- Discord/image preview work should be built behind narrow check-in tests using local fixture photo directories before live Discord delivery.
+
 ## Current local verification command
 
 Run this before opening or merging any PR:
@@ -100,10 +117,10 @@ Run this before opening or merging any PR:
 .venv/bin/python -m pytest -q
 ```
 
-Expected current result after draft-review-package milestone:
+Expected current result after context-placeholders-and-questions milestone:
 
 ```text
-24 passed
+29 passed
 ```
 
 ## Milestone execution rules
@@ -124,6 +141,7 @@ Use this process for every milestone:
    - implement the minimum code
    - run focused tests
    - run the full suite
+   - for integration-like features, add check-in tests at each seam before live external calls; for Discord/image previews, verify local fixture-directory payloads and image path ordering before sending messages
 
 3. Commit with a conventional commit message.
 
@@ -158,16 +176,7 @@ Agents must preserve these unless Andrew explicitly changes the product directio
 
 ## Next planned milestones
 
-### Milestone 1: `feat/context-placeholders-and-questions`
-
-**Goal:** Add missing-context detection and focused interview question records.
-
-**Behavior:**
-- Detect useful missing fields such as place, trip name, date, mood/story angle.
-- Store unresolved questions against a draft or candidate group.
-- Keep questions lightweight and factual first.
-
-### Milestone 2: `feat/draft-approval-cli`
+### Milestone 1: `feat/draft-approval-cli`
 
 **Goal:** Implement explicit draft approval and edit invalidation locally before Discord.
 
@@ -176,6 +185,16 @@ Agents must preserve these unless Andrew explicitly changes the product directio
 - Persist approval records with type `draft`.
 - Move status from `awaiting_review` to `approved_for_queue` only through allowed state transitions.
 - Editing draft content after approval moves status to `needs_edits` and invalidates old approval for queue/publish purposes.
+
+### Milestone 2: `feat/discord-preview-payload-harness`
+
+**Goal:** Create a local/dry-run preview payload harness for Discord messaging with image previews pulled from a directory of photos.
+
+**Behavior:**
+- Use a fixture directory of photos to build draft/candidate preview payloads without sending Discord messages.
+- Verify image path ordering, missing-file reporting, and payload text before adding live delivery.
+- Add CLI smoke commands for a dry-run preview payload.
+- Keep this as a check-in milestone before live Discord send tests.
 
 ### Milestone 3: `feat/schedule-and-publish-approval-cli`
 

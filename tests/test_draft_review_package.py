@@ -8,6 +8,7 @@ from post_relay.db import connect_db, initialize_db
 from post_relay.drafts import create_draft_from_candidate
 from post_relay.indexer import index_photo_sources
 from post_relay.repository import list_candidate_groups
+from post_relay.context_questions import generate_context_questions_for_draft
 from post_relay.review_package import DraftNotFound, build_draft_review_package
 from post_relay.state import DraftState
 
@@ -85,6 +86,8 @@ def test_build_draft_review_package_formats_stable_local_preview_text(tmp_path: 
             "  - Location is empty.",
             "  - Hashtags are empty.",
             "  - Alt text is empty.",
+            "Context questions:",
+            "  - <none>",
             "Allowed next actions:",
             "  - add caption/context",
             "  - answer unresolved context notes",
@@ -92,6 +95,23 @@ def test_build_draft_review_package_formats_stable_local_preview_text(tmp_path: 
             "  - approve draft",
         ]
     )
+
+
+def test_build_draft_review_package_includes_persisted_context_questions(tmp_path: Path):
+    connection, draft, _candidate, _folder = _build_fixture_draft(tmp_path)
+    generate_context_questions_for_draft(connection, draft.id)
+
+    package = build_draft_review_package(connection, draft.id)
+
+    assert [question.field_name for question in package.context_questions] == [
+        "place",
+        "trip_name",
+        "approximate_date",
+        "mood",
+        "story_angle",
+    ]
+    assert "Context questions:" in package.to_text()
+    assert "  - [place] Where exactly was this photo set taken?" in package.to_text()
 
 
 def test_build_draft_review_package_raises_for_missing_draft(tmp_path: Path):
