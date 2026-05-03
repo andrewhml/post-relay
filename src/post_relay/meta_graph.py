@@ -59,7 +59,7 @@ class ReadOnlyValidationResult:
         )
 
 
-Transport = Callable[[str, Mapping[str, str]], Mapping[str, Any]]
+Transport = Callable[[str, str, Mapping[str, str]], Mapping[str, Any]]
 
 
 def load_meta_graph_config(env_file: Optional[Path] = Path(".env")) -> MetaGraphConfig:
@@ -123,6 +123,7 @@ class MetaGraphClient:
         return self._request(
             f"{instagram_account_id}/media",
             {"image_url": image_url, "caption": caption},
+            method="POST",
         )
 
     def get_media_container_status(self, container_id: str) -> Mapping[str, Any]:
@@ -132,6 +133,7 @@ class MetaGraphClient:
         return self._request(
             f"{instagram_account_id}/media_publish",
             {"creation_id": creation_id},
+            method="POST",
         )
 
     def validate_readonly_access(self) -> ReadOnlyValidationResult:
@@ -163,12 +165,12 @@ class MetaGraphClient:
             self._url(instagram_account_id) + "?fields=id,username,media_count&access_token=<redacted>",
         ]
 
-    def _request(self, path: str, params: Mapping[str, str]) -> Mapping[str, Any]:
+    def _request(self, path: str, params: Mapping[str, str], *, method: str = "GET") -> Mapping[str, Any]:
         url = self._url(path)
         request_params = dict(params)
         request_params["access_token"] = self.config.access_token
         try:
-            return self._transport(url, request_params)
+            return self._transport(method, url, request_params)
         except MetaGraphRequestError as exc:
             raise MetaGraphRequestError(
                 redact_secrets(str(exc), [self.config.access_token])
@@ -230,11 +232,18 @@ def _strip_optional_quotes(value: str) -> str:
     return value
 
 
-def _urllib_json_transport(url: str, params: Mapping[str, str]) -> Mapping[str, Any]:
-    query = parse.urlencode(params)
-    request_url = f"{url}?{query}"
+def _urllib_json_transport(method: str, url: str, params: Mapping[str, str]) -> Mapping[str, Any]:
+    query = parse.urlencode(params).encode("utf-8")
+    if method == "GET":
+        request_url = f"{url}?{query.decode('utf-8')}"
+        graph_request = request.Request(request_url, method="GET")
+    elif method == "POST":
+        graph_request = request.Request(url, data=query, method="POST")
+        graph_request.add_header("Content-Type", "application/x-www-form-urlencoded")
+    else:
+        raise MetaGraphRequestError(f"Unsupported Meta Graph HTTP method: {method}")
     try:
-        with request.urlopen(request_url, timeout=30) as response:
+        with request.urlopen(graph_request, timeout=30) as response:
             payload = response.read().decode("utf-8")
     except error.HTTPError as exc:
         payload = exc.read().decode("utf-8", errors="replace")

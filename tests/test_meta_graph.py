@@ -70,8 +70,8 @@ def test_redact_secrets_removes_token_and_app_secret_from_errors():
 def test_meta_graph_client_builds_readonly_account_requests_without_publishing():
     requested = []
 
-    def fake_transport(url, params):
-        requested.append((url, dict(params)))
+    def fake_transport(method, url, params):
+        requested.append((method, url, dict(params)))
         if url.endswith("/me/accounts"):
             return {"data": [{"id": "998312870038313", "name": "Andrewhml"}]}
         if url.endswith("/998312870038313"):
@@ -107,18 +107,19 @@ def test_meta_graph_client_builds_readonly_account_requests_without_publishing()
         instagram_account_type=None,
         instagram_media_count=722,
     )
-    assert [url for url, _params in requested] == [
+    assert [method for method, _url, _params in requested] == ["GET", "GET", "GET"]
+    assert [url for _method, url, _params in requested] == [
         "https://graph.facebook.com/v19.0/me/accounts",
         "https://graph.facebook.com/v19.0/998312870038313",
         "https://graph.facebook.com/v19.0/17841400498120050",
     ]
-    assert all(params["access_token"] == "secret-token" for _url, params in requested)
-    assert requested[1][1]["fields"] == "id,name,instagram_business_account"
-    assert requested[2][1]["fields"] == "id,username,media_count"
+    assert all(params["access_token"] == "secret-token" for _method, _url, params in requested)
+    assert requested[1][2]["fields"] == "id,name,instagram_business_account"
+    assert requested[2][2]["fields"] == "id,username,media_count"
 
 
 def test_meta_graph_client_redacts_token_from_request_errors():
-    def fake_transport(_url, _params):
+    def fake_transport(_method, _url, _params):
         raise MetaGraphRequestError("bad token secret-token")
 
     client = MetaGraphClient(
