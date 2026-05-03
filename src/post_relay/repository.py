@@ -296,6 +296,21 @@ def create_draft_record(
     return _draft_from_row(row)
 
 
+def get_draft(connection, draft_id: int) -> Optional[DraftRecord]:
+    row = connection.execute(
+        """
+        select id, candidate_group_id, post_type, caption, hashtags_json,
+               location_text, alt_text, status, scheduled_for
+        from drafts
+        where id = ?
+        """,
+        (draft_id,),
+    ).fetchone()
+    if row is None:
+        return None
+    return _draft_from_row(row)
+
+
 def list_drafts(connection) -> list[DraftRecord]:
     rows = connection.execute(
         """
@@ -306,6 +321,20 @@ def list_drafts(connection) -> list[DraftRecord]:
         """
     ).fetchall()
     return [_draft_from_row(row) for row in rows]
+
+
+def list_candidate_group_photo_paths(connection, candidate_group_id: int) -> list[str]:
+    rows = connection.execute(
+        """
+        select photos.local_file_path
+        from candidate_group_items
+        join photos on photos.id = candidate_group_items.photo_id
+        where candidate_group_items.group_id = ?
+        order by candidate_group_items.sort_order, photos.local_file_path
+        """,
+        (candidate_group_id,),
+    ).fetchall()
+    return [row[0] for row in rows]
 
 
 def _draft_from_row(row) -> DraftRecord:

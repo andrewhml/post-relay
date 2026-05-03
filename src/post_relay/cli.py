@@ -11,6 +11,7 @@ from post_relay.db import connect_db, initialize_db
 from post_relay.drafts import CandidateNotFound, create_draft_from_candidate
 from post_relay.indexer import index_photo_sources
 from post_relay.repository import get_library_stats, list_candidate_groups, list_drafts
+from post_relay.review_package import DraftNotFound, build_draft_review_package
 
 app = typer.Typer(help="Post Relay local-first Instagram content workflow.")
 db_app = typer.Typer(help="Database commands.")
@@ -139,3 +140,18 @@ def drafts_list(
         typer.echo(
             f"#{draft.id} candidate #{draft.candidate_group_id} — {draft.post_type}, {draft.status}"
         )
+
+
+@drafts_app.command("preview")
+def drafts_preview(
+    draft_id: int = typer.Option(..., "--draft-id", help="Draft id."),
+    db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
+) -> None:
+    """Print a structured local review package for a draft."""
+    connection = connect_db(db)
+    initialize_db(connection)
+    try:
+        package = build_draft_review_package(connection, draft_id)
+    except DraftNotFound as error:
+        raise typer.BadParameter(str(error), param_hint="--draft-id") from error
+    typer.echo(package.to_text())

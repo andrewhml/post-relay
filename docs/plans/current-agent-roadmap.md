@@ -62,7 +62,7 @@ Important behavior:
 - Multi-photo folders recommend `carousel`.
 - One-photo folders recommend `single_image`.
 
-### Current milestone: Draft records from candidates
+### PR #6: Draft records from candidates
 
 Implemented:
 - `src/post_relay/drafts.py`
@@ -77,6 +77,21 @@ Important behavior:
 - Initial draft status is `drafting` from the workflow state model.
 - Caption, hashtags, location, and alt text are intentionally empty placeholders for later drafting/review milestones.
 
+### Current milestone: Draft review package
+
+Implemented:
+- `src/post_relay/review_package.py`
+- repository methods for retrieving a draft and ordered candidate photo file paths
+- `drafts preview` CLI command
+- stable local text review package rendering
+- tests for package content, formatting, missing drafts, and CLI flow
+
+Important behavior:
+- `drafts preview --draft-id N` requires an existing draft.
+- Preview output includes draft id, status, candidate title, post type, ordered photo file paths, placeholders for caption/location/hashtags/alt text, unresolved context notes, and allowed next actions.
+- Empty caption/location/hashtags/alt text are rendered as explicit `<empty>` placeholders.
+- Photo paths are ordered by candidate group item sort order.
+
 ## Current local verification command
 
 Run this before opening or merging any PR:
@@ -85,10 +100,10 @@ Run this before opening or merging any PR:
 .venv/bin/python -m pytest -q
 ```
 
-Expected current result after draft-record milestone:
+Expected current result after draft-review-package milestone:
 
 ```text
-20 passed
+24 passed
 ```
 
 ## Milestone execution rules
@@ -143,30 +158,7 @@ Agents must preserve these unless Andrew explicitly changes the product directio
 
 ## Next planned milestones
 
-### Milestone 1: `feat/draft-review-package`
-
-**Goal:** Produce a structured review package for each draft before Discord integration.
-
-**Behavior:**
-- Add a local command such as:
-
-  ```bash
-  .venv/bin/post-relay drafts preview --draft-id 1 --db data/post_relay.sqlite
-  ```
-
-- Output should include:
-  - draft id
-  - status
-  - candidate title
-  - post type
-  - photo file paths in order
-  - caption/location/hashtags placeholders
-  - unresolved context notes
-  - allowed next actions
-
-**Reason:** This creates a stable, testable preview format before wiring Discord image/message delivery.
-
-### Milestone 2: `feat/context-placeholders-and-questions`
+### Milestone 1: `feat/context-placeholders-and-questions`
 
 **Goal:** Add missing-context detection and focused interview question records.
 
@@ -175,7 +167,7 @@ Agents must preserve these unless Andrew explicitly changes the product directio
 - Store unresolved questions against a draft or candidate group.
 - Keep questions lightweight and factual first.
 
-### Milestone 4: `feat/draft-approval-cli`
+### Milestone 2: `feat/draft-approval-cli`
 
 **Goal:** Implement explicit draft approval and edit invalidation locally before Discord.
 
@@ -185,7 +177,7 @@ Agents must preserve these unless Andrew explicitly changes the product directio
 - Move status from `awaiting_review` to `approved_for_queue` only through allowed state transitions.
 - Editing draft content after approval moves status to `needs_edits` and invalidates old approval for queue/publish purposes.
 
-### Milestone 5: `feat/schedule-and-publish-approval-cli`
+### Milestone 3: `feat/schedule-and-publish-approval-cli`
 
 **Goal:** Add queue/scheduling and publish-approval workflow without live API calls.
 
@@ -195,7 +187,7 @@ Agents must preserve these unless Andrew explicitly changes the product directio
 - Move through `scheduled` -> `awaiting_publish_approval` -> `ready_to_publish`.
 - Do not publish; this milestone only prepares state and audit trail.
 
-### Milestone 6: `feat/meta-graph-client-readonly`
+### Milestone 4: `feat/meta-graph-client-readonly`
 
 **Goal:** Build a sanitized Meta Graph client for read-only validation.
 
@@ -206,7 +198,7 @@ Agents must preserve these unless Andrew explicitly changes the product directio
 - Read Page/IG account information only.
 - No publishing endpoints yet.
 
-### Milestone 7: `feat/controlled-image-publish-validation`
+### Milestone 5: `feat/controlled-image-publish-validation`
 
 **Goal:** Validate one controlled single-image publish using the official Meta route.
 

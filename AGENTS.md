@@ -27,6 +27,7 @@ Post Relay is a local-first Instagram travel content workflow for Andrew's `andr
 - Candidate groups are currently built from indexed photo parent folders.
 - Multi-photo folders recommend `carousel`; one-photo folders recommend `single_image`.
 - Draft records can be created idempotently from candidate groups.
+- Draft preview packages can be rendered locally before Discord delivery exists.
 
 ## Safety and product constraints
 
@@ -65,8 +66,11 @@ Post Relay is a local-first Instagram travel content workflow for Andrew's `andr
 .venv/bin/post-relay library stats --db data/post_relay.sqlite
 .venv/bin/post-relay candidates build --db data/post_relay.sqlite
 .venv/bin/post-relay candidates list --db data/post_relay.sqlite
+.venv/bin/post-relay drafts create --candidate-id 1 --db data/post_relay.sqlite
+.venv/bin/post-relay drafts list --db data/post_relay.sqlite
+.venv/bin/post-relay drafts preview --draft-id 1 --db data/post_relay.sqlite
 ```
 
 ## Current next milestone
 
-See `docs/plans/current-agent-roadmap.md`. The next planned code milestone is currently `feat/draft-review-package` unless that roadmap has been updated.
+See `docs/plans/current-agent-roadmap.md`. The next planned code milestone is currently `feat/context-placeholders-and-questions` unless that roadmap has been updated.
