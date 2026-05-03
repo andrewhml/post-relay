@@ -205,6 +205,42 @@ photo_sources:
 
 
 
+def test_cli_draft_discord_preview_payload_dry_run_reports_images(tmp_path: Path):
+    root = tmp_path / "processed"
+    folder = root / "2023" / "kyoto"
+    folder.mkdir(parents=True)
+    (folder / "temple.jpg").write_bytes(b"fake image")
+    (folder / "garden.jpg").write_bytes(b"fake image")
+    config_path = tmp_path / "photo_sources.yaml"
+    config_path.write_text(
+        f"""
+photo_sources:
+  - name: processed
+    root: {root.as_posix()}
+    source_type: processed_folder
+""".strip()
+    )
+    db_path = tmp_path / "post_relay.sqlite"
+
+    runner.invoke(app, ["index", "scan", "--config", str(config_path), "--db", str(db_path)])
+    runner.invoke(app, ["candidates", "build", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "create", "--candidate-id", "1", "--db", str(db_path)])
+    payload_result = runner.invoke(
+        app, ["drafts", "discord-preview", "--draft-id", "1", "--db", str(db_path)]
+    )
+
+    assert payload_result.exit_code == 0
+    assert "Discord Preview Payload (dry run)" in payload_result.output
+    assert "Ready to send: yes" in payload_result.output
+    assert "Image attachments:" in payload_result.output
+    assert (folder / "garden.jpg").as_posix() in payload_result.output
+    assert (folder / "temple.jpg").as_posix() in payload_result.output
+    assert "Missing image files:" in payload_result.output
+    assert "  - <none>" in payload_result.output
+    assert "Draft Review Package" in payload_result.output
+
+
+
 def test_cli_draft_context_questions_generate_and_list(tmp_path: Path):
     root = tmp_path / "processed"
     folder = root / "2023" / "kyoto"
