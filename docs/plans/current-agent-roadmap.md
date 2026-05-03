@@ -174,7 +174,7 @@ Important behavior:
 - The client only calls read-only visibility endpoints: `/me/accounts`, the configured/visible Page with `instagram_business_account`, and the linked Instagram account fields.
 - Tokens are included in requests but redacted from summaries, CLI dry-run output, and wrapped request errors.
 
-### Current milestone: Controlled single-image publish validation
+### PR #13: Controlled single-image publish validation
 
 Implemented:
 - `src/post_relay/publishing.py`
@@ -189,6 +189,17 @@ Important behavior:
 - Dry-run mode records a sanitized planned attempt and explicitly calls no Meta publishing endpoints.
 - Live execution requires `--execute`, loads credentials only from environment/private `.env`, creates an image container, checks `status_code`, publishes only when the container is `FINISHED`, stores the container/media ids, and moves the draft to `posted` on success.
 - Failure paths store sanitized error messages and move the draft to `failed`; access tokens and secret-like image URL query values are not stored in attempt records.
+
+### Current milestone: Live single-image publish smoke test
+
+Observed on 2026-05-03:
+- Andrew provided a fresh private Meta Graph user access token and public HTTPS smoke-test image URL in local `.env`.
+- Read-only validation succeeded for Page `Andrewhml` (`998312870038313`) and linked Instagram account `andrewhml` (`17841400498120050`), with media count `206` and no publishing endpoints called.
+- Live read-only validation showed the Instagram account endpoint does not support the `account_type` field for this app/API combination; Post Relay now requests only `id,username,media_count` and renders account type as `<unknown>`.
+- The first live publish attempt failed before creating a container because Post Relay used GET for media container creation; Meta did not return a container id. The failed local DB was archived as `data/post_relay.failed-get-publish-attempt.sqlite` for debugging only and is ignored by git.
+- After fixing publish requests to use POST for `/{ig-user-id}/media` and `/{ig-user-id}/media_publish`, the explicit live smoke test succeeded.
+- Published smoke-test result: container id `18585234496016605`, container status `FINISHED`, published media id `18085108061165756`, local draft status `posted`.
+- Full local test suite remained `57 passed` after the smoke-test fixes.
 
 ## Current local verification command
 
@@ -257,30 +268,25 @@ Agents must preserve these unless Andrew explicitly changes the product directio
 
 ## Next planned milestones
 
-### Milestone 1: `feat/live-single-image-publish-smoke-notes`
+### Milestone 1: `feat/carousel-publish-support`
 
-**Goal:** Run one controlled live single-image publish with Andrew-selected safe media using the new guarded CLI, then document the observed Meta behavior.
-
-**Runbook:** `docs/publishing/single-image-smoke-test.md`
-
-**Current preflight status:** blocked as of 2026-05-03. The local working tree did not have `.env`, `POST_RELAY_USER_ACCESS_TOKEN`, `POST_RELAY_INSTAGRAM_ACCOUNT_ID`, `POST_RELAY_TEST_IMAGE_URL`, `data/post_relay.sqlite`, or a ready approved single-image draft. No live Meta publish was attempted.
+**Goal:** Extend the guarded Meta publish validation workflow from single-image posts to carousel posts, after the single-image route has been proven live.
 
 **Preconditions:**
-- Andrew explicitly sets local token environment variables in private `.env` or shell.
-- A public HTTPS image URL is available for the exact safe test image.
-- A `single_image` draft has a final caption, has passed draft approval, scheduling, and publish approval, and is in `ready_to_publish`.
-- Andrew explicitly authorizes the live `--execute` smoke test in the session.
+- Keep the single-image live smoke result documented as the baseline.
+- Preserve double approval before any live publish.
+- Use POST for Meta media container creation and publish endpoints.
+- Use dry-run/local tests before any live carousel execution.
 
-**Behavior:**
-- Run `scripts/check_publish_smoke_readiness.py` and confirm prerequisites without printing secrets.
-- Run `meta validate-image-publish --dry-run` first and inspect sanitized output.
-- Run `meta validate-image-publish --execute` only after explicit authorization.
-- Verify the remote media id/result and local `posted` state.
-- Document account/app/API limitations or required setup changes discovered.
+**Expected behavior:**
+- Create one child media container per carousel image.
+- Create a carousel container from the child container ids.
+- Poll/check container readiness before publishing.
+- Persist sanitized attempt records with child container ids, carousel container id, status, and published media id.
+- Move the draft to `posted` only after Meta returns a published media id.
 
 ## Later milestones
 
-- Carousel publish support after single-image publish is validated.
 - Video/reel validation after feed/carousel path is reliable.
 - Discord presenter and approval capture.
 - Analytics/insights collection.

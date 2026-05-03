@@ -102,8 +102,8 @@ def test_execute_single_image_publish_validation_creates_polls_and_publishes_aft
     connection, draft = _build_single_image_ready_draft(tmp_path, caption="Temple morning.")
     requested = []
 
-    def fake_transport(url, params):
-        requested.append((url, dict(params)))
+    def fake_transport(method, url, params):
+        requested.append((method, url, dict(params)))
         if url.endswith("/17841400498120050/media"):
             return {"id": "creation-123"}
         if url.endswith("/creation-123"):
@@ -132,16 +132,17 @@ def test_execute_single_image_publish_validation_creates_polls_and_publishes_aft
     assert result.status_code == "FINISHED"
     assert result.published_media_id == "media-456"
     assert get_draft(connection, draft.id).status == DraftState.POSTED.value
-    assert [url for url, _params in requested] == [
+    assert [method for method, _url, _params in requested] == ["POST", "GET", "POST"]
+    assert [url for _method, url, _params in requested] == [
         "https://graph.facebook.com/v19.0/17841400498120050/media",
         "https://graph.facebook.com/v19.0/creation-123",
         "https://graph.facebook.com/v19.0/17841400498120050/media_publish",
     ]
-    assert requested[0][1]["image_url"] == "https://example.com/test-image.jpg"
-    assert requested[0][1]["caption"] == "Temple morning."
-    assert requested[1][1]["fields"] == "id,status_code"
-    assert requested[2][1]["creation_id"] == "creation-123"
-    assert all(params["access_token"] == "secret-token" for _url, params in requested)
+    assert requested[0][2]["image_url"] == "https://example.com/test-image.jpg"
+    assert requested[0][2]["caption"] == "Temple morning."
+    assert requested[1][2]["fields"] == "id,status_code"
+    assert requested[2][2]["creation_id"] == "creation-123"
+    assert all(params["access_token"] == "secret-token" for _method, _url, params in requested)
     attempts = list_publish_attempts(connection, draft.id)
     assert attempts[0].container_id == "creation-123"
     assert attempts[0].published_media_id == "media-456"
