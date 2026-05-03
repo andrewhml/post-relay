@@ -112,6 +112,23 @@ SCHEMA_STATEMENTS = [
         foreign key(draft_id) references drafts(id)
     )
     """,
+    """
+    create table if not exists publish_attempts (
+        id integer primary key,
+        draft_id integer not null,
+        post_type text not null,
+        image_url text,
+        caption text,
+        container_id text,
+        published_media_id text,
+        status text not null,
+        status_code text,
+        status_message text,
+        created_at text not null default current_timestamp,
+        updated_at text not null default current_timestamp,
+        foreign key(draft_id) references drafts(id)
+    )
+    """,
 ]
 
 

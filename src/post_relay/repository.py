@@ -74,6 +74,20 @@ class ApprovalRecord:
     invalidation_reason: Optional[str]
 
 
+@dataclass(frozen=True)
+class PublishAttemptRecord:
+    id: int
+    draft_id: int
+    post_type: str
+    image_url: Optional[str]
+    caption: Optional[str]
+    container_id: Optional[str]
+    published_media_id: Optional[str]
+    status: str
+    status_code: Optional[str]
+    status_message: Optional[str]
+
+
 def upsert_photo_source(connection, source: PhotoSource) -> int:
     connection.execute(
         """
@@ -526,6 +540,104 @@ def list_context_questions(connection, draft_id: int) -> list[ContextQuestionRec
     return [_context_question_from_row(row) for row in rows]
 
 
+def create_publish_attempt(
+    connection,
+    *,
+    draft_id: int,
+    post_type: str,
+    image_url: Optional[str],
+    caption: Optional[str],
+    status: str,
+    container_id: Optional[str] = None,
+    published_media_id: Optional[str] = None,
+    status_code: Optional[str] = None,
+    status_message: Optional[str] = None,
+) -> PublishAttemptRecord:
+    cursor = connection.execute(
+        """
+        insert into publish_attempts (
+            draft_id,
+            post_type,
+            image_url,
+            caption,
+            container_id,
+            published_media_id,
+            status,
+            status_code,
+            status_message
+        )
+        values (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            draft_id,
+            post_type,
+            image_url,
+            caption,
+            container_id,
+            published_media_id,
+            status,
+            status_code,
+            status_message,
+        ),
+    )
+    return get_publish_attempt(connection, int(cursor.lastrowid))
+
+
+def update_publish_attempt(
+    connection,
+    attempt_id: int,
+    *,
+    status: str,
+    container_id: Optional[str] = None,
+    published_media_id: Optional[str] = None,
+    status_code: Optional[str] = None,
+    status_message: Optional[str] = None,
+) -> PublishAttemptRecord:
+    connection.execute(
+        """
+        update publish_attempts
+        set status = ?,
+            container_id = coalesce(?, container_id),
+            published_media_id = coalesce(?, published_media_id),
+            status_code = coalesce(?, status_code),
+            status_message = coalesce(?, status_message),
+            updated_at = current_timestamp
+        where id = ?
+        """,
+        (status, container_id, published_media_id, status_code, status_message, attempt_id),
+    )
+    return get_publish_attempt(connection, attempt_id)
+
+
+def get_publish_attempt(connection, attempt_id: int) -> Optional[PublishAttemptRecord]:
+    row = connection.execute(
+        """
+        select id, draft_id, post_type, image_url, caption, container_id,
+               published_media_id, status, status_code, status_message
+        from publish_attempts
+        where id = ?
+        """,
+        (attempt_id,),
+    ).fetchone()
+    if row is None:
+        return None
+    return _publish_attempt_from_row(row)
+
+
+def list_publish_attempts(connection, draft_id: int) -> list[PublishAttemptRecord]:
+    rows = connection.execute(
+        """
+        select id, draft_id, post_type, image_url, caption, container_id,
+               published_media_id, status, status_code, status_message
+        from publish_attempts
+        where draft_id = ?
+        order by id
+        """,
+        (draft_id,),
+    ).fetchall()
+    return [_publish_attempt_from_row(row) for row in rows]
+
+
 def list_unresolved_context_questions(connection, draft_id: int) -> list[ContextQuestionRecord]:
     rows = connection.execute(
         """
@@ -550,6 +662,21 @@ def _approval_from_row(row) -> ApprovalRecord:
         notes=row[6],
         invalidated_at=row[7],
         invalidation_reason=row[8],
+    )
+
+
+def _publish_attempt_from_row(row) -> PublishAttemptRecord:
+    return PublishAttemptRecord(
+        id=int(row[0]),
+        draft_id=int(row[1]),
+        post_type=row[2],
+        image_url=row[3],
+        caption=row[4],
+        container_id=row[5],
+        published_media_id=row[6],
+        status=row[7],
+        status_code=row[8],
+        status_message=row[9],
     )
 
 

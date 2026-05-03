@@ -273,6 +273,102 @@ photo_sources:
 
 
 
+def test_cli_controlled_image_publish_dry_run_requires_ready_draft_and_redacts_url(tmp_path: Path):
+    root = tmp_path / "processed"
+    folder = root / "2023" / "kyoto"
+    folder.mkdir(parents=True)
+    (folder / "temple.jpg").write_bytes(b"fake image")
+    config_path = tmp_path / "photo_sources.yaml"
+    config_path.write_text(
+        f"""
+photo_sources:
+  - name: processed
+    root: {root.as_posix()}
+    source_type: processed_folder
+""".strip()
+    )
+    db_path = tmp_path / "post_relay.sqlite"
+
+    runner.invoke(app, ["index", "scan", "--config", str(config_path), "--db", str(db_path)])
+    runner.invoke(app, ["candidates", "build", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "create", "--candidate-id", "1", "--db", str(db_path)])
+    not_ready_result = runner.invoke(
+        app,
+        [
+            "meta",
+            "validate-image-publish",
+            "--draft-id",
+            "1",
+            "--image-url",
+            "https://example.com/test-image.jpg?token=abc123",
+            "--db",
+            str(db_path),
+            "--dry-run",
+        ],
+    )
+
+    runner.invoke(
+        app,
+        [
+            "drafts",
+            "edit",
+            "--draft-id",
+            "1",
+            "--caption",
+            "Temple morning.",
+            "--db",
+            str(db_path),
+        ],
+    )
+    runner.invoke(app, ["drafts", "submit", "--draft-id", "1", "--db", str(db_path)])
+    runner.invoke(
+        app,
+        ["drafts", "approve", "--draft-id", "1", "--approved-by", "andrew", "--db", str(db_path)],
+    )
+    runner.invoke(
+        app,
+        [
+            "drafts",
+            "schedule",
+            "--draft-id",
+            "1",
+            "--scheduled-for",
+            "2026-05-05T09:30:00-07:00",
+            "--db",
+            str(db_path),
+        ],
+    )
+    runner.invoke(app, ["drafts", "request-publish-approval", "--draft-id", "1", "--db", str(db_path)])
+    runner.invoke(
+        app,
+        ["drafts", "approve-publish", "--draft-id", "1", "--approved-by", "andrew", "--db", str(db_path)],
+    )
+    dry_run_result = runner.invoke(
+        app,
+        [
+            "meta",
+            "validate-image-publish",
+            "--draft-id",
+            "1",
+            "--image-url",
+            "https://example.com/test-image.jpg?token=abc123",
+            "--db",
+            str(db_path),
+            "--dry-run",
+        ],
+    )
+
+    assert not_ready_result.exit_code != 0
+    assert "ready_to_publish" in not_ready_result.output
+    assert dry_run_result.exit_code == 0
+    assert "Single-image publish validation" in dry_run_result.output
+    assert "Status: planned" in dry_run_result.output
+    assert "https://example.com/test-image.jpg?token=<redacted>" in dry_run_result.output
+    assert "abc123" not in dry_run_result.output
+    assert "No Meta publishing endpoints were called." in dry_run_result.output
+
+
+
 def test_cli_draft_discord_preview_payload_dry_run_reports_images(tmp_path: Path):
     root = tmp_path / "processed"
     folder = root / "2023" / "kyoto"

@@ -113,6 +113,27 @@ class MetaGraphClient:
             {"fields": "id,username,account_type,media_count"},
         )
 
+    def create_image_container(
+        self,
+        instagram_account_id: str,
+        *,
+        image_url: str,
+        caption: str,
+    ) -> Mapping[str, Any]:
+        return self._request(
+            f"{instagram_account_id}/media",
+            {"image_url": image_url, "caption": caption},
+        )
+
+    def get_media_container_status(self, container_id: str) -> Mapping[str, Any]:
+        return self._request(container_id, {"fields": "id,status_code"})
+
+    def publish_media(self, instagram_account_id: str, *, creation_id: str) -> Mapping[str, Any]:
+        return self._request(
+            f"{instagram_account_id}/media_publish",
+            {"creation_id": creation_id},
+        )
+
     def validate_readonly_access(self) -> ReadOnlyValidationResult:
         pages_payload = self.list_pages()
         page = _select_page(pages_payload, self.config.page_id)

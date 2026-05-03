@@ -156,7 +156,7 @@ Important behavior:
 - This milestone does not call Meta, Discord, or any external publishing API; it only prepares the local state and audit trail.
 - Draft approval and publish approval remain separate active approval records unless a material edit invalidates them.
 
-### Current milestone: Meta Graph client readonly
+### PR #12: Meta Graph client readonly
 
 Implemented:
 - `src/post_relay/meta_graph.py`
@@ -173,7 +173,22 @@ Important behavior:
 - Default route remains `https://graph.facebook.com`.
 - The client only calls read-only visibility endpoints: `/me/accounts`, the configured/visible Page with `instagram_business_account`, and the linked Instagram account fields.
 - Tokens are included in requests but redacted from summaries, CLI dry-run output, and wrapped request errors.
-- No publishing endpoints or media container endpoints are implemented in this milestone.
+
+### Current milestone: Controlled single-image publish validation
+
+Implemented:
+- `src/post_relay/publishing.py`
+- `publish_attempts` SQLite table for sanitized publish validation audit records
+- Meta Graph client helpers for image media container creation, container status polling, and media publishing
+- `meta validate-image-publish` CLI command with safe default dry-run behavior unless `--execute` is passed
+- tests for draft readiness guards, unsupported non-single-image drafts, sanitized dry-run attempt logging, Graph request sequence, draft state updates, and CLI dry-run behavior
+
+Important behavior:
+- Controlled image publish validation only supports `single_image` drafts that have reached `ready_to_publish` through the double-approval workflow.
+- The command requires a public HTTPS `--image-url`; local files are not uploaded directly to Meta in this milestone.
+- Dry-run mode records a sanitized planned attempt and explicitly calls no Meta publishing endpoints.
+- Live execution requires `--execute`, loads credentials only from environment/private `.env`, creates an image container, checks `status_code`, publishes only when the container is `FINISHED`, stores the container/media ids, and moves the draft to `posted` on success.
+- Failure paths store sanitized error messages and move the draft to `failed`; access tokens and secret-like image URL query values are not stored in attempt records.
 
 ## Current local verification command
 
@@ -183,10 +198,10 @@ Run this before opening or merging any PR:
 .venv/bin/python -m pytest -q
 ```
 
-Expected current result after meta-graph-client-readonly milestone:
+Expected current result after controlled-image-publish-validation milestone:
 
 ```text
-53 passed
+57 passed
 ```
 
 ## Milestone execution rules
@@ -242,21 +257,21 @@ Agents must preserve these unless Andrew explicitly changes the product directio
 
 ## Next planned milestones
 
-### Milestone 1: `feat/controlled-image-publish-validation`
+### Milestone 1: `feat/live-single-image-publish-smoke-notes`
 
-**Goal:** Validate one controlled single-image publish using the official Meta route.
+**Goal:** Run one controlled live single-image publish with Andrew-selected safe media using the new guarded CLI, then document the observed Meta behavior.
 
 **Preconditions:**
-- Andrew explicitly provides/sets local token environment variables.
-- Draft and publish approval flows exist and are tested.
-- A safe test image/caption is chosen.
+- Andrew explicitly sets local token environment variables in private `.env` or shell.
+- A public HTTPS image URL is available for the exact safe test image.
+- A `single_image` draft has a final caption, has passed draft approval, scheduling, and publish approval, and is in `ready_to_publish`.
+- Andrew explicitly authorizes the live `--execute` smoke test in the session.
 
 **Behavior:**
-- Create publish container.
-- Poll status.
-- Publish only after explicit publish approval.
-- Store remote ids and sanitized logs.
-- Document any account/app limitations discovered.
+- Run `meta validate-image-publish --dry-run` first and inspect sanitized output.
+- Run `meta validate-image-publish --execute` only after explicit authorization.
+- Verify the remote media id/result and local `posted` state.
+- Document account/app/API limitations or required setup changes discovered.
 
 ## Later milestones
 
