@@ -126,6 +126,35 @@ class MetaGraphClient:
             method="POST",
         )
 
+    def create_carousel_item_container(
+        self,
+        instagram_account_id: str,
+        *,
+        image_url: str,
+    ) -> Mapping[str, Any]:
+        return self._request(
+            f"{instagram_account_id}/media",
+            {"image_url": image_url, "is_carousel_item": "true"},
+            method="POST",
+        )
+
+    def create_carousel_container(
+        self,
+        instagram_account_id: str,
+        *,
+        child_container_ids: Iterable[str],
+        caption: str,
+    ) -> Mapping[str, Any]:
+        return self._request(
+            f"{instagram_account_id}/media",
+            {
+                "media_type": "CAROUSEL",
+                "children": ",".join(child_container_ids),
+                "caption": caption,
+            },
+            method="POST",
+        )
+
     def get_media_container_status(self, container_id: str) -> Mapping[str, Any]:
         return self._request(container_id, {"fields": "id,status_code"})
 

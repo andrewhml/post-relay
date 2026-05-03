@@ -124,6 +124,8 @@ SCHEMA_STATEMENTS = [
         status text not null,
         status_code text,
         status_message text,
+        image_urls_json text,
+        child_container_ids_json text,
         created_at text not null default current_timestamp,
         updated_at text not null default current_timestamp,
         foreign key(draft_id) references drafts(id)
@@ -144,6 +146,8 @@ def initialize_db(connection: sqlite3.Connection) -> None:
         connection.execute(statement)
     _ensure_column(connection, "approvals", "invalidated_at", "text")
     _ensure_column(connection, "approvals", "invalidation_reason", "text")
+    _ensure_column(connection, "publish_attempts", "image_urls_json", "text")
+    _ensure_column(connection, "publish_attempts", "child_container_ids_json", "text")
     connection.commit()
 
 

@@ -34,7 +34,9 @@ from post_relay.publishing import (
     DraftNotReadyForImagePublish,
     PublishValidationError,
     UnsupportedPublishDraft,
+    execute_carousel_publish_validation,
     execute_single_image_publish_validation,
+    prepare_carousel_publish_validation,
     prepare_single_image_publish_validation,
 )
 from post_relay.repository import (
@@ -182,6 +184,48 @@ def meta_validate_image_publish(
             connection,
             draft_id,
             image_url=image_url,
+            client=MetaGraphClient(config),
+        )
+    except (PublishDraftNotFound, DraftNotReadyForImagePublish, UnsupportedPublishDraft) as error:
+        raise typer.BadParameter(str(error), param_hint="--draft-id") from error
+    except PublishValidationError as error:
+        raise typer.BadParameter(str(error), param_hint="--env-file") from error
+    typer.echo(result.to_text())
+
+
+@meta_app.command("validate-carousel-publish")
+def meta_validate_carousel_publish(
+    draft_id: int = typer.Option(..., "--draft-id", help="Ready-to-publish carousel draft id."),
+    image_urls: list[str] = typer.Option(
+        ..., "--image-url", help="Public HTTPS image URL for each carousel image, in draft order."
+    ),
+    db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
+    env_file: Optional[Path] = typer.Option(Path(".env"), "--env-file", help="Private .env file path."),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Record and print the sanitized plan without calling Meta."),
+    execute: bool = typer.Option(False, "--execute", help="Actually create, poll, and publish through Meta Graph."),
+) -> None:
+    """Validate a controlled carousel publish after explicit publish approval."""
+    connection = connect_db(db)
+    initialize_db(connection)
+    if dry_run or not execute:
+        try:
+            result = prepare_carousel_publish_validation(connection, draft_id, image_urls=image_urls)
+        except (PublishDraftNotFound, DraftNotReadyForImagePublish, UnsupportedPublishDraft) as error:
+            raise typer.BadParameter(str(error), param_hint="--draft-id") from error
+        typer.echo(result.to_text())
+        typer.echo("No Meta publishing endpoints were called.")
+        return
+
+    try:
+        config = load_meta_graph_config(env_file=env_file)
+    except MetaGraphConfigError as error:
+        raise typer.BadParameter(str(error), param_hint="--env-file") from error
+
+    try:
+        result = execute_carousel_publish_validation(
+            connection,
+            draft_id,
+            image_urls=image_urls,
             client=MetaGraphClient(config),
         )
     except (PublishDraftNotFound, DraftNotReadyForImagePublish, UnsupportedPublishDraft) as error:

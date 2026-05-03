@@ -190,7 +190,7 @@ Important behavior:
 - Live execution requires `--execute`, loads credentials only from environment/private `.env`, creates an image container, checks `status_code`, publishes only when the container is `FINISHED`, stores the container/media ids, and moves the draft to `posted` on success.
 - Failure paths store sanitized error messages and move the draft to `failed`; access tokens and secret-like image URL query values are not stored in attempt records.
 
-### Current milestone: Live single-image publish smoke test
+### PR #17: Live single-image publish smoke test
 
 Observed on 2026-05-03:
 - Andrew provided a fresh private Meta Graph user access token and public HTTPS smoke-test image URL in local `.env`.
@@ -202,6 +202,23 @@ Observed on 2026-05-03:
 - The caption value in local `.env` was not used for the live post; the publish path uses the approved draft caption stored in SQLite. This is acceptable for the long-term workflow because `.env` should only provide credentials/configuration, not canonical post content.
 - Full local test suite remained `57 passed` after the smoke-test fixes.
 
+### Current milestone: Carousel publish support
+
+Implemented:
+- `meta validate-carousel-publish` CLI command with dry-run planning by default and live execution only behind `--execute`
+- Meta Graph client helpers for carousel child container creation and carousel parent container creation
+- `publish_attempts` audit columns for sanitized ordered image URL lists and ordered child container ids
+- local runbook at `docs/publishing/carousel-smoke-test.md`
+- tests for sanitized dry-run attempts, guarded ready-to-publish carousel requirements, request method/order/params, draft state updates, and CLI dry-run output
+
+Important behavior:
+- Carousel validation requires a `ready_to_publish` `carousel` draft with a non-empty approved draft caption.
+- The command requires one public HTTPS `--image-url` per selected draft image and rejects mismatched counts.
+- Dry-run mode records a sanitized planned attempt and explicitly calls no Meta publishing endpoints.
+- Live execution creates one child container per image with `is_carousel_item=true`, creates a parent carousel container with `media_type=CAROUSEL` and ordered child ids, polls the carousel container, publishes only after `FINISHED`, and moves the draft to `posted` only after Meta returns a published media id.
+- Failure paths store sanitized errors and move the draft to `failed`; access tokens and secret-like image URL query values are not stored in attempt records.
+- No live carousel publish smoke test has been run yet.
+
 ## Current local verification command
 
 Run this before opening or merging any PR:
@@ -210,10 +227,10 @@ Run this before opening or merging any PR:
 .venv/bin/python -m pytest -q
 ```
 
-Expected current result after controlled-image-publish-validation milestone:
+Expected current result after carousel-publish-support milestone:
 
 ```text
-57 passed
+60 passed
 ```
 
 ## Milestone execution rules
@@ -269,21 +286,23 @@ Agents must preserve these unless Andrew explicitly changes the product directio
 
 ## Next planned milestones
 
-### Milestone 1: `feat/carousel-publish-support`
+### Milestone 1: `feat/live-carousel-publish-smoke-notes`
 
-**Goal:** Extend the guarded Meta publish validation workflow from single-image posts to carousel posts, after the single-image route has been proven live.
+**Goal:** Run one explicitly approved live carousel smoke test through the newly implemented guarded carousel path, then document observed Meta behavior.
 
 **Preconditions:**
 - Keep the single-image live smoke result documented as the baseline.
 - Preserve double approval before any live publish.
 - Use POST for Meta media container creation and publish endpoints.
-- Use dry-run/local tests before any live carousel execution.
+- Prepare a safe public carousel image set that Andrew is comfortable publishing.
+- Run `meta validate-carousel-publish --dry-run` first and review the sanitized plan.
+- Do not run `--execute` without Andrew's explicit approval in the active session.
 
 **Expected behavior:**
-- Create one child media container per carousel image.
-- Create a carousel container from the child container ids.
-- Poll/check container readiness before publishing.
-- Persist sanitized attempt records with child container ids, carousel container id, status, and published media id.
+- Confirm Meta accepts one child media container per carousel image with `is_carousel_item=true`.
+- Confirm Meta accepts a carousel container with `media_type=CAROUSEL` and ordered child ids.
+- Confirm container status polling and media publishing work for the linked `andrewhml` account.
+- Record sanitized child container ids, carousel container id, status, and published media id.
 - Move the draft to `posted` only after Meta returns a published media id.
 
 ## Later milestones
