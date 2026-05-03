@@ -29,4 +29,4 @@ Thumbs.db
 # Local Post Relay data
 data/instagram/logs/
 data/instagram/cache/
-data/post_relay.sqlite
+data/*.sqlite

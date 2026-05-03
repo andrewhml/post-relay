@@ -114,16 +114,30 @@ Expected success indicators:
 
 Record the observed Meta behavior, sanitized ids/statuses, and any account/app limitation in `docs/plans/current-agent-roadmap.md`.
 
-## Current local preflight result
+## Current local smoke result
 
-Checked on 2026-05-03 before any live publish attempt:
+Checked on 2026-05-03 with Andrew-provided private `.env`, the public GitHub raw smoke-test image URL, and a local ready single-image draft.
 
 ```text
-.env exists: no
-POST_RELAY_USER_ACCESS_TOKEN configured: no
-POST_RELAY_INSTAGRAM_ACCOUNT_ID configured: no
-POST_RELAY_TEST_IMAGE_URL configured: no
-database exists: no
+.env exists: yes
+POST_RELAY_USER_ACCESS_TOKEN configured: yes
+POST_RELAY_INSTAGRAM_ACCOUNT_ID configured: yes
+POST_RELAY_TEST_IMAGE_URL configured: yes
+database exists: yes
+draft count: 1
+ready single-image drafts with caption: 1
+ready draft ids: 1
 ```
 
-Live execution was not attempted because the required local token, test image URL, database, and ready approved single-image draft were not present.
+Observed live execution:
+
+```text
+Status: published
+Container ID: 18585234496016605
+Container status: FINISHED
+Published media ID: 18085108061165756
+```
+
+Implementation notes discovered during the smoke test:
+- The linked Instagram account read endpoint did not accept `account_type`; read-only validation now requests `id,username,media_count` and renders account type as `<unknown>`.
+- Meta media container creation and media publish endpoints require POST. Using GET did not create a container and returned no media container id.
