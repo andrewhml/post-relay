@@ -1,12 +1,41 @@
-# Copy this file to config/photo_sources.yaml and update the paths.
-# Start with one processed year folder before indexing the full archive.
+# Copy this file to config/photo_sources.yaml and update paths as needed.
+# Local/NAS processed folders are the durable source of truth.
+# Post Relay must never delete, move, or mutate source media.
 
 photo_sources:
-  - name: processed-2023
-    root: /Volumes/YourPhotos/Processed/2023
+  # NAS year folder example provided by Andrew.
+  - name: nas-processed-2024
+    root: /Volumes/Media/photos/2024 Photos/Processed
     source_type: processed_folder
     enabled: true
     reliability_score: 1.0
+
+  # Local Mac year folder example provided by Andrew.
+  - name: local-processed-2025
+    root: /Users/andrewlee/Pictures/2025 Photos/Processed
+    source_type: processed_folder
+    enabled: true
+    reliability_score: 1.0
+
+review_artifacts:
+  root: data/review_artifacts
+  thumbnail_max_px: 1600
+  contact_sheet_columns: 3
+  # Start local-first; later milestones can switch to r2 or both.
+  mode: local
+
+r2_staging:
+  # Disabled until upload/cleanup commands are implemented and explicitly executed.
+  enabled: false
+  bucket: post-relay-publish
+  endpoint_url: https://d79fef40225063d4b0e2d2cb33b346d0.r2.cloudflarestorage.com
+  public_base_url: https://peddocks.net
+  prefix: post-relay/staging
+  default_ttl_hours: 72
+  cleanup_after_publish: true
+  account_id_env: POST_RELAY_R2_ACCOUNT_ID
+  access_key_id_env: POST_RELAY_R2_ACCESS_KEY_ID
+  secret_access_key_env: POST_RELAY_R2_SECRET_ACCESS_KEY
 
 supported_image_extensions:
   - .jpg

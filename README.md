@@ -66,6 +66,13 @@ Candidate groups currently use the indexed photo file's parent folder as the fir
 
 Discord/image-preview development should use check-in tests before live messaging: start with a local directory of fixture photos, verify the dry-run payload includes the expected image paths/order, then smoke-test Discord delivery only after the local payload behavior is stable.
 
-## Local secrets
+## Local secrets and machine config
 Use a private `.env` file based on `.env.example`.
 Do not paste tokens or secrets into chat.
+
+Use a local machine config at `config/photo_sources.yaml`; it is gitignored because it contains machine-specific local/NAS paths. The current local config includes:
+- NAS 2024 processed folder: `/Volumes/Media/photos/2024 Photos/Processed`
+- Local Mac 2025 processed folder: `/Users/andrewlee/Pictures/2025 Photos/Processed`
+- R2 staging bucket: `post-relay-publish`
+- R2 S3 endpoint: `https://d79fef40225063d4b0e2d2cb33b346d0.r2.cloudflarestorage.com`
+- R2 public custom domain: `https://peddocks.net`

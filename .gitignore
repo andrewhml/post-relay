@@ -30,3 +30,5 @@ Thumbs.db
 data/instagram/logs/
 data/instagram/cache/
 data/*.sqlite
+data/review_artifacts/
+config/photo_sources.yaml
