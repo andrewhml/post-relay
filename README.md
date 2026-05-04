@@ -27,12 +27,12 @@ Early local-first MVP scaffold with:
 - `graph.instagram.com` returned `Invalid platform app` in current setup
 
 ## Immediate goals
-1. Build local draft/queue data model
-2. Build Discord review workflow
-3. Validate publish container creation safely
+1. Configure the content pipeline across processed local folders, NAS folders, and temporary Cloudflare R2 staging
+2. Generate local thumbnails/contact sheets for Discord review without modifying source media
+3. Stage publish-ready media to R2 only when needed, then clean up staged cloud copies after successful publish or explicit cleanup
 
 ## Agent handoff
-Future agents should start with `AGENTS.md`, then `docs/plans/current-agent-roadmap.md`.
+Future agents should start with `AGENTS.md`, then `docs/plans/current-agent-roadmap.md`. The durable plan for local/NAS sources, review artifacts, and Cloudflare R2 staging is `docs/plans/content-pipeline-r2-staging-plan.md`.
 
 ## Local CLI
 Use the project virtualenv when running locally:

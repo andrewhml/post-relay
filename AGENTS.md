@@ -90,4 +90,4 @@ Post Relay is a local-first Instagram travel content workflow for Andrew's `andr
 
 ## Current next milestone
 
-See `docs/plans/current-agent-roadmap.md`. The next planned code milestone is currently `feat/controlled-image-publish-validation` unless that roadmap has been updated.
+See `docs/plans/current-agent-roadmap.md`. The next planned code milestone is currently `feat/content-pipeline-config`, which starts the local/NAS source + review artifact + Cloudflare R2 staging content pipeline. R2 is temporary staging only; never delete or mutate local/NAS source media.

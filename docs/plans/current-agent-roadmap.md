@@ -286,16 +286,74 @@ Agents must preserve these unless Andrew explicitly changes the product directio
 
 ## Next planned milestones
 
-### Milestone 1: `feat/live-carousel-publish-smoke-notes`
+### Milestone 1: `feat/content-pipeline-config`
 
-**Goal:** Run one explicitly approved live carousel smoke test through the newly implemented guarded carousel path, then document observed Meta behavior.
+**Goal:** Configure the durable content pipeline shape: local processed folders, NAS processed folders, local review-artifact settings, and disabled-by-default Cloudflare R2 staging settings.
+
+**Reference plan:** `docs/plans/content-pipeline-r2-staging-plan.md`
+
+**Preconditions:**
+- Local and NAS folders remain the source of truth.
+- Post Relay must never delete, move, or mutate original local/NAS media.
+- R2 is temporary staging/review delivery only, not canonical storage.
+- R2 secrets must be loaded only from private `.env` or environment variables.
+
+**Expected behavior:**
+- Config examples document local and NAS processed-folder sources.
+- Config models include review artifact and R2 staging sections.
+- R2 staging is disabled by default and requires no credentials unless a staging command needs them.
+- Tests cover config parsing and no-secret rendering.
+
+### Milestone 2: `feat/review-artifact-generation`
+
+**Goal:** Generate local thumbnails/contact sheets for draft review without modifying source files.
+
+**Expected behavior:**
+- Review artifacts are written under a configured local artifact root.
+- Ordered draft media paths produce ordered thumbnails/contact sheets.
+- Originals are opened read-only and never deleted or modified.
+- Discord dry-run payloads can reference generated local artifacts.
+
+### Milestone 3: `feat/r2-staging-dry-run`
+
+**Goal:** Produce a safe no-network R2 staging plan for draft media and review artifacts.
+
+**Expected behavior:**
+- Object keys avoid exposing local absolute paths.
+- Dry-run output shows sanitized planned object URLs.
+- Missing local/NAS files are reported before any upload is possible.
+- Carousel order is preserved.
+
+### Milestone 4: `feat/r2-staging-upload-and-cleanup`
+
+**Goal:** Upload Post Relay-created staging objects to R2 and clean up only those staged objects after publish/cancellation/explicit cleanup.
+
+**Expected behavior:**
+- Upload and deletion require explicit `--execute`.
+- Cleanup refuses objects outside the configured Post Relay prefix or not recorded in SQLite.
+- Cleanup never deletes local/NAS source files.
+- Failed publishes leave staged objects available for debugging until explicit cleanup.
+
+### Milestone 5: `feat/publish-from-staged-r2`
+
+**Goal:** Let Meta publish validation use staged R2 HTTPS URLs for single-image and carousel drafts.
+
+**Expected behavior:**
+- Existing double-approval and `--execute` publish guards remain unchanged.
+- Publish URL resolution preserves image order.
+- Successful publish can mark staged objects safe for cleanup.
+- Failed publish keeps staged objects unless explicitly cleaned up.
+
+### Milestone 6: `feat/live-carousel-publish-smoke-notes`
+
+**Goal:** Run one explicitly approved live carousel smoke test through the guarded carousel path, ideally using R2-staged public HTTPS image URLs, then document observed Meta behavior.
 
 **Preconditions:**
 - Keep the single-image live smoke result documented as the baseline.
 - Preserve double approval before any live publish.
 - Use POST for Meta media container creation and publish endpoints.
 - Prepare a safe public carousel image set that Andrew is comfortable publishing.
-- Run `meta validate-carousel-publish --dry-run` first and review the sanitized plan.
+- Run dry-run staging and `meta validate-carousel-publish --dry-run` first and review the sanitized plans.
 - Do not run `--execute` without Andrew's explicit approval in the active session.
 
 **Expected behavior:**
