@@ -46,6 +46,8 @@ from post_relay.repository import (
     list_context_questions,
     list_drafts,
 )
+from post_relay.review_artifacts import DraftNotFound as ArtifactDraftNotFound
+from post_relay.review_artifacts import UnsafeArtifactRoot, render_review_artifacts_for_draft
 from post_relay.review_package import DraftNotFound, build_draft_review_package
 from post_relay.scheduling import (
     DraftNotFound as SchedulingDraftNotFound,
@@ -64,6 +66,7 @@ meta_app = typer.Typer(help="Meta Graph validation commands.")
 candidates_app = typer.Typer(help="Candidate post group commands.")
 drafts_app = typer.Typer(help="Draft record commands.")
 draft_questions_app = typer.Typer(help="Draft context question commands.")
+draft_artifacts_app = typer.Typer(help="Draft review artifact commands.")
 app.add_typer(db_app, name="db")
 app.add_typer(index_app, name="index")
 app.add_typer(library_app, name="library")
@@ -71,6 +74,7 @@ app.add_typer(meta_app, name="meta")
 app.add_typer(candidates_app, name="candidates")
 app.add_typer(drafts_app, name="drafts")
 drafts_app.add_typer(draft_questions_app, name="questions")
+drafts_app.add_typer(draft_artifacts_app, name="artifacts")
 
 DEFAULT_DB_PATH = Path("data/post_relay.sqlite")
 
@@ -454,6 +458,30 @@ def drafts_approve_publish(
     except (SchedulingDraftNotFound, DraftNotReadyForPublishApproval) as error:
         raise typer.BadParameter(str(error), param_hint="--draft-id") from error
     typer.echo(f"Approved draft #{approval.draft_id} for publishing with approval #{approval.id}.")
+
+
+@draft_artifacts_app.command("render")
+def draft_artifacts_render(
+    draft_id: int = typer.Option(..., "--draft-id", help="Draft id."),
+    config_path: Path = typer.Option(Path("config/photo_sources.yaml"), "--config", help="Photo source and artifact config path."),
+    db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
+) -> None:
+    """Render local thumbnails and a contact sheet for draft review."""
+    config = load_config(config_path)
+    connection = connect_db(db)
+    initialize_db(connection)
+    try:
+        package = render_review_artifacts_for_draft(
+            connection,
+            draft_id,
+            config.review_artifacts,
+            protected_source_roots=[source.root for source in config.photo_sources],
+        )
+    except ArtifactDraftNotFound as error:
+        raise typer.BadParameter(str(error), param_hint="--draft-id") from error
+    except UnsafeArtifactRoot as error:
+        raise typer.BadParameter(str(error), param_hint="--config") from error
+    typer.echo(package.to_text())
 
 
 @draft_questions_app.command("generate")

@@ -105,7 +105,7 @@ POST_RELAY_R2_PUBLIC_BASE_URL=https://<public-hostname-or-r2-dev-domain>
 5. Run focused tests, then `.venv/bin/python -m pytest -q`.
 6. Update README and roadmap with the new config shape.
 
-## Milestone 2: `feat/review-artifact-generation`
+## Milestone 2: `feat/review-artifact-generation` (completed in PR #22)
 
 **Goal:** Generate local thumbnails and contact sheets for draft review without mutating original media.
 
@@ -115,6 +115,8 @@ POST_RELAY_R2_PUBLIC_BASE_URL=https://<public-hostname-or-r2-dev-domain>
 - Thumbnails preserve ordering from the draft candidate items.
 - Contact sheets include draft id, source title, and ordered media positions where feasible.
 - Original local/NAS image files are opened read-only and never modified.
+- Rendering rejects artifact roots that overlap configured source roots, so misconfiguration cannot create generated files inside a source media tree.
+- Implemented files: `src/post_relay/review_artifacts.py`, `drafts artifacts render`, `tests/test_review_artifacts.py`, and a CLI artifact-render test.
 - Tests use fixture images and assert output file existence, dimensions, and ordering.
 
 **Implementation steps:**
