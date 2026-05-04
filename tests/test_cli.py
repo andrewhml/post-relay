@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from PIL import Image
 from typer.testing import CliRunner
 
 from post_relay.cli import app
@@ -140,6 +141,56 @@ photo_sources:
     assert "Caption: <empty>" in preview_result.output
     assert "Unresolved context notes:" in preview_result.output
     assert "Allowed next actions:" in preview_result.output
+
+
+def test_cli_draft_artifacts_render_creates_local_review_artifacts(tmp_path: Path):
+    root = tmp_path / "processed"
+    folder = root / "2025" / "tokyo"
+    folder.mkdir(parents=True)
+    Image.new("RGB", (400, 300), color="red").save(folder / "shibuya.jpg", format="JPEG")
+    Image.new("RGB", (300, 500), color="blue").save(folder / "rooftop.jpg", format="JPEG")
+    artifact_root = tmp_path / "review_artifacts"
+    config_path = tmp_path / "photo_sources.yaml"
+    config_path.write_text(
+        f"""
+photo_sources:
+  - name: processed
+    root: {root.as_posix()}
+    source_type: processed_folder
+review_artifacts:
+  root: {artifact_root.as_posix()}
+  thumbnail_max_px: 120
+  contact_sheet_columns: 2
+  mode: local
+""".strip()
+    )
+    db_path = tmp_path / "post_relay.sqlite"
+
+    runner.invoke(app, ["index", "scan", "--config", str(config_path), "--db", str(db_path)])
+    runner.invoke(app, ["candidates", "build", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "create", "--candidate-id", "1", "--db", str(db_path)])
+    result = runner.invoke(
+        app,
+        [
+            "drafts",
+            "artifacts",
+            "render",
+            "--draft-id",
+            "1",
+            "--config",
+            str(config_path),
+            "--db",
+            str(db_path),
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Review Artifacts" in result.output
+    assert "Draft ID: 1" in result.output
+    assert "Thumbnails:" in result.output
+    assert "Contact sheet:" in result.output
+    assert (artifact_root / "draft-1" / "contact-sheet.jpg").is_file()
+    assert len(list((artifact_root / "draft-1" / "thumbnails").glob("*.jpg"))) == 2
 
 
 def test_cli_draft_approval_and_edit_invalidation_flow(tmp_path: Path):

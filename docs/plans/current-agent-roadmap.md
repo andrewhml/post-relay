@@ -227,10 +227,10 @@ Run this before opening or merging any PR:
 .venv/bin/python -m pytest -q
 ```
 
-Expected current result after carousel-publish-support milestone:
+Expected current result after review-artifact-generation milestone:
 
 ```text
-60 passed
+67 passed
 ```
 
 ## Milestone execution rules
@@ -286,7 +286,7 @@ Agents must preserve these unless Andrew explicitly changes the product directio
 
 ## Next planned milestones
 
-### Milestone 1: `feat/content-pipeline-config`
+### Milestone 1: `feat/content-pipeline-config` (completed in PR #21)
 
 **Goal:** Configure the durable content pipeline shape: local processed folders, NAS processed folders, local review-artifact settings, and disabled-by-default Cloudflare R2 staging settings.
 
@@ -304,15 +304,17 @@ Agents must preserve these unless Andrew explicitly changes the product directio
 - R2 staging is disabled by default and requires no credentials unless a staging command needs them; current bucket/public route is `post-relay-publish` via `https://peddocks.net`.
 - Tests cover config parsing and no-secret rendering.
 
-### Milestone 2: `feat/review-artifact-generation`
+### Milestone 2: `feat/review-artifact-generation` (completed in PR #22)
 
 **Goal:** Generate local thumbnails/contact sheets for draft review without modifying source files.
 
 **Expected behavior:**
 - Review artifacts are written under a configured local artifact root.
-- Ordered draft media paths produce ordered thumbnails/contact sheets.
+- Ordered draft media paths produce ordered thumbnails and contact sheets.
+- Contact sheets include the draft id and candidate title header.
 - Originals are opened read-only and never deleted or modified.
-- Discord dry-run payloads can reference generated local artifacts.
+- CLI rendering rejects artifact roots that overlap configured photo source roots.
+- `drafts artifacts render --draft-id N --config ... --db ...` prints the local artifact paths for review handoff.
 
 ### Milestone 3: `feat/r2-staging-dry-run`
 
