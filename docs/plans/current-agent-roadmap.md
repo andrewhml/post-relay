@@ -299,9 +299,9 @@ Agents must preserve these unless Andrew explicitly changes the product directio
 - R2 secrets must be loaded only from private `.env` or environment variables.
 
 **Expected behavior:**
-- Config examples document local and NAS processed-folder sources.
+- Config examples document local and NAS processed-folder sources, currently `/Volumes/Media/photos/2024 Photos/Processed` and `/Users/andrewlee/Pictures/2025 Photos/Processed`.
 - Config models include review artifact and R2 staging sections.
-- R2 staging is disabled by default and requires no credentials unless a staging command needs them.
+- R2 staging is disabled by default and requires no credentials unless a staging command needs them; current bucket/public route is `post-relay-publish` via `https://peddocks.net`.
 - Tests cover config parsing and no-secret rendering.
 
 ### Milestone 2: `feat/review-artifact-generation`

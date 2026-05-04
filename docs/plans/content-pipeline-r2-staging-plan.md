@@ -231,9 +231,9 @@ Every milestone touching staging or publishing must prove:
 
 ## Open setup questions for Andrew
 
-1. Final local processed-folder root path(s).
-2. Final NAS mount path(s) as seen from this machine/agent process.
-3. R2 bucket name and whether it will use an `r2.dev` public URL or a custom domain.
+1. Final local processed-folder root path(s): `/Users/andrewlee/Pictures/2025 Photos/Processed` is configured as `local-processed-2025`; add other year folders as needed.
+2. Final NAS mount path(s): `/Volumes/Media/photos/2024 Photos/Processed` is configured as `nas-processed-2024`; add other year folders as needed.
+3. R2 bucket/public route: bucket `post-relay-publish`, S3 API endpoint `https://d79fef40225063d4b0e2d2cb33b346d0.r2.cloudflarestorage.com`, custom public domain `https://peddocks.net`.
 4. Preferred R2 object TTL / cleanup window.
 5. Whether review artifacts should be local-only first, R2-only, or both.
 6. Whether contact sheets should include captions/metadata overlays or only image grids in the first version.
