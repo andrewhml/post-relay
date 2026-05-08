@@ -230,10 +230,10 @@ Run this before opening or merging any PR:
 .venv/bin/python -m pytest -q
 ```
 
-Expected current result after Instagram capability matrix milestone:
+Expected current result after DM intake harness milestone:
 
 ```text
-112 passed
+116 passed
 ```
 
 ## Milestone execution rules
@@ -458,29 +458,33 @@ Agents must preserve these unless Andrew explicitly changes the product directio
 - Unsupported metadata remains local/review-only until a future official capability validation milestone changes the matrix.
 - Publish attempts remain sanitized and only include the already-validated media/caption fields.
 
-### Milestone 11: `feat/postrelay-agent-operating-baseline`
+### Milestone 11: `feat/postrelay-agent-operating-baseline` (completed in PR #36)
 
 **Goal:** Define the specialized content curator/social media manager baseline before building live DM behavior.
 
 **Reference plan:** `docs/plans/postrelay-agent-operating-baseline.md`
 
-**Expected behavior:**
-- Document the Post Relay agent role as a specialized content curator and social media manager for Andrew's `andrewhml` travel photography account.
-- Capture the baseline prompt and focused skill areas: media curation, guided post packages, factuality/sensitivity, Instagram capability checks, scheduling/growth cadence, approval safety, and private-DM conversation management.
-- Make the rollout order explicit: user-initiated DM post creation first; agent-initiated suggestions only after that loop is working effectively and proven.
-- Do not call Discord, R2, or Meta services in this milestone.
+**Delivered behavior:**
+- Documented the Post Relay agent role as a specialized content curator and social media manager for Andrew's `andrewhml` travel photography account.
+- Captured the baseline prompt and focused skill areas: media curation, guided post packages, factuality/sensitivity, Instagram capability checks, scheduling/growth cadence, approval safety, and private-DM conversation management.
+- Made the rollout order explicit: user-initiated DM post creation first; agent-initiated suggestions only after that loop is working effectively and proven.
+- Did not call Discord, R2, or Meta services in this milestone.
 
 ### Milestone 12: `feat/discord-dm-user-intake-harness`
 
 **Goal:** Add a no-network harness that turns Andrew's private-DM-style text into a user-initiated post conversation or draft-context update.
 
-**Expected behavior:**
-- Simulate Andrew initiating a post conversation at any time with natural-language context.
-- Create/link local conversation or draft state for user-initiated DM starts.
-- Route the conversation to candidate selection, active draft context, guided package, scheduling, or approval as appropriate.
-- Return concise DM-style prompts with concrete next options.
-- Keep local/private paths and secrets out of DM-facing copy unless the output is explicitly local-only CLI text.
-- Do not create agent-initiated opportunities, send Discord messages, or call Meta publishing endpoints in this milestone.
+**Delivered behavior:**
+- Added a `conversation_threads` SQLite table for local DM conversation state and a `conversation_context_notes` table for sanitized durable context notes.
+- Added `src/post_relay/dm_intake.py` for user-initiated private-DM-style intake without Discord network calls.
+- Added `post-relay dm intake --message ...` as a CLI harness that can start/reuse a user-initiated DM thread, suggest matching candidate groups, or attach sanitized context to an active draft.
+- DM-facing copy gives concise next options and avoids local absolute paths, secrets, and raw token-like values.
+- Agent-initiated opportunities, live Discord sends, and Meta publishing calls remain out of scope.
+
+**Safety notes:**
+- The harness is local-only/no-network.
+- It stores sanitized summaries rather than raw Discord transcript logs.
+- It routes draft-linked context to media selection as the next safe step; later milestones can route to guided package, scheduling, or approvals once live DM selection/review is implemented.
 
 ### Milestone 13: `feat/discord-dm-selection-bot`
 

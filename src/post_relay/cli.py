@@ -20,6 +20,7 @@ from post_relay.context_questions import (
 )
 from post_relay.db import connect_db, initialize_db
 from post_relay.drafts import CandidateNotFound, create_draft_from_candidate
+from post_relay.dm_intake import DmIntakeError, handle_dm_intake
 from post_relay.discord_preview import (
     DraftNotFound as DiscordPreviewDraftNotFound,
     build_discord_preview_payload,
@@ -98,6 +99,7 @@ library_app = typer.Typer(help="Library inspection commands.")
 meta_app = typer.Typer(help="Meta Graph validation commands.")
 candidates_app = typer.Typer(help="Candidate post group commands.")
 drafts_app = typer.Typer(help="Draft record commands.")
+dm_app = typer.Typer(help="Private DM simulation commands.")
 draft_questions_app = typer.Typer(help="Draft context question commands.")
 draft_artifacts_app = typer.Typer(help="Draft review artifact commands.")
 app.add_typer(db_app, name="db")
@@ -106,6 +108,7 @@ app.add_typer(library_app, name="library")
 app.add_typer(meta_app, name="meta")
 app.add_typer(candidates_app, name="candidates")
 app.add_typer(drafts_app, name="drafts")
+app.add_typer(dm_app, name="dm")
 drafts_app.add_typer(draft_questions_app, name="questions")
 drafts_app.add_typer(draft_artifacts_app, name="artifacts")
 
@@ -326,6 +329,28 @@ def candidates_list(
         typer.echo(
             f"#{group.id} {group.title} — {group.post_type_recommendation}, {group.photo_count} photo{photo_plural}, confidence {group.confidence:.2f}"
         )
+
+
+@dm_app.command("intake")
+def dm_intake(
+    message: str = typer.Option(..., "--message", help="DM-style text from Andrew."),
+    discord_channel_id: Optional[str] = typer.Option(None, "--discord-channel-id", help="Sanitized Discord DM/channel id for local thread reuse."),
+    draft_id: Optional[int] = typer.Option(None, "--draft-id", help="Optional active draft id to attach context to."),
+    db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
+) -> None:
+    """Simulate user-initiated private DM intake without calling Discord."""
+    connection = connect_db(db)
+    initialize_db(connection)
+    try:
+        result = handle_dm_intake(
+            connection,
+            message,
+            discord_channel_id=discord_channel_id,
+            draft_id=draft_id,
+        )
+    except DmIntakeError as error:
+        raise typer.BadParameter(str(error), param_hint="--message/--draft-id") from error
+    typer.echo(result.to_text())
 
 
 @drafts_app.command("create")

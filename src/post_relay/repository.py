@@ -131,6 +131,23 @@ class R2StagedObjectRecord:
     cleanup_reason: Optional[str]
 
 
+@dataclass(frozen=True)
+class ConversationThreadRecord:
+    id: int
+    draft_id: Optional[int]
+    discord_channel_id: Optional[str]
+    status: str
+    last_prompt_summary: str
+
+
+@dataclass(frozen=True)
+class ConversationContextNoteRecord:
+    id: int
+    thread_id: int
+    draft_id: Optional[int]
+    summary: str
+
+
 def upsert_photo_source(connection, source: PhotoSource) -> int:
     connection.execute(
         """
@@ -743,6 +760,129 @@ def list_context_questions(connection, draft_id: int) -> list[ContextQuestionRec
     return [_context_question_from_row(row) for row in rows]
 
 
+def create_conversation_thread(
+    connection,
+    *,
+    draft_id: Optional[int] = None,
+    discord_channel_id: Optional[str] = None,
+    status: str = "active",
+    last_prompt_summary: str,
+) -> ConversationThreadRecord:
+    cursor = connection.execute(
+        """
+        insert into conversation_threads (draft_id, discord_channel_id, status, last_prompt_summary)
+        values (?, ?, ?, ?)
+        """,
+        (draft_id, discord_channel_id, status, last_prompt_summary),
+    )
+    return get_conversation_thread(connection, int(cursor.lastrowid))
+
+
+def get_conversation_thread(connection, thread_id: int) -> Optional[ConversationThreadRecord]:
+    row = connection.execute(
+        """
+        select id, draft_id, discord_channel_id, status, last_prompt_summary
+        from conversation_threads
+        where id = ?
+        """,
+        (thread_id,),
+    ).fetchone()
+    if row is None:
+        return None
+    return _conversation_thread_from_row(row)
+
+
+def get_active_conversation_thread_for_channel(
+    connection, discord_channel_id: str
+) -> Optional[ConversationThreadRecord]:
+    row = connection.execute(
+        """
+        select id, draft_id, discord_channel_id, status, last_prompt_summary
+        from conversation_threads
+        where discord_channel_id = ? and status in ('active', 'waiting_for_user')
+        order by id desc
+        limit 1
+        """,
+        (discord_channel_id,),
+    ).fetchone()
+    if row is None:
+        return None
+    return _conversation_thread_from_row(row)
+
+
+def update_conversation_thread(
+    connection,
+    thread_id: int,
+    *,
+    draft_id: Optional[int] = None,
+    status: Optional[str] = None,
+    last_prompt_summary: Optional[str] = None,
+) -> Optional[ConversationThreadRecord]:
+    connection.execute(
+        """
+        update conversation_threads
+        set draft_id = coalesce(?, draft_id),
+            status = coalesce(?, status),
+            last_prompt_summary = coalesce(?, last_prompt_summary),
+            updated_at = current_timestamp
+        where id = ?
+        """,
+        (draft_id, status, last_prompt_summary, thread_id),
+    )
+    return get_conversation_thread(connection, thread_id)
+
+
+def list_conversation_threads(connection) -> list[ConversationThreadRecord]:
+    rows = connection.execute(
+        """
+        select id, draft_id, discord_channel_id, status, last_prompt_summary
+        from conversation_threads
+        order by id
+        """
+    ).fetchall()
+    return [_conversation_thread_from_row(row) for row in rows]
+
+
+def create_conversation_context_note(
+    connection,
+    *,
+    thread_id: int,
+    draft_id: Optional[int],
+    summary: str,
+) -> ConversationContextNoteRecord:
+    cursor = connection.execute(
+        """
+        insert into conversation_context_notes (thread_id, draft_id, summary)
+        values (?, ?, ?)
+        """,
+        (thread_id, draft_id, summary),
+    )
+    row = connection.execute(
+        """
+        select id, thread_id, draft_id, summary
+        from conversation_context_notes
+        where id = ?
+        """,
+        (int(cursor.lastrowid),),
+    ).fetchone()
+    return _conversation_context_note_from_row(row)
+
+
+def list_conversation_context_notes(
+    connection, thread_id: int
+) -> list[ConversationContextNoteRecord]:
+    rows = connection.execute(
+        """
+        select id, thread_id, draft_id, summary
+        from conversation_context_notes
+        where thread_id = ?
+        order by id
+        """,
+        (thread_id,),
+    ).fetchall()
+    return [_conversation_context_note_from_row(row) for row in rows]
+
+
 def create_publish_attempt(
     connection,
     *,
@@ -1014,6 +1154,25 @@ def _r2_staged_object_from_row(row) -> R2StagedObjectRecord:
         staged_at=row[8],
         deleted_at=row[9],
         cleanup_reason=row[10],
+    )
+
+
+def _conversation_thread_from_row(row) -> ConversationThreadRecord:
+    return ConversationThreadRecord(
+        id=int(row[0]),
+        draft_id=int(row[1]) if row[1] is not None else None,
+        discord_channel_id=row[2],
+        status=row[3],
+        last_prompt_summary=row[4],
+    )
+
+
+def _conversation_context_note_from_row(row) -> ConversationContextNoteRecord:
+    return ConversationContextNoteRecord(
+        id=int(row[0]),
+        thread_id=int(row[1]),
+        draft_id=int(row[2]) if row[2] is not None else None,
+        summary=row[3],
     )
 
 

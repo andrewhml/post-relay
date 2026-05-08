@@ -166,6 +166,29 @@ SCHEMA_STATEMENTS = [
         foreign key(draft_id) references drafts(id)
     )
     """,
+    """
+    create table if not exists conversation_threads (
+        id integer primary key,
+        draft_id integer,
+        discord_channel_id text,
+        status text not null default 'active',
+        last_prompt_summary text not null,
+        created_at text not null default current_timestamp,
+        updated_at text not null default current_timestamp,
+        foreign key(draft_id) references drafts(id)
+    )
+    """,
+    """
+    create table if not exists conversation_context_notes (
+        id integer primary key,
+        thread_id integer not null,
+        draft_id integer,
+        summary text not null,
+        created_at text not null default current_timestamp,
+        foreign key(thread_id) references conversation_threads(id),
+        foreign key(draft_id) references drafts(id)
+    )
+    """,
 ]
 
 
