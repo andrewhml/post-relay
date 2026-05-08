@@ -406,7 +406,7 @@ Agents must preserve these unless Andrew explicitly changes the product directio
 - Carousel target counts require 2-10 photos; single-image target counts require exactly one photo.
 - The next milestone remains dry-run only: `feat/discord-selection-payload`.
 
-### Milestone 8: `feat/discord-selection-payload` (completed in PR TBD)
+### Milestone 8: `feat/discord-selection-payload` (completed in PR #32)
 
 **Goal:** Extend the dry-run Discord payload harness so Andrew can preview a "select X from Y" request locally before live bot delivery.
 
