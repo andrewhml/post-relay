@@ -193,6 +193,76 @@ review_artifacts:
     assert len(list((artifact_root / "draft-1" / "thumbnails").glob("*.jpg"))) == 2
 
 
+def test_cli_draft_r2_stage_plan_prints_sanitized_no_network_plan(tmp_path: Path):
+    root = tmp_path / "processed"
+    folder = root / "2025" / "tokyo"
+    folder.mkdir(parents=True)
+    Image.new("RGB", (400, 300), color="red").save(folder / "shibuya crossing.jpg", format="JPEG")
+    Image.new("RGB", (300, 500), color="blue").save(folder / "rooftop.jpg", format="JPEG")
+    artifact_root = tmp_path / "review_artifacts"
+    config_path = tmp_path / "photo_sources.yaml"
+    config_path.write_text(
+        f"""
+photo_sources:
+  - name: processed
+    root: {root.as_posix()}
+    source_type: processed_folder
+review_artifacts:
+  root: {artifact_root.as_posix()}
+  thumbnail_max_px: 120
+  contact_sheet_columns: 2
+  mode: local
+r2_staging:
+  enabled: false
+  bucket: post-relay-publish
+  public_base_url: https://peddocks.net
+  prefix: post-relay/staging
+""".strip()
+    )
+    db_path = tmp_path / "post_relay.sqlite"
+
+    runner.invoke(app, ["index", "scan", "--config", str(config_path), "--db", str(db_path)])
+    runner.invoke(app, ["candidates", "build", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "create", "--candidate-id", "1", "--db", str(db_path)])
+    runner.invoke(
+        app,
+        [
+            "drafts",
+            "artifacts",
+            "render",
+            "--draft-id",
+            "1",
+            "--config",
+            str(config_path),
+            "--db",
+            str(db_path),
+        ],
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "drafts",
+            "r2-stage-plan",
+            "--draft-id",
+            "1",
+            "--config",
+            str(config_path),
+            "--db",
+            str(db_path),
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "R2 Staging Plan (dry run)" in result.output
+    assert "Draft ID: 1" in result.output
+    assert "Ready to upload: yes" in result.output
+    assert "https://peddocks.net/post-relay/staging/drafts/1/media/" in result.output
+    assert "contact-sheet.jpg" in result.output
+    assert "No network calls were made." in result.output
+    assert tmp_path.as_posix() not in result.output.split("Object keys:")[-1]
+
+
 def test_cli_draft_approval_and_edit_invalidation_flow(tmp_path: Path):
     root = tmp_path / "processed"
     folder = root / "2023" / "kyoto"

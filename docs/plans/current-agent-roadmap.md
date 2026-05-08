@@ -227,10 +227,10 @@ Run this before opening or merging any PR:
 .venv/bin/python -m pytest -q
 ```
 
-Expected current result after review-artifact-generation milestone:
+Expected current result after R2 staging dry-run milestone:
 
 ```text
-67 passed
+72 passed
 ```
 
 ## Milestone execution rules
@@ -316,15 +316,21 @@ Agents must preserve these unless Andrew explicitly changes the product directio
 - CLI rendering rejects artifact roots that overlap configured photo source roots.
 - `drafts artifacts render --draft-id N --config ... --db ...` prints the local artifact paths for review handoff.
 
-### Milestone 3: `feat/r2-staging-dry-run`
+### Milestone 3: `feat/r2-staging-dry-run` (completed in PR #23)
 
 **Goal:** Produce a safe no-network R2 staging plan for draft media and review artifacts.
 
-**Expected behavior:**
-- Object keys avoid exposing local absolute paths.
-- Dry-run output shows sanitized planned object URLs.
-- Missing local/NAS files are reported before any upload is possible.
-- Carousel order is preserved.
+**Implemented:**
+- `src/post_relay/r2_staging.py` no-network planner for draft media and already-rendered local review artifacts
+- `drafts r2-stage-plan` CLI command
+- tests for sanitized object keys/public URLs, missing local/NAS file reporting, carousel order preservation, config validation, missing drafts, and CLI dry-run output
+
+**Important behavior:**
+- Object keys are derived from draft id, item role, item order, and sanitized filenames; local absolute paths are never embedded in object keys.
+- Dry-run output prints planned public HTTPS URLs under the configured R2 public base URL and prefix.
+- Missing source files are reported in the plan and make `ready_to_upload` false before any upload feature exists.
+- Carousel media order is preserved from candidate group item order.
+- The command makes no network calls and does not require R2 credentials.
 
 ### Milestone 4: `feat/r2-staging-upload-and-cleanup`
 
