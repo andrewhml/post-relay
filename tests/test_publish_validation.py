@@ -24,6 +24,7 @@ from post_relay.repository import (
     list_candidate_group_photo_paths,
     list_candidate_groups,
     list_publish_attempts,
+    update_draft_content,
 )
 from post_relay.scheduling import (
     approve_draft_for_publishing,
@@ -393,3 +394,89 @@ def test_execute_carousel_publish_validation_creates_child_and_carousel_containe
     assert attempts[0].container_id == "carousel-123"
     assert attempts[0].published_media_id == "media-789"
     assert attempts[0].status == "published"
+
+
+def test_single_image_publish_request_excludes_review_only_metadata(tmp_path: Path):
+    connection, draft = _build_single_image_ready_draft(tmp_path, caption="Temple morning.")
+    update_draft_content(
+        connection,
+        draft.id,
+        location_text="Kyoto, Japan",
+        alt_text="Review-only accessibility note",
+    )
+    requested = []
+
+    def fake_transport(method, url, params):
+        requested.append((method, url, dict(params)))
+        if url.endswith("/17841400498120050/media"):
+            return {"id": "creation-123"}
+        if url.endswith("/creation-123"):
+            return {"id": "creation-123", "status_code": "FINISHED"}
+        if url.endswith("/17841400498120050/media_publish"):
+            return {"id": "media-456"}
+        raise AssertionError(f"unexpected URL: {url}")
+
+    client = MetaGraphClient(
+        MetaGraphConfig(access_token="secret-token", instagram_account_id="17841400498120050"),
+        transport=fake_transport,
+    )
+
+    execute_single_image_publish_validation(
+        connection,
+        draft.id,
+        image_url="https://example.com/test-image.jpg",
+        client=client,
+    )
+
+    media_params = requested[0][2]
+    assert media_params["image_url"] == "https://example.com/test-image.jpg"
+    assert media_params["caption"] == "Temple morning."
+    assert "alt_text" not in media_params
+    assert "location_id" not in media_params
+    assert "collaborators" not in media_params
+
+
+def test_carousel_publish_request_excludes_review_only_metadata(tmp_path: Path):
+    connection, draft = _build_carousel_ready_draft(tmp_path, caption="Kyoto garden sequence.")
+    update_draft_content(
+        connection,
+        draft.id,
+        location_text="Kyoto, Japan",
+        alt_text="Review-only accessibility note",
+    )
+    requested = []
+
+    def fake_transport(method, url, params):
+        requested.append((method, url, dict(params)))
+        media_url = "https://graph.facebook.com/v19.0/17841400498120050/media"
+        if url == media_url and params.get("image_url") == "https://example.com/temple.jpg":
+            return {"id": "child-1"}
+        if url == media_url and params.get("image_url") == "https://example.com/garden.jpg":
+            return {"id": "child-2"}
+        if url == media_url and params.get("media_type") == "CAROUSEL":
+            return {"id": "carousel-123"}
+        if url.endswith("/carousel-123"):
+            return {"id": "carousel-123", "status_code": "FINISHED"}
+        if url.endswith("/17841400498120050/media_publish"):
+            return {"id": "media-789"}
+        raise AssertionError(f"unexpected request: {method} {url} {params}")
+
+    client = MetaGraphClient(
+        MetaGraphConfig(access_token="secret-token", instagram_account_id="17841400498120050"),
+        transport=fake_transport,
+    )
+
+    execute_carousel_publish_validation(
+        connection,
+        draft.id,
+        image_urls=["https://example.com/temple.jpg", "https://example.com/garden.jpg"],
+        client=client,
+    )
+
+    media_requests = [params for _method, url, params in requested if url.endswith("/17841400498120050/media")]
+    assert len(media_requests) == 3
+    for params in media_requests:
+        assert "alt_text" not in params
+        assert "location_id" not in params
+        assert "collaborators" not in params
+    assert media_requests[2]["caption"] == "Kyoto garden sequence."

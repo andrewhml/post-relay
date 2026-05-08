@@ -20,6 +20,7 @@ Early local-first MVP scaffold with:
 - controlled single-image and carousel Meta publish validation CLIs with dry-run planning, approval guards, optional staged-R2 URL resolution, container creation/status polling/publish execution, and sanitized attempt logging
 - no-network R2 staging plan CLI for draft media and generated review artifacts
 - guarded R2 staging upload/cleanup CLI with recorded-object-only deletion and explicit `--execute` safeguards
+- explicit Instagram capability matrix separating publishable fields from local/review-only metadata
 - guarded draft workflow state model
 
 ## Proven setup facts

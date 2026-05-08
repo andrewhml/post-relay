@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import List, Optional, Sequence
 
 from post_relay.discord_selection import build_discord_selection_request
+from post_relay.instagram_capabilities import capability_matrix_text
 from post_relay.review_package import (
     DraftNotFound,
     DraftReviewPackage,
@@ -116,6 +117,8 @@ class DiscordSelectionPayload:
                 "  - use the contact sheet or thumbnail artifact paths rendered locally",
                 "  - use local source paths for manual review",
                 "  - stage review media separately only after the dry-run payload remains green",
+                "Instagram capability notes:",
+                capability_matrix_text(),
                 "Message text:",
                 self.message_text,
             ]

@@ -69,6 +69,10 @@ def test_build_discord_selection_payload_renders_numbered_request_and_interactio
     assert "Lead/cover must be one of the selected numbers" in rendered
     assert "Command fallback:" in rendered
     assert "discord-selection-apply --draft-id" in rendered
+    assert "Instagram Capability Matrix" in rendered
+    assert "caption: publishable" in rendered
+    assert "alt_text: review_only" in rendered
+    assert "location_tag: needs_validation" in rendered
     assert "1. 01-hero.jpg" in rendered
     assert contact_sheet.as_posix() in rendered
 
