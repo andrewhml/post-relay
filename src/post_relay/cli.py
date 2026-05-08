@@ -29,6 +29,12 @@ from post_relay.meta_graph import (
     MetaGraphRequestError,
     load_meta_graph_config,
 )
+from post_relay.media_selection import (
+    DraftNotFound as MediaSelectionDraftNotFound,
+    InvalidMediaSelection,
+    apply_draft_media_selection,
+    build_draft_media_plan,
+)
 from post_relay.publishing import (
     DraftNotFound as PublishDraftNotFound,
     DraftNotReadyForImagePublish,
@@ -323,6 +329,49 @@ def drafts_preview(
     typer.echo(package.to_text())
 
 
+@drafts_app.command("media-plan")
+def drafts_media_plan(
+    draft_id: int = typer.Option(..., "--draft-id", help="Draft id."),
+    db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
+) -> None:
+    """Print numbered draft media for contact-sheet review instructions."""
+    connection = connect_db(db)
+    initialize_db(connection)
+    try:
+        plan = build_draft_media_plan(connection, draft_id)
+    except MediaSelectionDraftNotFound as error:
+        raise typer.BadParameter(str(error), param_hint="--draft-id") from error
+    typer.echo(plan.to_text())
+
+
+@drafts_app.command("media-edit")
+def drafts_media_edit(
+    draft_id: int = typer.Option(..., "--draft-id", help="Draft id."),
+    lead: int = typer.Option(..., "--lead", help="Review media number to make lead/cover."),
+    keep: Optional[str] = typer.Option(None, "--keep", help="Comma-separated review media numbers to keep."),
+    remove: Optional[str] = typer.Option(None, "--remove", help="Comma-separated review media numbers to exclude."),
+    post_type: Optional[str] = typer.Option(None, "--post-type", help="Optional post type: single_image, carousel, or reel."),
+    db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
+) -> None:
+    """Apply explicit keep/remove/lead media choices to a draft."""
+    connection = connect_db(db)
+    initialize_db(connection)
+    try:
+        result = apply_draft_media_selection(
+            connection,
+            draft_id,
+            lead=lead,
+            keep=_split_ints(keep),
+            remove=_split_ints(remove),
+            post_type=post_type,
+        )
+    except MediaSelectionDraftNotFound as error:
+        raise typer.BadParameter(str(error), param_hint="--draft-id") from error
+    except InvalidMediaSelection as error:
+        raise typer.BadParameter(str(error), param_hint="--lead/--keep/--remove") from error
+    typer.echo(result.to_text())
+
+
 @drafts_app.command("discord-preview")
 def drafts_discord_preview(
     draft_id: int = typer.Option(..., "--draft-id", help="Draft id."),
@@ -550,3 +599,21 @@ def _split_hashtags(hashtags: Optional[str]) -> Optional[list[str]]:
     if hashtags is None:
         return None
     return [tag.strip() for tag in hashtags.split(",") if tag.strip()]
+
+
+def _split_ints(value: Optional[str]) -> Optional[list[int]]:
+    if value is None:
+        return None
+    result: list[int] = []
+    for raw_item in value.split(","):
+        item = raw_item.strip()
+        if not item:
+            continue
+        try:
+            result.append(int(item))
+        except ValueError as error:
+            raise typer.BadParameter(
+                f"Expected comma-separated integers, got {value!r}",
+                param_hint="--keep/--remove",
+            ) from error
+    return result
