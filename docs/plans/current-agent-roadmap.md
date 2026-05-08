@@ -423,7 +423,7 @@ Agents must preserve these unless Andrew explicitly changes the product directio
 - Fallback notes document contact sheets, thumbnail/local artifact paths, source paths, and staged review media as later options if Discord attachments are unreliable.
 - The next no-network milestone is `feat/discord-guided-draft-package`; live Discord bot testing should wait until Andrew reviews this payload shape.
 
-### Milestone 9: `feat/discord-guided-draft-package` (completed in PR TBD)
+### Milestone 9: `feat/discord-guided-draft-package` (completed in PR #33)
 
 **Goal:** Add a local, testable guided drafting service that turns selected media plus Andrew's answers into a complete growth-oriented post package.
 
