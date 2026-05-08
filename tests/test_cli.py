@@ -263,6 +263,59 @@ r2_staging:
     assert tmp_path.as_posix() not in result.output.split("Object keys:")[-1]
 
 
+def test_cli_draft_r2_stage_upload_and_cleanup_are_dry_run_by_default(tmp_path: Path):
+    root = tmp_path / "processed"
+    folder = root / "2025" / "tokyo"
+    folder.mkdir(parents=True)
+    Image.new("RGB", (400, 300), color="red").save(folder / "shibuya.jpg", format="JPEG")
+    artifact_root = tmp_path / "review_artifacts"
+    config_path = tmp_path / "photo_sources.yaml"
+    config_path.write_text(
+        f"""
+photo_sources:
+  - name: processed
+    root: {root.as_posix()}
+    source_type: processed_folder
+review_artifacts:
+  root: {artifact_root.as_posix()}
+  thumbnail_max_px: 120
+  contact_sheet_columns: 2
+  mode: local
+r2_staging:
+  enabled: true
+  bucket: post-relay-publish
+  endpoint_url: https://example-account.r2.cloudflarestorage.com
+  public_base_url: https://peddocks.net
+  prefix: post-relay/staging
+""".strip()
+    )
+    db_path = tmp_path / "post_relay.sqlite"
+
+    runner.invoke(app, ["index", "scan", "--config", str(config_path), "--db", str(db_path)])
+    runner.invoke(app, ["candidates", "build", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "create", "--candidate-id", "1", "--db", str(db_path)])
+    runner.invoke(
+        app,
+        ["drafts", "artifacts", "render", "--draft-id", "1", "--config", str(config_path), "--db", str(db_path)],
+    )
+
+    upload_result = runner.invoke(
+        app,
+        ["drafts", "r2-stage-upload", "--draft-id", "1", "--config", str(config_path), "--db", str(db_path)],
+    )
+    cleanup_result = runner.invoke(
+        app,
+        ["drafts", "r2-cleanup", "--draft-id", "1", "--config", str(config_path), "--db", str(db_path)],
+    )
+
+    assert upload_result.exit_code == 0
+    assert "R2 Staging Upload (dry run)" in upload_result.output
+    assert "No network calls were made." in upload_result.output
+    assert cleanup_result.exit_code == 0
+    assert "R2 Staging Cleanup (dry run)" in cleanup_result.output
+    assert "No objects were deleted." in cleanup_result.output
+
+
 def test_cli_draft_media_plan_and_edit_updates_lead_keep_and_post_type(tmp_path: Path):
     root = tmp_path / "processed"
     folder = root / "2025" / "tokyo"

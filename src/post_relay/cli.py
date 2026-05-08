@@ -57,6 +57,12 @@ from post_relay.r2_staging import (
     R2StagingConfigError,
     plan_r2_staging_for_draft,
 )
+from post_relay.r2_staging_upload import (
+    R2CleanupSafetyError,
+    R2StagingUploadError,
+    cleanup_r2_staged_objects_for_draft,
+    upload_r2_staging_for_draft,
+)
 from post_relay.review_artifacts import DraftNotFound as ArtifactDraftNotFound
 from post_relay.review_artifacts import UnsafeArtifactRoot, render_review_artifacts_for_draft
 from post_relay.review_package import DraftNotFound, build_draft_review_package
@@ -409,6 +415,57 @@ def drafts_r2_stage_plan(
     except R2StagingConfigError as error:
         raise typer.BadParameter(str(error), param_hint="--config") from error
     typer.echo(plan.to_text())
+
+
+@drafts_app.command("r2-stage-upload")
+def drafts_r2_stage_upload(
+    draft_id: int = typer.Option(..., "--draft-id", help="Draft id."),
+    config_path: Path = typer.Option(Path("config/photo_sources.yaml"), "--config", help="Photo source and R2 staging config path."),
+    execute: bool = typer.Option(False, "--execute", help="Upload staged objects to R2 and record them."),
+    db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
+) -> None:
+    """Upload the R2 staging plan only when --execute is provided."""
+    config = load_config(config_path)
+    connection = connect_db(db)
+    initialize_db(connection)
+    try:
+        result = upload_r2_staging_for_draft(
+            connection,
+            draft_id,
+            config.r2_staging,
+            review_artifact_root=config.review_artifacts.root,
+            execute=execute,
+        )
+    except R2StagingDraftNotFound as error:
+        raise typer.BadParameter(str(error), param_hint="--draft-id") from error
+    except (R2StagingConfigError, R2StagingUploadError) as error:
+        raise typer.BadParameter(str(error), param_hint="--config/--execute") from error
+    typer.echo(result.to_text())
+
+
+@drafts_app.command("r2-cleanup")
+def drafts_r2_cleanup(
+    draft_id: int = typer.Option(..., "--draft-id", help="Draft id."),
+    config_path: Path = typer.Option(Path("config/photo_sources.yaml"), "--config", help="Photo source and R2 staging config path."),
+    execute: bool = typer.Option(False, "--execute", help="Delete recorded staged R2 objects and mark them cleaned up."),
+    reason: Optional[str] = typer.Option(None, "--reason", help="Cleanup reason stored with deleted records."),
+    db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
+) -> None:
+    """Clean up only recorded Post Relay staged R2 objects."""
+    config = load_config(config_path)
+    connection = connect_db(db)
+    initialize_db(connection)
+    try:
+        result = cleanup_r2_staged_objects_for_draft(
+            connection,
+            draft_id,
+            config.r2_staging,
+            execute=execute,
+            reason=reason,
+        )
+    except (R2CleanupSafetyError, R2StagingUploadError) as error:
+        raise typer.BadParameter(str(error), param_hint="--config/--execute") from error
+    typer.echo(result.to_text())
 
 
 @drafts_app.command("submit")

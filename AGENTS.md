@@ -33,6 +33,7 @@ Post Relay is a local-first Instagram travel content workflow for Andrew's `andr
 - Dry-run Discord preview payloads can be generated locally with ordered existing image paths and missing-file reporting.
 - Local draft review artifacts can be rendered with `drafts artifacts render`; generated thumbnails/contact sheets are written under the configured artifact root without modifying source media.
 - No-network R2 staging plans can be generated with `drafts r2-stage-plan`; plans use sanitized object keys/public URLs, preserve included draft media order, and report missing local files before upload exists.
+- R2 staging upload/cleanup can be dry-run locally; `drafts r2-stage-upload --execute` uploads and records planned objects, while `drafts r2-cleanup --execute` deletes only recorded uploaded objects under the configured Post Relay prefix.
 - Numbered draft media plans and edits can be applied locally with `drafts media-plan` and `drafts media-edit`; lead/cover, keep/remove, and post-type changes update candidate media ordering/roles/inclusion and invalidate active approvals.
 - Queue-approved drafts can be scheduled locally and moved through final publish approval without live API calls.
 - A sanitized read-only Meta Graph client/CLI can validate Page and linked Instagram account visibility without publishing.
@@ -84,6 +85,10 @@ Post Relay is a local-first Instagram travel content workflow for Andrew's `andr
 .venv/bin/post-relay drafts media-plan --draft-id 1 --db data/post_relay.sqlite
 .venv/bin/post-relay drafts media-edit --draft-id 1 --lead 3 --keep 1,3,5 --post-type carousel --db data/post_relay.sqlite
 .venv/bin/post-relay drafts r2-stage-plan --draft-id 1 --config config/photo_sources.yaml --db data/post_relay.sqlite
+.venv/bin/post-relay drafts r2-stage-upload --draft-id 1 --config config/photo_sources.yaml --db data/post_relay.sqlite
+.venv/bin/post-relay drafts r2-stage-upload --draft-id 1 --config config/photo_sources.yaml --db data/post_relay.sqlite --execute
+.venv/bin/post-relay drafts r2-cleanup --draft-id 1 --config config/photo_sources.yaml --db data/post_relay.sqlite
+.venv/bin/post-relay drafts r2-cleanup --draft-id 1 --config config/photo_sources.yaml --db data/post_relay.sqlite --execute --reason "publish complete"
 .venv/bin/post-relay drafts discord-preview --draft-id 1 --db data/post_relay.sqlite
 .venv/bin/post-relay drafts submit --draft-id 1 --db data/post_relay.sqlite
 .venv/bin/post-relay drafts approve --draft-id 1 --approved-by andrew --notes "Content direction approved" --db data/post_relay.sqlite
@@ -97,4 +102,4 @@ Post Relay is a local-first Instagram travel content workflow for Andrew's `andr
 
 ## Current next milestone
 
-See `docs/plans/current-agent-roadmap.md`. The next planned code milestone is currently `feat/r2-staging-upload-and-cleanup`, which uploads Post Relay-created staging objects to R2 and later cleans up only recorded staged objects behind explicit `--execute` safeguards. R2 is temporary staging only; never delete or mutate local/NAS source media.
+See `docs/plans/current-agent-roadmap.md`. The next planned code milestone is currently `feat/publish-from-staged-r2`, which lets guarded single-image/carousel publish validation resolve ordered public HTTPS image URLs from recorded R2 staged objects while preserving dry-run defaults, double approval, and explicit `--execute` publish safeguards.
