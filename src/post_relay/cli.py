@@ -20,8 +20,11 @@ from post_relay.context_questions import (
 )
 from post_relay.db import connect_db, initialize_db
 from post_relay.drafts import CandidateNotFound, create_draft_from_candidate
-from post_relay.discord_preview import DraftNotFound as DiscordPreviewDraftNotFound
-from post_relay.discord_preview import build_discord_preview_payload
+from post_relay.discord_preview import (
+    DraftNotFound as DiscordPreviewDraftNotFound,
+    build_discord_preview_payload,
+    build_discord_selection_payload,
+)
 from post_relay.discord_selection import (
     DraftNotFound as DiscordSelectionDraftNotFound,
     InvalidDiscordSelection,
@@ -431,6 +434,32 @@ def drafts_discord_selection_plan(
     except InvalidDiscordSelection as error:
         raise typer.BadParameter(str(error), param_hint="--target-count/--post-type") from error
     typer.echo(request.to_text())
+
+
+@drafts_app.command("discord-selection-preview")
+def drafts_discord_selection_preview(
+    draft_id: int = typer.Option(..., "--draft-id", help="Draft id."),
+    target_count: int = typer.Option(..., "--target-count", help="Number of photos Andrew should select."),
+    post_type: Optional[str] = typer.Option(None, "--post-type", help="Optional post type: single_image, carousel, or reel."),
+    artifact_paths: Optional[list[Path]] = typer.Option(None, "--artifact-path", help="Optional local review artifact path, such as a contact sheet."),
+    db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
+) -> None:
+    """Print a dry-run Discord X-from-Y selection payload without sending messages."""
+    connection = connect_db(db)
+    initialize_db(connection)
+    try:
+        payload = build_discord_selection_payload(
+            connection,
+            draft_id,
+            target_count=target_count,
+            post_type=post_type,
+            artifact_paths=artifact_paths or [],
+        )
+    except DiscordSelectionDraftNotFound as error:
+        raise typer.BadParameter(str(error), param_hint="--draft-id") from error
+    except InvalidDiscordSelection as error:
+        raise typer.BadParameter(str(error), param_hint="--target-count/--post-type") from error
+    typer.echo(payload.to_text())
 
 
 @drafts_app.command("discord-selection-apply")
