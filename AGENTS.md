@@ -8,11 +8,12 @@ Before making changes, read these files in order:
 
 1. `README.md` — current project status, validated Meta setup facts, local CLI commands.
 2. `docs/plans/current-agent-roadmap.md` — current completed milestones, next milestones, and execution rules.
-3. `docs/plans/discord-dm-conversation-orchestration.md` — private-DM-first conversation, opportunity, and trigger plan.
-4. `docs/plans/discord-photo-selection-before-carousel-smoke.md` — Discord selection/review plan before live carousel publish.
-5. `implementation-plan.md` — high-level phase plan from MVP through publishing and optimization.
-6. `technical-design.md` — product architecture, safety rules, and component responsibilities.
-7. `requirements.md` and `setup-checklist.md` — original requirements and setup notes.
+3. `docs/plans/postrelay-agent-operating-baseline.md` — specialized content curator/social media manager prompt and skill baseline.
+4. `docs/plans/discord-dm-conversation-orchestration.md` — private-DM-first conversation, user-initiated-first rollout, and later opportunity trigger plan.
+5. `docs/plans/discord-photo-selection-before-carousel-smoke.md` — Discord selection/review plan before live carousel publish.
+6. `implementation-plan.md` — high-level phase plan from MVP through publishing and optimization.
+7. `technical-design.md` — product architecture, safety rules, and component responsibilities.
+8. `requirements.md` and `setup-checklist.md` — original requirements and setup notes.
 
 ## Project goal
 
@@ -42,7 +43,7 @@ Post Relay is a local-first Instagram travel content workflow for Andrew's `andr
 - Queue-approved drafts can be scheduled locally and moved through final publish approval without live API calls.
 - Guarded single-image/carousel publish validation can use either explicit public HTTPS `--image-url` values or recorded uploaded R2 staged media via `--from-staged-r2`, preserving dry-run defaults, double approval, and explicit `--execute` publish safeguards.
 - Instagram publish capabilities are explicit: media URLs/carousel children, captions, and hashtags-in-caption are publishable; alt text, rationale, location ideas, collaborators, music, product/story/reel-only metadata stay local/review-only unless a later milestone validates official support.
-- Live Discord delivery should only be added after the local payload harness remains green; next Discord work should be private-DM-first, support Andrew-initiated and agent-initiated post conversations, then support Andrew selecting X photos from Y suggestions, then guide post type, caption/content, hashtags, location handling, schedule, and approvals before the live carousel smoke test.
+- Live Discord delivery should only be added after the local payload harness remains green; next Discord work should be private-DM-first and user-initiated-first. Prove Andrew can initiate a post conversation in DM, then support selection/guided review/scheduling, and only then add agent-initiated post suggestions from opportunity triggers before any live carousel smoke test.
 
 ## Safety and product constraints
 
@@ -114,4 +115,4 @@ Post Relay is a local-first Instagram travel content workflow for Andrew's `andr
 
 ## Current next milestone
 
-See `docs/plans/current-agent-roadmap.md`. The next planned code milestone is currently `feat/discord-dm-opportunity-model`, the first private-DM conversation/orchestration step in `docs/plans/discord-dm-conversation-orchestration.md`, followed by private-DM selection bot work. Do not run live Instagram publish execution from Discord milestones.
+See `docs/plans/current-agent-roadmap.md`. The next planned milestone is currently `feat/postrelay-agent-operating-baseline`, followed by `feat/discord-dm-user-intake-harness`. The product direction is private-DM-first and user-initiated-first; agent-initiated post suggestions come later after that loop is proven. Do not run live Instagram publish execution from Discord milestones.
