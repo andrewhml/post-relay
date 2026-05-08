@@ -36,7 +36,7 @@ Post Relay is a local-first Instagram travel content workflow for Andrew's `andr
 - R2 staging upload/cleanup can be dry-run locally; `drafts r2-stage-upload --execute` uploads and records planned objects, while `drafts r2-cleanup --execute` deletes only recorded uploaded objects under the configured Post Relay prefix.
 - Numbered draft media plans and edits can be applied locally with `drafts media-plan` and `drafts media-edit`; lead/cover, keep/remove, and post-type changes update candidate media ordering/roles/inclusion and invalidate active approvals.
 - Queue-approved drafts can be scheduled locally and moved through final publish approval without live API calls.
-- A sanitized read-only Meta Graph client/CLI can validate Page and linked Instagram account visibility without publishing.
+- Guarded single-image/carousel publish validation can use either explicit public HTTPS `--image-url` values or recorded uploaded R2 staged media via `--from-staged-r2`, preserving dry-run defaults, double approval, and explicit `--execute` publish safeguards.
 - Live Discord delivery should only be added after the local payload harness remains green.
 
 ## Safety and product constraints
@@ -76,6 +76,8 @@ Post Relay is a local-first Instagram travel content workflow for Andrew's `andr
 .venv/bin/post-relay index scan --config config/photo_sources.yaml --db data/post_relay.sqlite
 .venv/bin/post-relay library stats --db data/post_relay.sqlite
 .venv/bin/post-relay meta validate-readonly --env-file .env --dry-run
+.venv/bin/post-relay meta validate-image-publish --draft-id 1 --from-staged-r2 --config config/photo_sources.yaml --db data/post_relay.sqlite --dry-run
+.venv/bin/post-relay meta validate-carousel-publish --draft-id 1 --from-staged-r2 --config config/photo_sources.yaml --db data/post_relay.sqlite --dry-run
 .venv/bin/post-relay candidates build --db data/post_relay.sqlite
 .venv/bin/post-relay candidates list --db data/post_relay.sqlite
 .venv/bin/post-relay drafts create --candidate-id 1 --db data/post_relay.sqlite
@@ -102,4 +104,4 @@ Post Relay is a local-first Instagram travel content workflow for Andrew's `andr
 
 ## Current next milestone
 
-See `docs/plans/current-agent-roadmap.md`. The next planned code milestone is currently `feat/publish-from-staged-r2`, which lets guarded single-image/carousel publish validation resolve ordered public HTTPS image URLs from recorded R2 staged objects while preserving dry-run defaults, double approval, and explicit `--execute` publish safeguards.
+See `docs/plans/current-agent-roadmap.md`. The next planned code milestone is currently `feat/live-carousel-publish-smoke-notes`, which should run one explicitly approved live carousel smoke test through the guarded carousel path, preferably using staged R2 public HTTPS media URLs.

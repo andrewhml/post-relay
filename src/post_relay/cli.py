@@ -44,6 +44,7 @@ from post_relay.publishing import (
     execute_single_image_publish_validation,
     prepare_carousel_publish_validation,
     prepare_single_image_publish_validation,
+    resolve_staged_r2_publish_image_urls,
 )
 from post_relay.repository import (
     get_library_stats,
@@ -177,7 +178,9 @@ def meta_validate_readonly(
 @meta_app.command("validate-image-publish")
 def meta_validate_image_publish(
     draft_id: int = typer.Option(..., "--draft-id", help="Ready-to-publish single-image draft id."),
-    image_url: str = typer.Option(..., "--image-url", help="Public HTTPS image URL for Meta container creation."),
+    image_url: Optional[str] = typer.Option(None, "--image-url", help="Public HTTPS image URL for Meta container creation."),
+    from_staged_r2: bool = typer.Option(False, "--from-staged-r2", help="Resolve the publish image URL from uploaded R2 staged media records."),
+    config_path: Path = typer.Option(Path("config/photo_sources.yaml"), "--config", help="Photo source and R2 staging config path."),
     db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
     env_file: Optional[Path] = typer.Option(Path(".env"), "--env-file", help="Private .env file path."),
     dry_run: bool = typer.Option(False, "--dry-run", help="Record and print the sanitized plan without calling Meta."),
@@ -186,9 +189,19 @@ def meta_validate_image_publish(
     """Validate a controlled single-image publish after explicit publish approval."""
     connection = connect_db(db)
     initialize_db(connection)
+    try:
+        resolved_image_url = _resolve_single_publish_image_url(
+            connection,
+            draft_id,
+            image_url=image_url,
+            from_staged_r2=from_staged_r2,
+            config_path=config_path,
+        )
+    except (PublishDraftNotFound, UnsupportedPublishDraft, R2StagingConfigError) as error:
+        raise typer.BadParameter(str(error), param_hint="--image-url/--from-staged-r2") from error
     if dry_run or not execute:
         try:
-            result = prepare_single_image_publish_validation(connection, draft_id, image_url=image_url)
+            result = prepare_single_image_publish_validation(connection, draft_id, image_url=resolved_image_url)
         except (PublishDraftNotFound, DraftNotReadyForImagePublish, UnsupportedPublishDraft) as error:
             raise typer.BadParameter(str(error), param_hint="--draft-id") from error
         typer.echo(result.to_text())
@@ -204,7 +217,7 @@ def meta_validate_image_publish(
         result = execute_single_image_publish_validation(
             connection,
             draft_id,
-            image_url=image_url,
+            image_url=resolved_image_url,
             client=MetaGraphClient(config),
         )
     except (PublishDraftNotFound, DraftNotReadyForImagePublish, UnsupportedPublishDraft) as error:
@@ -217,9 +230,11 @@ def meta_validate_image_publish(
 @meta_app.command("validate-carousel-publish")
 def meta_validate_carousel_publish(
     draft_id: int = typer.Option(..., "--draft-id", help="Ready-to-publish carousel draft id."),
-    image_urls: list[str] = typer.Option(
-        ..., "--image-url", help="Public HTTPS image URL for each carousel image, in draft order."
+    image_urls: Optional[list[str]] = typer.Option(
+        None, "--image-url", help="Public HTTPS image URL for each carousel image, in draft order."
     ),
+    from_staged_r2: bool = typer.Option(False, "--from-staged-r2", help="Resolve ordered publish image URLs from uploaded R2 staged media records."),
+    config_path: Path = typer.Option(Path("config/photo_sources.yaml"), "--config", help="Photo source and R2 staging config path."),
     db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
     env_file: Optional[Path] = typer.Option(Path(".env"), "--env-file", help="Private .env file path."),
     dry_run: bool = typer.Option(False, "--dry-run", help="Record and print the sanitized plan without calling Meta."),
@@ -228,9 +243,19 @@ def meta_validate_carousel_publish(
     """Validate a controlled carousel publish after explicit publish approval."""
     connection = connect_db(db)
     initialize_db(connection)
+    try:
+        resolved_image_urls = _resolve_publish_image_urls(
+            connection,
+            draft_id,
+            image_urls=image_urls or [],
+            from_staged_r2=from_staged_r2,
+            config_path=config_path,
+        )
+    except (PublishDraftNotFound, UnsupportedPublishDraft, R2StagingConfigError) as error:
+        raise typer.BadParameter(str(error), param_hint="--image-url/--from-staged-r2") from error
     if dry_run or not execute:
         try:
-            result = prepare_carousel_publish_validation(connection, draft_id, image_urls=image_urls)
+            result = prepare_carousel_publish_validation(connection, draft_id, image_urls=resolved_image_urls)
         except (PublishDraftNotFound, DraftNotReadyForImagePublish, UnsupportedPublishDraft) as error:
             raise typer.BadParameter(str(error), param_hint="--draft-id") from error
         typer.echo(result.to_text())
@@ -246,7 +271,7 @@ def meta_validate_carousel_publish(
         result = execute_carousel_publish_validation(
             connection,
             draft_id,
-            image_urls=image_urls,
+            image_urls=resolved_image_urls,
             client=MetaGraphClient(config),
         )
     except (PublishDraftNotFound, DraftNotReadyForImagePublish, UnsupportedPublishDraft) as error:
@@ -650,6 +675,44 @@ def draft_questions_list(
         return
     for question in questions:
         typer.echo(f"[{question.field_name}] {question.question_text} — {question.status}")
+
+
+def _resolve_single_publish_image_url(
+    connection,
+    draft_id: int,
+    *,
+    image_url: Optional[str],
+    from_staged_r2: bool,
+    config_path: Path,
+) -> str:
+    urls = _resolve_publish_image_urls(
+        connection,
+        draft_id,
+        image_urls=[image_url] if image_url else [],
+        from_staged_r2=from_staged_r2,
+        config_path=config_path,
+    )
+    if len(urls) != 1:
+        raise UnsupportedPublishDraft("Single-image publish validation requires exactly one image URL")
+    return urls[0]
+
+
+def _resolve_publish_image_urls(
+    connection,
+    draft_id: int,
+    *,
+    image_urls: list[str],
+    from_staged_r2: bool,
+    config_path: Path,
+) -> list[str]:
+    if from_staged_r2:
+        if image_urls:
+            raise UnsupportedPublishDraft("Use either --from-staged-r2 or explicit --image-url values, not both")
+        config = load_config(config_path)
+        return resolve_staged_r2_publish_image_urls(connection, draft_id, config.r2_staging)
+    if not image_urls:
+        raise UnsupportedPublishDraft("Provide --image-url values or use --from-staged-r2")
+    return image_urls
 
 
 def _split_hashtags(hashtags: Optional[str]) -> Optional[list[str]]:

@@ -227,10 +227,10 @@ Run this before opening or merging any PR:
 .venv/bin/python -m pytest -q
 ```
 
-Expected current result after R2 staging upload/cleanup milestone:
+Expected current result after publish-from-staged-R2 milestone:
 
 ```text
-86 passed
+91 passed
 ```
 
 ## Milestone execution rules
@@ -370,15 +370,22 @@ Agents must preserve these unless Andrew explicitly changes the product directio
 - R2 credentials are read only from environment variables named by config in execute mode; dry runs do not require credentials.
 - Failed publishes should leave uploaded staged records available until explicit cleanup.
 
-### Milestone 6: `feat/publish-from-staged-r2`
+### Milestone 6: `feat/publish-from-staged-r2` (completed in PR TBD)
 
 **Goal:** Let Meta publish validation use staged R2 HTTPS URLs for single-image and carousel drafts.
 
-**Expected behavior:**
+**Implemented:**
+- `resolve_staged_r2_publish_image_urls(...)` for resolving uploaded `draft_media` R2 records into ordered public HTTPS publish URLs
+- `--from-staged-r2` and `--config` support on `meta validate-image-publish` and `meta validate-carousel-publish`
+- tests for single-image resolution, carousel order preservation, missing staged-media blocking, sanitized dry-run attempt recording, and CLI dry-run flow
+
+**Important behavior:**
 - Existing double-approval and `--execute` publish guards remain unchanged.
-- Publish URL resolution preserves image order.
-- Successful publish can mark staged objects safe for cleanup.
-- Failed publish keeps staged objects unless explicitly cleaned up.
+- Manual `--image-url` mode still works; `--from-staged-r2` is mutually exclusive with explicit `--image-url` values.
+- URL resolution uses currently selected draft media order, matches uploaded R2 records by local source path, filters to uploaded `draft_media` objects in the configured bucket/prefix/public base URL, and ignores staged artifacts such as contact sheets.
+- Dry runs sanitize staged R2 URL query secrets in publish attempt records and output while making no Meta publishing calls.
+- Successful publish moves the draft to `posted`; staged records remain uploaded so `drafts r2-cleanup --execute --reason "publish complete"` can delete only recorded app-created objects.
+- Failed publish keeps staged objects available until explicit cleanup.
 
 ### Milestone 7: `feat/live-carousel-publish-smoke-notes`
 

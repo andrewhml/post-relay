@@ -4,7 +4,7 @@ import pytest
 
 from post_relay.approvals import approve_draft_content, submit_draft_for_review
 from post_relay.candidates import build_candidate_groups
-from post_relay.config import PhotoSource, PostRelayConfig
+from post_relay.config import PhotoSource, PostRelayConfig, R2StagingConfig
 from post_relay.db import connect_db, initialize_db
 from post_relay.drafts import create_draft_from_candidate
 from post_relay.indexer import index_photo_sources
@@ -16,8 +16,15 @@ from post_relay.publishing import (
     execute_single_image_publish_validation,
     prepare_carousel_publish_validation,
     prepare_single_image_publish_validation,
+    resolve_staged_r2_publish_image_urls,
 )
-from post_relay.repository import get_draft, list_candidate_groups, list_publish_attempts
+from post_relay.repository import (
+    create_r2_staged_object_record,
+    get_draft,
+    list_candidate_group_photo_paths,
+    list_candidate_groups,
+    list_publish_attempts,
+)
 from post_relay.scheduling import (
     approve_draft_for_publishing,
     request_publish_approval,
@@ -205,6 +212,134 @@ def test_prepare_carousel_publish_validation_records_sanitized_dry_run_attempt(t
     assert attempts[0].image_urls == result.image_urls
     assert attempts[0].child_container_ids == []
     assert attempts[0].caption == "Kyoto garden sequence."
+
+
+def test_resolve_staged_r2_publish_image_urls_handles_single_image_draft(tmp_path: Path):
+    connection, draft = _build_single_image_ready_draft(tmp_path, caption="Temple morning.")
+    selected_paths = list_candidate_group_photo_paths(connection, draft.candidate_group_id)
+    r2_config = R2StagingConfig(
+        enabled=True,
+        bucket="post-relay-publish",
+        public_base_url="https://peddocks.net",
+        prefix="post-relay/staging",
+    )
+    create_r2_staged_object_record(
+        connection,
+        draft_id=draft.id,
+        kind="draft_media",
+        source_path=selected_paths[0],
+        bucket="post-relay-publish",
+        object_key="post-relay/staging/drafts/1/media/01-temple.jpg",
+        public_url="https://peddocks.net/post-relay/staging/drafts/1/media/01-temple.jpg",
+    )
+
+    result = prepare_single_image_publish_validation(
+        connection,
+        draft.id,
+        image_url=resolve_staged_r2_publish_image_urls(connection, draft.id, r2_config)[0],
+    )
+
+    assert result.image_url == "https://peddocks.net/post-relay/staging/drafts/1/media/01-temple.jpg"
+    assert list_publish_attempts(connection, draft.id)[0].image_url == result.image_url
+
+
+def test_resolve_staged_r2_publish_image_urls_preserves_selected_media_order(tmp_path: Path):
+    connection, draft = _build_carousel_ready_draft(tmp_path, caption="Kyoto garden sequence.")
+    selected_paths = list_candidate_group_photo_paths(connection, draft.candidate_group_id)
+    r2_config = R2StagingConfig(
+        enabled=True,
+        bucket="post-relay-publish",
+        public_base_url="https://peddocks.net",
+        prefix="post-relay/staging",
+    )
+    create_r2_staged_object_record(
+        connection,
+        draft_id=draft.id,
+        kind="draft_media",
+        source_path=selected_paths[1],
+        bucket="post-relay-publish",
+        object_key="post-relay/staging/drafts/1/media/02-garden.jpg",
+        public_url="https://peddocks.net/post-relay/staging/drafts/1/media/02-garden.jpg?token=secret",
+    )
+    create_r2_staged_object_record(
+        connection,
+        draft_id=draft.id,
+        kind="draft_media",
+        source_path=selected_paths[0],
+        bucket="post-relay-publish",
+        object_key="post-relay/staging/drafts/1/media/01-temple.jpg",
+        public_url="https://peddocks.net/post-relay/staging/drafts/1/media/01-temple.jpg?signature=secret",
+    )
+    create_r2_staged_object_record(
+        connection,
+        draft_id=draft.id,
+        kind="contact_sheet",
+        source_path="/tmp/contact-sheet.jpg",
+        bucket="post-relay-publish",
+        object_key="post-relay/staging/drafts/1/artifacts/contact-sheet.jpg",
+        public_url="https://peddocks.net/post-relay/staging/drafts/1/artifacts/contact-sheet.jpg",
+    )
+
+    urls = resolve_staged_r2_publish_image_urls(connection, draft.id, r2_config)
+
+    assert urls == [
+        "https://peddocks.net/post-relay/staging/drafts/1/media/01-temple.jpg?signature=secret",
+        "https://peddocks.net/post-relay/staging/drafts/1/media/02-garden.jpg?token=secret",
+    ]
+
+
+def test_resolve_staged_r2_publish_image_urls_requires_uploaded_media_for_each_selected_photo(tmp_path: Path):
+    connection, draft = _build_carousel_ready_draft(tmp_path, caption="Kyoto garden sequence.")
+    selected_paths = list_candidate_group_photo_paths(connection, draft.candidate_group_id)
+    r2_config = R2StagingConfig(
+        enabled=True,
+        bucket="post-relay-publish",
+        public_base_url="https://peddocks.net",
+        prefix="post-relay/staging",
+    )
+    create_r2_staged_object_record(
+        connection,
+        draft_id=draft.id,
+        kind="draft_media",
+        source_path=selected_paths[0],
+        bucket="post-relay-publish",
+        object_key="post-relay/staging/drafts/1/media/01-temple.jpg",
+        public_url="https://peddocks.net/post-relay/staging/drafts/1/media/01-temple.jpg",
+    )
+
+    with pytest.raises(UnsupportedPublishDraft, match="staged R2 media"):
+        resolve_staged_r2_publish_image_urls(connection, draft.id, r2_config)
+
+
+def test_prepare_carousel_publish_validation_uses_staged_r2_urls(tmp_path: Path):
+    connection, draft = _build_carousel_ready_draft(tmp_path, caption="Kyoto garden sequence.")
+    selected_paths = list_candidate_group_photo_paths(connection, draft.candidate_group_id)
+    r2_config = R2StagingConfig(
+        enabled=True,
+        bucket="post-relay-publish",
+        public_base_url="https://peddocks.net",
+        prefix="post-relay/staging",
+    )
+    for index, source_path in enumerate(selected_paths, start=1):
+        create_r2_staged_object_record(
+            connection,
+            draft_id=draft.id,
+            kind="draft_media",
+            source_path=source_path,
+            bucket="post-relay-publish",
+            object_key=f"post-relay/staging/drafts/1/media/{index:02d}-image.jpg",
+            public_url=f"https://peddocks.net/post-relay/staging/drafts/1/media/{index:02d}-image.jpg?token=secret",
+        )
+
+    urls = resolve_staged_r2_publish_image_urls(connection, draft.id, r2_config)
+    result = prepare_carousel_publish_validation(connection, draft.id, image_urls=urls)
+
+    assert result.image_urls == [
+        "https://peddocks.net/post-relay/staging/drafts/1/media/01-image.jpg?token=<redacted>",
+        "https://peddocks.net/post-relay/staging/drafts/1/media/02-image.jpg?token=<redacted>",
+    ]
+    attempts = list_publish_attempts(connection, draft.id)
+    assert attempts[0].image_urls == result.image_urls
 
 
 def test_execute_carousel_publish_validation_creates_child_and_carousel_containers_then_publishes(tmp_path: Path):
