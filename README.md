@@ -17,7 +17,7 @@ Early local-first MVP scaffold with:
 - dry-run Discord preview payload CLI with ordered included image paths and missing-file checks
 - schedule and publish-approval CLI without live publishing
 - sanitized read-only Meta Graph validation CLI
-- controlled single-image and carousel Meta publish validation CLIs with dry-run planning, approval guards, container creation/status polling/publish execution, and sanitized attempt logging
+- controlled single-image and carousel Meta publish validation CLIs with dry-run planning, approval guards, optional staged-R2 URL resolution, container creation/status polling/publish execution, and sanitized attempt logging
 - no-network R2 staging plan CLI for draft media and generated review artifacts
 - guarded R2 staging upload/cleanup CLI with recorded-object-only deletion and explicit `--execute` safeguards
 - guarded draft workflow state model
@@ -31,7 +31,7 @@ Early local-first MVP scaffold with:
 - `graph.instagram.com` returned `Invalid platform app` in current setup
 
 ## Immediate goals
-1. Wire publish validation to use staged public HTTPS media while preserving dry-run, double-approval, and explicit `--execute` safeguards
+1. Use staged public HTTPS media for publish validation while preserving dry-run, double-approval, and explicit `--execute` safeguards
 2. Run a guarded carousel publish smoke test once a safe staged carousel draft is explicitly approved
 3. Add Discord presenter/approval capture after the local dry-run payload and media-selection harnesses remain green
 
@@ -48,8 +48,10 @@ Use the project virtualenv when running locally:
 .venv/bin/post-relay library stats --db data/post_relay.sqlite
 .venv/bin/post-relay meta validate-readonly --env-file .env --dry-run
 .venv/bin/post-relay meta validate-image-publish --draft-id 1 --image-url "$POST_RELAY_TEST_IMAGE_URL" --db data/post_relay.sqlite --dry-run
+.venv/bin/post-relay meta validate-image-publish --draft-id 1 --from-staged-r2 --config config/photo_sources.yaml --db data/post_relay.sqlite --dry-run
 .venv/bin/post-relay meta validate-image-publish --draft-id 1 --image-url "$POST_RELAY_TEST_IMAGE_URL" --db data/post_relay.sqlite --env-file .env --execute
 .venv/bin/post-relay meta validate-carousel-publish --draft-id 2 --image-url "https://example.com/first.jpg" --image-url "https://example.com/second.jpg" --db data/post_relay.sqlite --dry-run
+.venv/bin/post-relay meta validate-carousel-publish --draft-id 2 --from-staged-r2 --config config/photo_sources.yaml --db data/post_relay.sqlite --dry-run
 .venv/bin/post-relay candidates build --db data/post_relay.sqlite
 .venv/bin/post-relay candidates list --db data/post_relay.sqlite
 .venv/bin/post-relay drafts create --candidate-id 1 --db data/post_relay.sqlite

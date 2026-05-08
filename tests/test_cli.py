@@ -4,6 +4,8 @@ from PIL import Image
 from typer.testing import CliRunner
 
 from post_relay.cli import app
+from post_relay.db import connect_db, initialize_db
+from post_relay.repository import create_r2_staged_object_record, list_candidate_group_photo_paths
 
 
 runner = CliRunner()
@@ -770,4 +772,74 @@ photo_sources:
     assert "https://example.com/garden.jpg?signature=<redacted>" in dry_run_result.output
     assert "abc123" not in dry_run_result.output
     assert "def456" not in dry_run_result.output
+    assert "No Meta publishing endpoints were called." in dry_run_result.output
+
+
+def test_cli_controlled_carousel_publish_dry_run_can_use_staged_r2_urls(tmp_path: Path):
+    root = tmp_path / "processed"
+    folder = root / "2023" / "kyoto"
+    folder.mkdir(parents=True)
+    (folder / "temple.jpg").write_bytes(b"fake image")
+    (folder / "garden.jpg").write_bytes(b"fake image")
+    config_path = tmp_path / "photo_sources.yaml"
+    config_path.write_text(
+        f"""
+photo_sources:
+  - name: processed
+    root: {root.as_posix()}
+    source_type: processed_folder
+r2_staging:
+  enabled: true
+  bucket: post-relay-publish
+  public_base_url: https://peddocks.net
+  prefix: post-relay/staging
+""".strip()
+    )
+    db_path = tmp_path / "post_relay.sqlite"
+
+    runner.invoke(app, ["index", "scan", "--config", str(config_path), "--db", str(db_path)])
+    runner.invoke(app, ["candidates", "build", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "create", "--candidate-id", "1", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "edit", "--draft-id", "1", "--caption", "Kyoto garden sequence.", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "submit", "--draft-id", "1", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "approve", "--draft-id", "1", "--approved-by", "andrew", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "schedule", "--draft-id", "1", "--scheduled-for", "2026-05-05T09:30:00-07:00", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "request-publish-approval", "--draft-id", "1", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "approve-publish", "--draft-id", "1", "--approved-by", "andrew", "--db", str(db_path)])
+    connection = connect_db(db_path)
+    initialize_db(connection)
+    selected_paths = list_candidate_group_photo_paths(connection, 1)
+    for index, source_path in enumerate(selected_paths, start=1):
+        create_r2_staged_object_record(
+            connection,
+            draft_id=1,
+            kind="draft_media",
+            source_path=source_path,
+            bucket="post-relay-publish",
+            object_key=f"post-relay/staging/drafts/1/media/{index:02d}-image.jpg",
+            public_url=f"https://peddocks.net/post-relay/staging/drafts/1/media/{index:02d}-image.jpg?token=secret",
+        )
+    connection.commit()
+
+    dry_run_result = runner.invoke(
+        app,
+        [
+            "meta",
+            "validate-carousel-publish",
+            "--draft-id",
+            "1",
+            "--from-staged-r2",
+            "--config",
+            str(config_path),
+            "--db",
+            str(db_path),
+            "--dry-run",
+        ],
+    )
+
+    assert dry_run_result.exit_code == 0
+    assert "Carousel publish validation" in dry_run_result.output
+    assert "https://peddocks.net/post-relay/staging/drafts/1/media/01-image.jpg?token=<redacted>" in dry_run_result.output
+    assert "https://peddocks.net/post-relay/staging/drafts/1/media/02-image.jpg?token=<redacted>" in dry_run_result.output
+    assert "secret" not in dry_run_result.output
     assert "No Meta publishing endpoints were called." in dry_run_result.output

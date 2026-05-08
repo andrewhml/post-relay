@@ -4,11 +4,13 @@ from dataclasses import dataclass
 from typing import Optional, Sequence
 from urllib.parse import parse_qsl, urlsplit, urlunsplit
 
+from post_relay.config import R2StagingConfig
 from post_relay.meta_graph import MetaGraphClient, MetaGraphRequestError, redact_secrets
 from post_relay.repository import (
     create_publish_attempt,
     get_draft,
     list_candidate_group_photo_paths,
+    list_r2_staged_objects,
     update_draft_status,
     update_publish_attempt,
 )
@@ -93,6 +95,49 @@ class CarouselPublishValidationResult:
         if self.status_message:
             lines.append(f"Status message: {self.status_message}")
         return "\n".join(lines)
+
+
+def resolve_staged_r2_publish_image_urls(
+    connection,
+    draft_id: int,
+    config: R2StagingConfig,
+) -> list[str]:
+    draft = get_draft(connection, draft_id)
+    if draft is None:
+        raise DraftNotFound(f"Draft {draft_id} was not found")
+    selected_paths = list_candidate_group_photo_paths(connection, draft.candidate_group_id)
+    records = [
+        record
+        for record in list_r2_staged_objects(connection, draft_id, status="uploaded")
+        if record.kind == "draft_media"
+    ]
+    normalized_prefix = _normalize_prefix(config.prefix)
+    expected_prefix = f"{normalized_prefix}/"
+    expected_public_prefix = f"{config.public_base_url.rstrip('/')}/{normalized_prefix}/"
+    by_source_path = {}
+    for record in records:
+        if record.bucket != config.bucket:
+            continue
+        if not record.object_key.startswith(expected_prefix):
+            continue
+        if not record.public_url.startswith(expected_public_prefix):
+            continue
+        by_source_path[record.source_path] = record
+    resolved_urls: list[str] = []
+    missing_paths: list[str] = []
+    for source_path in selected_paths:
+        record = by_source_path.get(source_path)
+        if record is None:
+            missing_paths.append(source_path)
+            continue
+        _sanitize_url(record.public_url)
+        resolved_urls.append(record.public_url)
+    if missing_paths:
+        raise UnsupportedPublishDraft(
+            "Publish from staged R2 requires uploaded staged R2 media for each selected draft image: "
+            + ", ".join(missing_paths)
+        )
+    return resolved_urls
 
 
 def prepare_single_image_publish_validation(
@@ -426,6 +471,11 @@ def _validate_carousel_ready_draft(connection, draft_id: int, image_urls: Sequen
     if len(image_urls) > 10:
         raise UnsupportedPublishDraft("Controlled carousel publish validation supports at most ten images")
     return draft
+
+
+def _normalize_prefix(prefix: str) -> str:
+    normalized = "/".join(part for part in prefix.strip("/").split("/") if part)
+    return normalized or "post-relay/staging"
 
 
 def _sanitize_url(url: str) -> str:
