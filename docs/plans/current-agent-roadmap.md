@@ -227,10 +227,10 @@ Run this before opening or merging any PR:
 .venv/bin/python -m pytest -q
 ```
 
-Expected current result after draft media selection milestone:
+Expected current result after R2 staging upload/cleanup milestone:
 
 ```text
-79 passed
+86 passed
 ```
 
 ## Milestone execution rules
@@ -351,15 +351,24 @@ Agents must preserve these unless Andrew explicitly changes the product directio
 - Draft preview, Discord preview, R2 staging plans, and publish image-count validation use included media only, preserving the revised order.
 - `reel` is accepted as local post-type intent only; live reel publishing remains unvalidated future work.
 
-### Milestone 5: `feat/r2-staging-upload-and-cleanup`
+### Milestone 5: `feat/r2-staging-upload-and-cleanup` (completed in PR TBD)
 
 **Goal:** Upload Post Relay-created staging objects to R2 and clean up only those staged objects after publish/cancellation/explicit cleanup.
 
-**Expected behavior:**
-- Upload and deletion require explicit `--execute`.
-- Cleanup refuses objects outside the configured Post Relay prefix or not recorded in SQLite.
-- Cleanup never deletes local/NAS source files.
-- Failed publishes leave staged objects available for debugging until explicit cleanup.
+**Implemented:**
+- `src/post_relay/r2_staging_upload.py` service for guarded R2 upload and cleanup with an injectable storage-client seam
+- `r2_staged_objects` SQLite table plus repository helpers for uploaded/deleted staged object audit records
+- `drafts r2-stage-upload` CLI command, dry-run by default and uploading only with `--execute`
+- `drafts r2-cleanup` CLI command, dry-run by default and deleting only recorded uploaded objects with `--execute`
+- tests for no-network dry runs, execute-mode upload records, missing-source blocking, recorded-object cleanup, configured-prefix safety refusal, and CLI dry-run output
+
+**Important behavior:**
+- Upload and deletion require explicit `--execute`; default CLI behavior makes no network calls and writes no upload/cleanup records.
+- Upload execution uses the existing R2 staging plan, refuses missing source files before any upload, then records only successfully planned objects in SQLite.
+- Cleanup reads uploaded records from SQLite and refuses to delete records whose bucket/prefix no longer match the configured Post Relay staging scope.
+- Cleanup never touches local/NAS source paths; it only calls R2 object deletion for recorded staged object keys.
+- R2 credentials are read only from environment variables named by config in execute mode; dry runs do not require credentials.
+- Failed publishes should leave uploaded staged records available until explicit cleanup.
 
 ### Milestone 6: `feat/publish-from-staged-r2`
 

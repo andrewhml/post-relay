@@ -131,6 +131,22 @@ SCHEMA_STATEMENTS = [
         foreign key(draft_id) references drafts(id)
     )
     """,
+    """
+    create table if not exists r2_staged_objects (
+        id integer primary key,
+        draft_id integer not null,
+        kind text not null,
+        source_path text not null,
+        bucket text not null,
+        object_key text not null unique,
+        public_url text not null,
+        status text not null default 'uploaded',
+        staged_at text not null default current_timestamp,
+        deleted_at text,
+        cleanup_reason text,
+        foreign key(draft_id) references drafts(id)
+    )
+    """,
 ]
 
 
@@ -151,6 +167,8 @@ def initialize_db(connection: sqlite3.Connection) -> None:
     _ensure_column(connection, "candidate_group_items", "role", "text not null default 'support'")
     _ensure_column(connection, "candidate_group_items", "include_status", "text not null default 'included'")
     _ensure_column(connection, "candidate_group_items", "reason", "text")
+    _ensure_column(connection, "r2_staged_objects", "deleted_at", "text")
+    _ensure_column(connection, "r2_staged_objects", "cleanup_reason", "text")
     connection.commit()
 
 

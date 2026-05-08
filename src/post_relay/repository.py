@@ -100,6 +100,21 @@ class PublishAttemptRecord:
     child_container_ids: list[str]
 
 
+@dataclass(frozen=True)
+class R2StagedObjectRecord:
+    id: int
+    draft_id: int
+    kind: str
+    source_path: str
+    bucket: str
+    object_key: str
+    public_url: str
+    status: str
+    staged_at: str
+    deleted_at: Optional[str]
+    cleanup_reason: Optional[str]
+
+
 def upsert_photo_source(connection, source: PhotoSource) -> int:
     connection.execute(
         """
@@ -730,6 +745,93 @@ def list_publish_attempts(connection, draft_id: int) -> list[PublishAttemptRecor
     return [_publish_attempt_from_row(row) for row in rows]
 
 
+def create_r2_staged_object_record(
+    connection,
+    *,
+    draft_id: int,
+    kind: str,
+    source_path: str,
+    bucket: str,
+    object_key: str,
+    public_url: str,
+) -> R2StagedObjectRecord:
+    connection.execute(
+        """
+        insert into r2_staged_objects (
+            draft_id, kind, source_path, bucket, object_key, public_url, status
+        ) values (?, ?, ?, ?, ?, ?, 'uploaded')
+        on conflict(object_key) do update set
+            draft_id = excluded.draft_id,
+            kind = excluded.kind,
+            source_path = excluded.source_path,
+            bucket = excluded.bucket,
+            public_url = excluded.public_url,
+            status = 'uploaded',
+            staged_at = current_timestamp,
+            deleted_at = null,
+            cleanup_reason = null
+        """,
+        (draft_id, kind, source_path, bucket, object_key, public_url),
+    )
+    row = connection.execute(
+        """
+        select id, draft_id, kind, source_path, bucket, object_key, public_url,
+               status, staged_at, deleted_at, cleanup_reason
+        from r2_staged_objects
+        where object_key = ?
+        """,
+        (object_key,),
+    ).fetchone()
+    return _r2_staged_object_from_row(row)
+
+
+def list_r2_staged_objects(
+    connection,
+    draft_id: int,
+    *,
+    status: Optional[str] = None,
+) -> list[R2StagedObjectRecord]:
+    status_clause = "and status = ?" if status is not None else ""
+    params: tuple[object, ...] = (draft_id, status) if status is not None else (draft_id,)
+    rows = connection.execute(
+        f"""
+        select id, draft_id, kind, source_path, bucket, object_key, public_url,
+               status, staged_at, deleted_at, cleanup_reason
+        from r2_staged_objects
+        where draft_id = ? {status_clause}
+        order by id
+        """,
+        params,
+    ).fetchall()
+    return [_r2_staged_object_from_row(row) for row in rows]
+
+
+def mark_r2_staged_object_deleted(
+    connection,
+    object_id: int,
+    *,
+    reason: Optional[str] = None,
+) -> R2StagedObjectRecord:
+    connection.execute(
+        """
+        update r2_staged_objects
+        set status = 'deleted', deleted_at = current_timestamp, cleanup_reason = ?
+        where id = ?
+        """,
+        (reason, object_id),
+    )
+    row = connection.execute(
+        """
+        select id, draft_id, kind, source_path, bucket, object_key, public_url,
+               status, staged_at, deleted_at, cleanup_reason
+        from r2_staged_objects
+        where id = ?
+        """,
+        (object_id,),
+    ).fetchone()
+    return _r2_staged_object_from_row(row)
+
+
 def list_unresolved_context_questions(connection, draft_id: int) -> list[ContextQuestionRecord]:
     rows = connection.execute(
         """
@@ -771,6 +873,22 @@ def _publish_attempt_from_row(row) -> PublishAttemptRecord:
         status_message=row[9],
         image_urls=_json_list(row[10]),
         child_container_ids=_json_list(row[11]),
+    )
+
+
+def _r2_staged_object_from_row(row) -> R2StagedObjectRecord:
+    return R2StagedObjectRecord(
+        id=int(row[0]),
+        draft_id=int(row[1]),
+        kind=row[2],
+        source_path=row[3],
+        bucket=row[4],
+        object_key=row[5],
+        public_url=row[6],
+        status=row[7],
+        staged_at=row[8],
+        deleted_at=row[9],
+        cleanup_reason=row[10],
     )
 
 
