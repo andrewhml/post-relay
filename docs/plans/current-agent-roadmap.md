@@ -351,7 +351,7 @@ Agents must preserve these unless Andrew explicitly changes the product directio
 - Draft preview, Discord preview, R2 staging plans, and publish image-count validation use included media only, preserving the revised order.
 - `reel` is accepted as local post-type intent only; live reel publishing remains unvalidated future work.
 
-### Milestone 5: `feat/r2-staging-upload-and-cleanup` (completed in PR TBD)
+### Milestone 5: `feat/r2-staging-upload-and-cleanup` (completed in PR #25)
 
 **Goal:** Upload Post Relay-created staging objects to R2 and clean up only those staged objects after publish/cancellation/explicit cleanup.
 
