@@ -227,10 +227,10 @@ Run this before opening or merging any PR:
 .venv/bin/python -m pytest -q
 ```
 
-Expected current result after publish-from-staged-R2 milestone:
+Expected current result after Discord selection model milestone:
 
 ```text
-91 passed
+99 passed
 ```
 
 ## Milestone execution rules
@@ -387,18 +387,24 @@ Agents must preserve these unless Andrew explicitly changes the product directio
 - Successful publish moves the draft to `posted`; staged records remain uploaded so `drafts r2-cleanup --execute --reason "publish complete"` can delete only recorded app-created objects.
 - Failed publish keeps staged objects available until explicit cleanup.
 
-### Milestone 7: `feat/discord-selection-model`
+### Milestone 7: `feat/discord-selection-model` (completed in PR #31)
 
 **Goal:** Add a local, testable model for Andrew to select X photos from Y suggested draft photos before any live carousel smoke test.
 
 **Reference plan:** `docs/plans/discord-photo-selection-before-carousel-smoke.md`
 
-**Expected behavior:**
-- Produce a selection request for a draft containing the target count X, suggested count Y, numbered candidate media, and lead/cover guidance.
-- Validate selection counts before mutation: X must be at least 1, cannot exceed Y, carousel selections require 2-10 photos, and single-image selections require exactly one photo.
-- Apply selected photo numbers through the existing media-selection rules so ordering, primary/support roles, included/excluded state, and approval invalidation stay consistent with `drafts media-edit`.
-- Add a local CLI harness, such as `drafts discord-selection-plan` and `drafts discord-selection-apply`, so behavior is testable without Discord network calls.
-- Do not call Discord, R2, or Meta publishing endpoints in this milestone.
+**Implemented:**
+- `src/post_relay/discord_selection.py` service for rendering local Discord-style X-from-Y selection requests and applying ordered selections
+- `drafts discord-selection-plan` CLI command for dry-run selection-request text with numbered suggested media and lead/cover guidance
+- `drafts discord-selection-apply` CLI command for applying Andrew's selected numbers, target count, lead/cover, and optional post type locally
+- tests for request rendering, target-count validation, duplicate/wrong-count/lead validation, approval invalidation, downstream preview ordering, and CLI harness output
+
+**Important behavior:**
+- The milestone makes no Discord, R2, or Meta network calls.
+- Selection requests use the current draft media review order and show X/Y counts plus command fallback semantics.
+- Applying selection delegates to the existing media-selection service so lead-first ordering, primary/support roles, included/excluded status, post-type guards, and approval invalidation stay consistent with `drafts media-edit`.
+- Carousel target counts require 2-10 photos; single-image target counts require exactly one photo.
+- The next milestone remains dry-run only: `feat/discord-selection-payload`.
 
 ### Milestone 8: `feat/discord-selection-payload`
 

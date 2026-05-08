@@ -22,6 +22,12 @@ from post_relay.db import connect_db, initialize_db
 from post_relay.drafts import CandidateNotFound, create_draft_from_candidate
 from post_relay.discord_preview import DraftNotFound as DiscordPreviewDraftNotFound
 from post_relay.discord_preview import build_discord_preview_payload
+from post_relay.discord_selection import (
+    DraftNotFound as DiscordSelectionDraftNotFound,
+    InvalidDiscordSelection,
+    apply_discord_photo_selection,
+    build_discord_selection_request,
+)
 from post_relay.indexer import index_photo_sources
 from post_relay.meta_graph import (
     MetaGraphClient,
@@ -400,6 +406,58 @@ def drafts_media_edit(
         raise typer.BadParameter(str(error), param_hint="--draft-id") from error
     except InvalidMediaSelection as error:
         raise typer.BadParameter(str(error), param_hint="--lead/--keep/--remove") from error
+    typer.echo(result.to_text())
+
+
+@drafts_app.command("discord-selection-plan")
+def drafts_discord_selection_plan(
+    draft_id: int = typer.Option(..., "--draft-id", help="Draft id."),
+    target_count: int = typer.Option(..., "--target-count", help="Number of photos Andrew should select."),
+    post_type: Optional[str] = typer.Option(None, "--post-type", help="Optional post type: single_image, carousel, or reel."),
+    db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
+) -> None:
+    """Print a local Discord-style X-from-Y photo selection request."""
+    connection = connect_db(db)
+    initialize_db(connection)
+    try:
+        request = build_discord_selection_request(
+            connection,
+            draft_id,
+            target_count=target_count,
+            post_type=post_type,
+        )
+    except DiscordSelectionDraftNotFound as error:
+        raise typer.BadParameter(str(error), param_hint="--draft-id") from error
+    except InvalidDiscordSelection as error:
+        raise typer.BadParameter(str(error), param_hint="--target-count/--post-type") from error
+    typer.echo(request.to_text())
+
+
+@drafts_app.command("discord-selection-apply")
+def drafts_discord_selection_apply(
+    draft_id: int = typer.Option(..., "--draft-id", help="Draft id."),
+    selected: str = typer.Option(..., "--select", help="Comma-separated suggested photo numbers to keep, in Andrew's chosen order."),
+    lead: int = typer.Option(..., "--lead", help="Selected suggested photo number to make lead/cover."),
+    target_count: int = typer.Option(..., "--target-count", help="Expected selected photo count."),
+    post_type: Optional[str] = typer.Option(None, "--post-type", help="Optional post type: single_image, carousel, or reel."),
+    db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
+) -> None:
+    """Apply a Discord-style X-from-Y photo selection locally without calling Discord."""
+    connection = connect_db(db)
+    initialize_db(connection)
+    try:
+        result = apply_discord_photo_selection(
+            connection,
+            draft_id,
+            selected_numbers=_split_ints(selected) or [],
+            lead=lead,
+            target_count=target_count,
+            post_type=post_type,
+        )
+    except DiscordSelectionDraftNotFound as error:
+        raise typer.BadParameter(str(error), param_hint="--draft-id") from error
+    except InvalidDiscordSelection as error:
+        raise typer.BadParameter(str(error), param_hint="--select/--lead/--target-count") from error
     typer.echo(result.to_text())
 
 

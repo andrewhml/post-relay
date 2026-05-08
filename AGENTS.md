@@ -35,6 +35,7 @@ Post Relay is a local-first Instagram travel content workflow for Andrew's `andr
 - No-network R2 staging plans can be generated with `drafts r2-stage-plan`; plans use sanitized object keys/public URLs, preserve included draft media order, and report missing local files before upload exists.
 - R2 staging upload/cleanup can be dry-run locally; `drafts r2-stage-upload --execute` uploads and records planned objects, while `drafts r2-cleanup --execute` deletes only recorded uploaded objects under the configured Post Relay prefix.
 - Numbered draft media plans and edits can be applied locally with `drafts media-plan` and `drafts media-edit`; lead/cover, keep/remove, and post-type changes update candidate media ordering/roles/inclusion and invalidate active approvals.
+- Local Discord-style X-from-Y photo selection can be modeled without network calls using `drafts discord-selection-plan` and `drafts discord-selection-apply`; selection application reuses the same media-selection rules and approval invalidation as `drafts media-edit`.
 - Queue-approved drafts can be scheduled locally and moved through final publish approval without live API calls.
 - Guarded single-image/carousel publish validation can use either explicit public HTTPS `--image-url` values or recorded uploaded R2 staged media via `--from-staged-r2`, preserving dry-run defaults, double approval, and explicit `--execute` publish safeguards.
 - Live Discord delivery should only be added after the local payload harness remains green; next Discord work should first support Andrew selecting X photos from Y suggestions, then guide post type, caption/content, hashtags, location handling, schedule, and approvals before the live carousel smoke test.
@@ -86,6 +87,8 @@ Post Relay is a local-first Instagram travel content workflow for Andrew's `andr
 .venv/bin/post-relay drafts artifacts render --draft-id 1 --config config/photo_sources.yaml --db data/post_relay.sqlite
 .venv/bin/post-relay drafts media-plan --draft-id 1 --db data/post_relay.sqlite
 .venv/bin/post-relay drafts media-edit --draft-id 1 --lead 3 --keep 1,3,5 --post-type carousel --db data/post_relay.sqlite
+.venv/bin/post-relay drafts discord-selection-plan --draft-id 1 --target-count 5 --db data/post_relay.sqlite
+.venv/bin/post-relay drafts discord-selection-apply --draft-id 1 --select 3,1,5,7,8 --lead 3 --target-count 5 --post-type carousel --db data/post_relay.sqlite
 .venv/bin/post-relay drafts r2-stage-plan --draft-id 1 --config config/photo_sources.yaml --db data/post_relay.sqlite
 .venv/bin/post-relay drafts r2-stage-upload --draft-id 1 --config config/photo_sources.yaml --db data/post_relay.sqlite
 .venv/bin/post-relay drafts r2-stage-upload --draft-id 1 --config config/photo_sources.yaml --db data/post_relay.sqlite --execute
@@ -104,4 +107,4 @@ Post Relay is a local-first Instagram travel content workflow for Andrew's `andr
 
 ## Current next milestone
 
-See `docs/plans/current-agent-roadmap.md`. The next planned code milestone is currently `feat/discord-selection-model`, the first step in `docs/plans/discord-photo-selection-before-carousel-smoke.md`. This must start the guided workflow that lets Andrew choose X photos from Y suggested draft photos, then align on post type/content/metadata/schedule before the guarded live carousel smoke test milestone.
+See `docs/plans/current-agent-roadmap.md`. The next planned code milestone is currently `feat/discord-selection-payload`, the second step in `docs/plans/discord-photo-selection-before-carousel-smoke.md`. This must extend the dry-run Discord payload harness for X-from-Y selection without live Discord or Meta calls.
