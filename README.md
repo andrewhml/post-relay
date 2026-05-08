@@ -31,7 +31,7 @@ Early local-first MVP scaffold with:
 - `graph.instagram.com` returned `Invalid platform app` in current setup
 
 ## Immediate goals
-1. Add a Discord-driven photo selection flow so Andrew can choose X photos from Y suggested draft photos before any live carousel post
+1. Add a Discord-driven guided workflow so Andrew can choose post type, select X photos from Y suggested draft photos, align on hook/caption/hashtags/location/schedule, and approve the complete package before any live carousel post
 2. Use staged public HTTPS media for publish validation while preserving dry-run, double-approval, and explicit `--execute` safeguards
 3. Run a guarded carousel publish smoke test only after Discord selection is proven and a safe staged carousel draft is explicitly approved
 

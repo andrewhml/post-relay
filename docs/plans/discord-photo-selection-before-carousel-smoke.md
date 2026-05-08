@@ -2,9 +2,9 @@
 
 > **For Hermes:** Use subagent-driven-development skill to implement this plan task-by-task. Use one rollback-safe branch and PR per milestone.
 
-**Goal:** Let Andrew interact with the Discord bot to choose X photos from Y suggested candidate photos before running any live carousel smoke test on Instagram.
+**Goal:** Let Andrew interact with the Discord bot to choose X photos from Y suggested candidate photos, align on post type/content/metadata/schedule, and approve the complete post package before running any live carousel smoke test on Instagram.
 
-**Architecture:** Keep Post Relay local-first and approval-gated. Build a deterministic local selection model first, then expose it through a Discord interaction layer that presents numbered suggested photos and records Andrew's explicit selection back into the existing draft media-selection workflow. Only after Discord selection, draft approval, publish approval, staged-R2 dry-run, and explicit active-session authorization should a live carousel smoke test be attempted.
+**Architecture:** Keep Post Relay local-first, growth-oriented, and approval-gated. Build deterministic local services first, then expose them through a Discord conversation layer that presents numbered suggested photos, explains format recommendations, asks focused context questions, drafts attention-grabbing content, records Andrew's explicit decisions, and schedules approved posts. Only after Discord-guided selection, draft approval, publish approval, staged-R2 dry-run, and explicit active-session authorization should a live publish be attempted.
 
 **Tech Stack:** Python 3.9+, SQLite, Typer, pytest, existing draft media-selection service, existing Discord preview payload harness, Discord bot/interactions, local review artifacts, optional R2 staging for public HTTPS media.
 
@@ -13,6 +13,8 @@
 ## Product decision
 
 The live carousel smoke test should no longer be the next milestone. Before posting anything live, Post Relay should support a Discord review interaction where Andrew can select a target count of photos from a larger suggested set, for example "pick 5 from these 12 suggestions." The selected photos become the draft's included media in the chosen order, with an explicit lead/cover, and any existing approvals are invalidated as a material edit.
+
+The Discord bot should ultimately guide the entire creator workflow, not just media picking. It should help Andrew decide the post type, choose the strongest media, collect missing factual/creative context, draft stronger hook-first captions, suggest hashtags/location/alt text where supported, schedule posts into a future queue, and preserve the double-approval workflow. The product north star is follower growth from 758 to 5,000 while preserving Andrew's control and taste; growth recommendations should be quality-oriented, auditable, and never use spammy engagement automation.
 
 ## Safety invariants
 
@@ -24,6 +26,9 @@ The live carousel smoke test should no longer be the next milestone. Before post
 - Use dry-run/local harnesses before live Discord API calls.
 - If Discord media attachments are unreliable, fall back to R2-staged public review URLs or local artifact paths in the message text; do not block selection-state correctness on attachment delivery.
 - Never log, commit, or paste Discord bot tokens, Meta tokens, R2 credentials, or signed/private URLs.
+- Never fabricate factual details such as exact location, event names, people, or dates; ask Andrew to confirm uncertain context.
+- Growth optimization must stay within supported platform behavior: no fake engagement, follow/unfollow automation, comment spam, DM spam, scraping, or browser automation.
+- Programmatic Instagram fields must be capability-checked before implementation. Known safe v1 fields include media, caption text, hashtags embedded in caption, and local alt-text/audit metadata; location tagging, collaborators, music, product tags, and other advanced fields need explicit Meta Graph capability validation before being promised or used.
 
 ## Milestone A: `feat/discord-selection-model`
 
@@ -113,7 +118,77 @@ The live carousel smoke test should no longer be the next milestone. Before post
 .venv/bin/python -m pytest -q
 ```
 
-## Milestone C: `feat/discord-selection-bot`
+## Milestone C: `feat/discord-guided-draft-package`
+
+**Goal:** Add a local, testable guided drafting service that turns selected media plus Andrew's answers into a complete growth-oriented post package.
+
+**Expected behavior:**
+- Recommend post type with a short rationale: single image, carousel, or reel-planning-only.
+- Ask focused questions only when they materially improve the post, including:
+  - location/place/trip/date confidence,
+  - story angle,
+  - mood/tone,
+  - audience hook,
+  - anything to include or avoid.
+- Generate multiple caption options with attention-grabbing first lines/hooks.
+- Suggest hashtags as caption text, grouped by broad travel/location/style/niche intent, without overstuffing.
+- Suggest location text for Andrew confirmation; do not treat inferred location as fact until confirmed.
+- Generate local alt text/accessibility notes even if Instagram Graph cannot publish alt text directly.
+- Store draft package fields and rationale in SQLite so later approvals/scheduling/publishing use audited values.
+- Include a "why this could grow followers" rationale based on media strength, hook, save/share potential, specificity, and consistency with Andrew's travel-photography identity.
+
+**Likely files:**
+- Create: `src/post_relay/guided_drafting.py`
+- Modify: `src/post_relay/repository.py` for caption option/context/metadata persistence if needed
+- Modify: `src/post_relay/cli.py` for local harness commands
+- Test: `tests/test_guided_drafting.py`
+- Docs: `README.md`, `AGENTS.md`, `docs/plans/current-agent-roadmap.md`
+
+**Suggested CLI harness:**
+
+```bash
+.venv/bin/post-relay drafts guided-package \
+  --draft-id <draft-id> \
+  --goal "grow andrewhml from 758 to 5000 followers" \
+  --db data/post_relay.sqlite
+```
+
+**Verification:**
+
+```bash
+.venv/bin/python -m pytest tests/test_guided_drafting.py -q
+.venv/bin/python -m pytest -q
+```
+
+## Milestone D: `feat/instagram-capability-matrix`
+
+**Goal:** Make Post Relay explicit about which Instagram post fields it can publish programmatically and which remain local/review-only.
+
+**Expected behavior:**
+- Store or render a capability matrix for supported Meta Graph publish fields:
+  - media URLs / carousel children: publishable,
+  - caption including hashtags: publishable,
+  - local alt text: useful for review/accessibility, publishability must be verified before live use,
+  - location tagging: verify current official support before implementing,
+  - collaborators, music, product tags, story-specific fields, reel-only fields: out of v1 unless official support is validated.
+- Add tests that prevent unsupported metadata from silently being sent to Meta publish endpoints.
+- Show unsupported/review-only metadata clearly in Discord so Andrew can still use it manually if needed.
+- Keep publish attempts sanitized.
+
+**Likely files:**
+- Create: `src/post_relay/instagram_capabilities.py`
+- Modify: `src/post_relay/publishing.py`
+- Modify: `src/post_relay/discord_preview.py` or selection payload module
+- Test: `tests/test_instagram_capabilities.py`, `tests/test_publish_validation.py`
+
+**Verification:**
+
+```bash
+.venv/bin/python -m pytest tests/test_instagram_capabilities.py tests/test_publish_validation.py -q
+.venv/bin/python -m pytest -q
+```
+
+## Milestone E: `feat/discord-selection-bot`
 
 **Goal:** Add live Discord bot interaction for Andrew to select X photos from Y suggestions and persist that selection locally.
 
@@ -152,12 +227,58 @@ The live carousel smoke test should no longer be the next milestone. Before post
 
 Then perform one explicit Discord-only smoke test in the review channel. Do not run Instagram publish execution as part of this milestone.
 
-## Milestone D: `feat/live-carousel-publish-smoke-notes`
+## Milestone F: `feat/discord-guided-review-bot`
 
-**Goal:** After Discord photo selection is proven, run one explicitly approved live carousel smoke test through the guarded carousel path, preferably using staged-R2 public HTTPS media URLs, and document observed Meta behavior.
+**Goal:** Expand the live Discord bot from media selection into a guided post-building conversation.
+
+**Expected behavior:**
+- Guide Andrew through post type, media choice, caption direction, hashtags, location confirmation, alt text, and schedule slot.
+- Provide concise recommendations with rationales rather than just open-ended questions.
+- Support natural-language revisions such as:
+  - "make the hook stronger",
+  - "less dramatic",
+  - "choose a more iconic cover",
+  - "give me three caption options",
+  - "schedule this for next Friday morning".
+- Persist every accepted decision to the draft record or related audit tables.
+- Require explicit draft approval before queueing and explicit publish approval before live publish.
+- Confirm when a requested field is local/review-only rather than publishable through Meta Graph.
+
+**Verification:**
+
+```bash
+.venv/bin/python -m pytest tests/test_discord_selection.py tests/test_guided_drafting.py -q
+.venv/bin/python -m pytest -q
+```
+
+Then perform one explicit Discord-only guided review smoke test. Do not run Instagram publish execution as part of this milestone.
+
+## Milestone G: `feat/discord-schedule-queue-guidance`
+
+**Goal:** Let the Discord bot guide Andrew from approved draft to scheduled queue while optimizing cadence toward follower growth.
+
+**Expected behavior:**
+- Recommend schedule slots based on configured cadence and simple interpretable rules.
+- Avoid clustering similar posts or dumping too much backlog at once.
+- Ask Andrew to approve or adjust the proposed slot in Discord.
+- Persist the chosen schedule with the existing scheduling state machine.
+- Request final publish approval near the publish window according to the configured policy.
+- Keep all live publish execution behind explicit approval and `--execute`.
+
+**Verification:**
+
+```bash
+.venv/bin/python -m pytest tests/test_scheduling.py -q
+.venv/bin/python -m pytest -q
+```
+
+## Milestone H: `feat/live-carousel-publish-smoke-notes`
+
+**Goal:** After Discord photo selection and guided post-package approval are proven, run one explicitly approved live carousel smoke test through the guarded carousel path, preferably using staged-R2 public HTTPS media URLs, and document observed Meta behavior.
 
 **Preconditions:**
 - Discord selection flow has selected the final carousel media from a larger suggestion set.
+- Discord guided review has confirmed post type, content direction, caption, hashtags, location handling, alt text/review-only metadata, and schedule intent.
 - The selected media order and lead/cover have been confirmed in Discord.
 - The draft has non-empty approved caption/content.
 - Draft approval and final publish approval are active after any media selection changes.
@@ -183,6 +304,7 @@ Record sanitized child container ids, carousel container id, status, published m
 - [ ] Local selection model tests pass.
 - [ ] Dry-run Discord selection payload is reviewed.
 - [ ] Live Discord selection smoke test succeeds without touching Meta publishing endpoints.
+- [ ] Guided Discord review confirms post type, media, hook/caption, hashtags, location treatment, alt text/review-only metadata, and schedule intent.
 - [ ] Andrew confirms final selected carousel images and lead/cover in Discord.
 - [ ] Any approval invalidation caused by media changes has been resolved with fresh draft and publish approvals.
 - [ ] Staged-R2 or manual public HTTPS image URLs are dry-run validated.

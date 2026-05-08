@@ -37,7 +37,7 @@ Post Relay is a local-first Instagram travel content workflow for Andrew's `andr
 - Numbered draft media plans and edits can be applied locally with `drafts media-plan` and `drafts media-edit`; lead/cover, keep/remove, and post-type changes update candidate media ordering/roles/inclusion and invalidate active approvals.
 - Queue-approved drafts can be scheduled locally and moved through final publish approval without live API calls.
 - Guarded single-image/carousel publish validation can use either explicit public HTTPS `--image-url` values or recorded uploaded R2 staged media via `--from-staged-r2`, preserving dry-run defaults, double approval, and explicit `--execute` publish safeguards.
-- Live Discord delivery should only be added after the local payload harness remains green; next Discord work should first support Andrew selecting X photos from Y suggestions before the live carousel smoke test.
+- Live Discord delivery should only be added after the local payload harness remains green; next Discord work should first support Andrew selecting X photos from Y suggestions, then guide post type, caption/content, hashtags, location handling, schedule, and approvals before the live carousel smoke test.
 
 ## Safety and product constraints
 
@@ -104,4 +104,4 @@ Post Relay is a local-first Instagram travel content workflow for Andrew's `andr
 
 ## Current next milestone
 
-See `docs/plans/current-agent-roadmap.md`. The next planned code milestone is currently `feat/discord-selection-model`, the first step in `docs/plans/discord-photo-selection-before-carousel-smoke.md`. This must let Andrew choose X photos from Y suggested draft photos before the guarded live carousel smoke test milestone.
+See `docs/plans/current-agent-roadmap.md`. The next planned code milestone is currently `feat/discord-selection-model`, the first step in `docs/plans/discord-photo-selection-before-carousel-smoke.md`. This must start the guided workflow that lets Andrew choose X photos from Y suggested draft photos, then align on post type/content/metadata/schedule before the guarded live carousel smoke test milestone.
