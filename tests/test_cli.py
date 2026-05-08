@@ -263,6 +263,60 @@ r2_staging:
     assert tmp_path.as_posix() not in result.output.split("Object keys:")[-1]
 
 
+def test_cli_draft_media_plan_and_edit_updates_lead_keep_and_post_type(tmp_path: Path):
+    root = tmp_path / "processed"
+    folder = root / "2025" / "tokyo"
+    folder.mkdir(parents=True)
+    for filename in ["01-wide.jpg", "02-detail.jpg", "03-hero.jpg"]:
+        (folder / filename).write_bytes(b"fake image")
+    config_path = tmp_path / "photo_sources.yaml"
+    config_path.write_text(
+        f"""
+photo_sources:
+  - name: processed
+    root: {root.as_posix()}
+    source_type: processed_folder
+""".strip()
+    )
+    db_path = tmp_path / "post_relay.sqlite"
+
+    runner.invoke(app, ["index", "scan", "--config", str(config_path), "--db", str(db_path)])
+    runner.invoke(app, ["candidates", "build", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "create", "--candidate-id", "1", "--db", str(db_path)])
+    plan_result = runner.invoke(app, ["drafts", "media-plan", "--draft-id", "1", "--db", str(db_path)])
+    edit_result = runner.invoke(
+        app,
+        [
+            "drafts",
+            "media-edit",
+            "--draft-id",
+            "1",
+            "--lead",
+            "3",
+            "--keep",
+            "1,3",
+            "--post-type",
+            "carousel",
+            "--db",
+            str(db_path),
+        ],
+    )
+    preview_result = runner.invoke(app, ["drafts", "preview", "--draft-id", "1", "--db", str(db_path)])
+
+    assert plan_result.exit_code == 0
+    assert "Draft Media Plan" in plan_result.output
+    assert "1. [primary] included" in plan_result.output
+    assert "3. [support] included" in plan_result.output
+    assert edit_result.exit_code == 0
+    assert "Updated media selection for draft #1" in edit_result.output
+    assert "Lead: 03-hero.jpg" in edit_result.output
+    assert "Excluded:" in edit_result.output
+    assert "02-detail.jpg" in edit_result.output
+    assert preview_result.exit_code == 0
+    assert preview_result.output.index("03-hero.jpg") < preview_result.output.index("01-wide.jpg")
+    assert "02-detail.jpg" not in preview_result.output
+
+
 def test_cli_draft_approval_and_edit_invalidation_flow(tmp_path: Path):
     root = tmp_path / "processed"
     folder = root / "2023" / "kyoto"

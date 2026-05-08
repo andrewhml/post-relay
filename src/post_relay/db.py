@@ -148,6 +148,9 @@ def initialize_db(connection: sqlite3.Connection) -> None:
     _ensure_column(connection, "approvals", "invalidation_reason", "text")
     _ensure_column(connection, "publish_attempts", "image_urls_json", "text")
     _ensure_column(connection, "publish_attempts", "child_container_ids_json", "text")
+    _ensure_column(connection, "candidate_group_items", "role", "text not null default 'support'")
+    _ensure_column(connection, "candidate_group_items", "include_status", "text not null default 'included'")
+    _ensure_column(connection, "candidate_group_items", "reason", "text")
     connection.commit()
 
 

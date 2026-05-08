@@ -39,6 +39,16 @@ class CandidateGroupRecord:
 
 
 @dataclass(frozen=True)
+class CandidateGroupPhotoItemRecord:
+    group_id: int
+    photo_id: int
+    local_file_path: str
+    sort_order: int
+    role: str
+    include_status: str
+
+
+@dataclass(frozen=True)
 class DraftRecord:
     id: int
     candidate_group_id: int
@@ -363,18 +373,69 @@ def list_drafts(connection) -> list[DraftRecord]:
     return [_draft_from_row(row) for row in rows]
 
 
-def list_candidate_group_photo_paths(connection, candidate_group_id: int) -> list[str]:
+def list_candidate_group_photo_items(
+    connection,
+    candidate_group_id: int,
+    *,
+    included_only: bool = False,
+) -> list[CandidateGroupPhotoItemRecord]:
+    include_clause = "and candidate_group_items.include_status = 'included'" if included_only else ""
     rows = connection.execute(
-        """
-        select photos.local_file_path
+        f"""
+        select
+            candidate_group_items.group_id,
+            candidate_group_items.photo_id,
+            photos.local_file_path,
+            candidate_group_items.sort_order,
+            candidate_group_items.role,
+            candidate_group_items.include_status
         from candidate_group_items
         join photos on photos.id = candidate_group_items.photo_id
         where candidate_group_items.group_id = ?
+        {include_clause}
         order by candidate_group_items.sort_order, photos.local_file_path
         """,
         (candidate_group_id,),
     ).fetchall()
-    return [row[0] for row in rows]
+    return [
+        CandidateGroupPhotoItemRecord(
+            group_id=int(row[0]),
+            photo_id=int(row[1]),
+            local_file_path=row[2],
+            sort_order=int(row[3]),
+            role=row[4],
+            include_status=row[5],
+        )
+        for row in rows
+    ]
+
+
+def list_candidate_group_photo_paths(connection, candidate_group_id: int) -> list[str]:
+    return [
+        item.local_file_path
+        for item in list_candidate_group_photo_items(
+            connection, candidate_group_id, included_only=True
+        )
+    ]
+
+
+def update_candidate_group_photo_item(
+    connection,
+    *,
+    group_id: int,
+    photo_id: int,
+    sort_order: int,
+    role: str,
+    include_status: str,
+) -> None:
+    connection.execute(
+        """
+        update candidate_group_items
+        set sort_order = ?, role = ?, include_status = ?
+        where group_id = ? and photo_id = ?
+        """,
+        (sort_order, role, include_status, group_id, photo_id),
+    )
 
 
 def create_context_question(

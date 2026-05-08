@@ -227,10 +227,10 @@ Run this before opening or merging any PR:
 .venv/bin/python -m pytest -q
 ```
 
-Expected current result after R2 staging dry-run milestone:
+Expected current result after draft media selection milestone:
 
 ```text
-72 passed
+79 passed
 ```
 
 ## Milestone execution rules
@@ -332,7 +332,26 @@ Agents must preserve these unless Andrew explicitly changes the product directio
 - Carousel media order is preserved from candidate group item order.
 - The command makes no network calls and does not require R2 credentials.
 
-### Milestone 4: `feat/r2-staging-upload-and-cleanup`
+### Milestone 4: `feat/draft-media-selection` (completed in PR TBD)
+
+**Goal:** Let Andrew explicitly translate numbered contact-sheet review feedback into local draft media selection before Discord natural-language handling exists.
+
+**Implemented:**
+- `src/post_relay/media_selection.py` service for numbered draft media plans and explicit media edits
+- `drafts media-plan` CLI command for showing numbered review media, roles, inclusion status, and edit examples
+- `drafts media-edit` CLI command for `--lead`, `--keep` or `--remove`, and optional `--post-type single_image|carousel|reel`
+- repository helpers for reading/updating candidate media item role, inclusion status, and sort order
+- tests for lead-first ordering, keep/remove validation, single-image/carousel guards, approval invalidation, included-only downstream previews/staging, and CLI output
+
+**Important behavior:**
+- Review numbers come from current candidate media sort order, matching contact sheet/review presentation.
+- The lead/cover photo becomes the first included item and receives role `primary`; other included media are `support`.
+- Removed media are retained in SQLite as `include_status = 'excluded'`; source media is never moved/deleted/mutated.
+- Material media edits invalidate active approvals and move approved/scheduled/ready drafts back to `needs_edits` through the guarded state model.
+- Draft preview, Discord preview, R2 staging plans, and publish image-count validation use included media only, preserving the revised order.
+- `reel` is accepted as local post-type intent only; live reel publishing remains unvalidated future work.
+
+### Milestone 5: `feat/r2-staging-upload-and-cleanup`
 
 **Goal:** Upload Post Relay-created staging objects to R2 and clean up only those staged objects after publish/cancellation/explicit cleanup.
 
@@ -342,7 +361,7 @@ Agents must preserve these unless Andrew explicitly changes the product directio
 - Cleanup never deletes local/NAS source files.
 - Failed publishes leave staged objects available for debugging until explicit cleanup.
 
-### Milestone 5: `feat/publish-from-staged-r2`
+### Milestone 6: `feat/publish-from-staged-r2`
 
 **Goal:** Let Meta publish validation use staged R2 HTTPS URLs for single-image and carousel drafts.
 
@@ -352,7 +371,7 @@ Agents must preserve these unless Andrew explicitly changes the product directio
 - Successful publish can mark staged objects safe for cleanup.
 - Failed publish keeps staged objects unless explicitly cleaned up.
 
-### Milestone 6: `feat/live-carousel-publish-smoke-notes`
+### Milestone 7: `feat/live-carousel-publish-smoke-notes`
 
 **Goal:** Run one explicitly approved live carousel smoke test through the guarded carousel path, ideally using R2-staged public HTTPS image URLs, then document observed Meta behavior.
 
