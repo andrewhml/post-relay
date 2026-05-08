@@ -22,7 +22,7 @@ POST_RELAY_META_GRAPH_BASE_URL=https://graph.facebook.com
 POST_RELAY_META_GRAPH_VERSION=v19.0
 ```
 
-Each carousel image URL must be publicly reachable by Meta over HTTPS. Local filesystem paths are not accepted by the Graph media container endpoint.
+Each carousel image URL must be publicly reachable by Meta over HTTPS. Local filesystem paths are not accepted by the Graph media container endpoint. Prefer the staged-R2 path when possible so publish validation resolves the currently selected draft media order from recorded uploaded `draft_media` objects.
 
 ## Required draft state
 
@@ -31,7 +31,7 @@ The draft must satisfy all of these:
 - `post_type = carousel`
 - at least two selected candidate images
 - no more than ten selected candidate images
-- one public HTTPS `--image-url` argument per selected candidate image, in draft image order
+- one public HTTPS `--image-url` argument per selected candidate image, in draft image order, or uploaded staged-R2 `draft_media` records for every selected image
 - non-empty caption stored on the draft record
 - active draft approval exists
 - active publish approval exists
@@ -51,6 +51,30 @@ Useful local flow for preparing a carousel draft:
 
 ## Dry run
 
+Preferred staged-R2 path:
+
+```bash
+.venv/bin/post-relay drafts r2-stage-upload \
+  --draft-id <draft-id> \
+  --config config/photo_sources.yaml \
+  --db data/post_relay.sqlite
+
+.venv/bin/post-relay drafts r2-stage-upload \
+  --draft-id <draft-id> \
+  --config config/photo_sources.yaml \
+  --db data/post_relay.sqlite \
+  --execute
+
+.venv/bin/post-relay meta validate-carousel-publish \
+  --draft-id <draft-id> \
+  --from-staged-r2 \
+  --config config/photo_sources.yaml \
+  --db data/post_relay.sqlite \
+  --dry-run
+```
+
+Manual public URL path:
+
 ```bash
 .venv/bin/post-relay meta validate-carousel-publish \
   --draft-id <draft-id> \
@@ -65,11 +89,26 @@ Review that:
 - output starts with `Carousel publish validation`
 - status is `planned`
 - every image URL is sanitized if it contains secret-like query params
+- staged-R2 mode reports the resolved image count and preserves the selected draft media order
 - output says `No Meta publishing endpoints were called.`
 
 ## Live execution
 
 Only after Andrew explicitly authorizes the live carousel smoke test:
+
+Preferred staged-R2 path:
+
+```bash
+.venv/bin/post-relay meta validate-carousel-publish \
+  --draft-id <draft-id> \
+  --from-staged-r2 \
+  --config config/photo_sources.yaml \
+  --db data/post_relay.sqlite \
+  --env-file .env \
+  --execute
+```
+
+Manual public URL path:
 
 ```bash
 .venv/bin/post-relay meta validate-carousel-publish \
@@ -101,10 +140,14 @@ Expected success indicators:
 
 ```bash
 .venv/bin/post-relay drafts list --db data/post_relay.sqlite
+.venv/bin/post-relay drafts r2-cleanup \
+  --draft-id <draft-id> \
+  --config config/photo_sources.yaml \
+  --db data/post_relay.sqlite
 .venv/bin/python -m pytest -q
 ```
 
-Record the observed Meta behavior, sanitized ids/statuses, and any account/app limitation in `docs/plans/current-agent-roadmap.md`.
+Record the observed Meta behavior, sanitized ids/statuses, and any account/app limitation in `docs/plans/current-agent-roadmap.md`. If staged R2 was used and the live publish succeeded, review the cleanup dry-run output and only then run `drafts r2-cleanup --execute --reason "publish complete"` to delete recorded Post Relay-created staging objects.
 
 ## Current implementation status
 
@@ -120,3 +163,4 @@ Local validation covers:
 - carousel status polling before publish
 - publish only after `FINISHED`
 - sanitized audit records for image URLs, child container ids, carousel container id, status, and published media id
+- staged-R2 URL resolution via `--from-staged-r2`, preserving selected draft media order and ignoring staged artifacts
