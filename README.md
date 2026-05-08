@@ -61,6 +61,7 @@ Use the project virtualenv when running locally:
 .venv/bin/post-relay drafts media-plan --draft-id 1 --db data/post_relay.sqlite
 .venv/bin/post-relay drafts media-edit --draft-id 1 --lead 3 --keep 1,3,5 --post-type carousel --db data/post_relay.sqlite
 .venv/bin/post-relay drafts discord-selection-plan --draft-id 1 --target-count 5 --db data/post_relay.sqlite
+.venv/bin/post-relay drafts discord-selection-preview --draft-id 1 --target-count 5 --artifact-path data/artifacts/draft-1/contact-sheet.jpg --db data/post_relay.sqlite
 .venv/bin/post-relay drafts discord-selection-apply --draft-id 1 --select 3,1,5,7,8 --lead 3 --target-count 5 --post-type carousel --db data/post_relay.sqlite
 .venv/bin/post-relay drafts r2-stage-plan --draft-id 1 --config config/photo_sources.yaml --db data/post_relay.sqlite
 .venv/bin/post-relay drafts r2-stage-upload --draft-id 1 --config config/photo_sources.yaml --db data/post_relay.sqlite

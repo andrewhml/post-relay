@@ -227,10 +227,10 @@ Run this before opening or merging any PR:
 .venv/bin/python -m pytest -q
 ```
 
-Expected current result after Discord selection model milestone:
+Expected current result after Discord selection payload milestone:
 
 ```text
-99 passed
+102 passed
 ```
 
 ## Milestone execution rules
@@ -406,15 +406,22 @@ Agents must preserve these unless Andrew explicitly changes the product directio
 - Carousel target counts require 2-10 photos; single-image target counts require exactly one photo.
 - The next milestone remains dry-run only: `feat/discord-selection-payload`.
 
-### Milestone 8: `feat/discord-selection-payload`
+### Milestone 8: `feat/discord-selection-payload` (completed in PR #32)
 
 **Goal:** Extend the dry-run Discord payload harness so Andrew can preview a "select X from Y" request locally before live bot delivery.
 
-**Expected behavior:**
-- Render a dry-run selection payload with numbered suggested photos, the target selection count, local artifact references, missing-file reporting, and exact interaction semantics.
-- Preserve selected draft media order and make the lead/cover choice explicit.
-- Document fallbacks for Discord attachment issues: contact sheets, local artifact paths, or staged review URLs.
-- Do not send live Discord messages yet.
+**Implemented:**
+- `DiscordSelectionPayload` dry-run payload model for numbered X-from-Y selection requests
+- `build_discord_selection_payload(...)` for preserving suggested draft media order, reporting missing source media, and including optional local artifact references
+- `drafts discord-selection-preview` CLI command for rendering the dry-run payload without sending Discord messages
+- tests for interaction semantics, ordered image attachments, artifact references, missing media/artifact reporting, and CLI output
+
+**Important behavior:**
+- The command explicitly says no Discord messages were sent.
+- Payload text includes exact interaction semantics: accept exactly X selected numbers, require lead/cover inside the selection, preserve Andrew's selected order, and reject incomplete/duplicate/out-of-range choices.
+- Missing source images or missing local artifacts make `ready_to_send` false in the dry-run output.
+- Fallback notes document contact sheets, thumbnail/local artifact paths, source paths, and staged review media as later options if Discord attachments are unreliable.
+- The next no-network milestone is `feat/discord-guided-draft-package`; live Discord bot testing should wait until Andrew reviews this payload shape.
 
 ### Milestone 9: `feat/discord-guided-draft-package`
 
