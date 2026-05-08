@@ -17,6 +17,7 @@ Early local-first MVP scaffold with:
 - schedule and publish-approval CLI without live publishing
 - sanitized read-only Meta Graph validation CLI
 - controlled single-image and carousel Meta publish validation CLIs with dry-run planning, approval guards, container creation/status polling/publish execution, and sanitized attempt logging
+- no-network R2 staging plan CLI for draft media and generated review artifacts
 - guarded draft workflow state model
 
 ## Proven setup facts
@@ -53,6 +54,7 @@ Use the project virtualenv when running locally:
 .venv/bin/post-relay drafts list --db data/post_relay.sqlite
 .venv/bin/post-relay drafts preview --draft-id 1 --db data/post_relay.sqlite
 .venv/bin/post-relay drafts artifacts render --draft-id 1 --config config/photo_sources.yaml --db data/post_relay.sqlite
+.venv/bin/post-relay drafts r2-stage-plan --draft-id 1 --config config/photo_sources.yaml --db data/post_relay.sqlite
 .venv/bin/post-relay drafts discord-preview --draft-id 1 --db data/post_relay.sqlite
 .venv/bin/post-relay drafts submit --draft-id 1 --db data/post_relay.sqlite
 .venv/bin/post-relay drafts approve --draft-id 1 --approved-by andrew --notes "Content direction approved" --db data/post_relay.sqlite
