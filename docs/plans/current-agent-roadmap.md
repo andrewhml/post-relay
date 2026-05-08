@@ -387,16 +387,53 @@ Agents must preserve these unless Andrew explicitly changes the product directio
 - Successful publish moves the draft to `posted`; staged records remain uploaded so `drafts r2-cleanup --execute --reason "publish complete"` can delete only recorded app-created objects.
 - Failed publish keeps staged objects available until explicit cleanup.
 
-### Milestone 7: `feat/live-carousel-publish-smoke-notes`
+### Milestone 7: `feat/discord-selection-model`
 
-**Goal:** Run one explicitly approved live carousel smoke test through the guarded carousel path, ideally using R2-staged public HTTPS image URLs, then document observed Meta behavior.
+**Goal:** Add a local, testable model for Andrew to select X photos from Y suggested draft photos before any live carousel smoke test.
+
+**Reference plan:** `docs/plans/discord-photo-selection-before-carousel-smoke.md`
+
+**Expected behavior:**
+- Produce a selection request for a draft containing the target count X, suggested count Y, numbered candidate media, and lead/cover guidance.
+- Validate selection counts before mutation: X must be at least 1, cannot exceed Y, carousel selections require 2-10 photos, and single-image selections require exactly one photo.
+- Apply selected photo numbers through the existing media-selection rules so ordering, primary/support roles, included/excluded state, and approval invalidation stay consistent with `drafts media-edit`.
+- Add a local CLI harness, such as `drafts discord-selection-plan` and `drafts discord-selection-apply`, so behavior is testable without Discord network calls.
+- Do not call Discord, R2, or Meta publishing endpoints in this milestone.
+
+### Milestone 8: `feat/discord-selection-payload`
+
+**Goal:** Extend the dry-run Discord payload harness so Andrew can preview a "select X from Y" request locally before live bot delivery.
+
+**Expected behavior:**
+- Render a dry-run selection payload with numbered suggested photos, the target selection count, local artifact references, missing-file reporting, and exact interaction semantics.
+- Preserve selected draft media order and make the lead/cover choice explicit.
+- Document fallbacks for Discord attachment issues: contact sheets, local artifact paths, or staged review URLs.
+- Do not send live Discord messages yet.
+
+### Milestone 9: `feat/discord-selection-bot`
+
+**Goal:** Let Andrew interact with the Discord bot to choose X photos from Y suggestions and persist the choice into the draft media selection.
+
+**Expected behavior:**
+- Send a selection message to the configured Discord review channel.
+- Accept exactly X selected photo numbers plus a lead/cover choice through Discord interactions or a command fallback.
+- Apply the selection through the same local service as the CLI harness.
+- Confirm selected count, lead/cover, final included order, excluded photos, and any approval invalidation back to Discord.
+- Reject incomplete, duplicate, out-of-range, or too-large selections with actionable feedback.
+- Keep Discord credentials private; no tokens or secrets in git, logs, or chat.
+- Do not call Meta publishing endpoints in this milestone.
+
+### Milestone 10: `feat/live-carousel-publish-smoke-notes`
+
+**Goal:** After Discord photo selection is proven, run one explicitly approved live carousel smoke test through the guarded carousel path, ideally using R2-staged public HTTPS image URLs, then document observed Meta behavior.
 
 **Preconditions:**
+- Discord selection has selected the final carousel media from a larger suggested set.
+- Andrew has confirmed the selected media order and lead/cover in Discord.
 - Keep the single-image live smoke result documented as the baseline.
-- Preserve double approval before any live publish.
+- Preserve double approval before any live publish; refresh draft and publish approvals after any selection changes.
 - Use POST for Meta media container creation and publish endpoints.
-- Prepare a safe public carousel image set that Andrew is comfortable publishing.
-- Run dry-run staging and `meta validate-carousel-publish --dry-run` first and review the sanitized plans.
+- Run R2 staging and `meta validate-carousel-publish --from-staged-r2 --dry-run` first and review the sanitized plans.
 - Do not run `--execute` without Andrew's explicit approval in the active session.
 
 **Expected behavior:**
@@ -409,7 +446,6 @@ Agents must preserve these unless Andrew explicitly changes the product directio
 ## Later milestones
 
 - Video/reel validation after feed/carousel path is reliable.
-- Discord presenter and approval capture.
 - Analytics/insights collection.
 - Recommendation improvements using approval and engagement history.
 - Immich/NAS enrichment once the processed-folder MVP works.

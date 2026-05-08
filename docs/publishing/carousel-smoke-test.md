@@ -10,6 +10,7 @@ This runbook is for validating carousel publishing through the official Meta Gra
 - The draft must already be `ready_to_publish`, which means it passed both draft approval and publish approval.
 - Start with `--dry-run`; only run `--execute` after the dry-run output is reviewed.
 - Use a small, safe carousel media set that is okay to appear publicly on `andrewhml`.
+- Before this live smoke test, Andrew should have selected the final carousel photos from a larger suggested set through the Discord selection flow documented in `docs/plans/discord-photo-selection-before-carousel-smoke.md`.
 
 ## Required local setup
 

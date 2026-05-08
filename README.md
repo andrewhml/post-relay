@@ -31,12 +31,12 @@ Early local-first MVP scaffold with:
 - `graph.instagram.com` returned `Invalid platform app` in current setup
 
 ## Immediate goals
-1. Use staged public HTTPS media for publish validation while preserving dry-run, double-approval, and explicit `--execute` safeguards
-2. Run a guarded carousel publish smoke test once a safe staged carousel draft is explicitly approved
-3. Add Discord presenter/approval capture after the local dry-run payload and media-selection harnesses remain green
+1. Add a Discord-driven photo selection flow so Andrew can choose X photos from Y suggested draft photos before any live carousel post
+2. Use staged public HTTPS media for publish validation while preserving dry-run, double-approval, and explicit `--execute` safeguards
+3. Run a guarded carousel publish smoke test only after Discord selection is proven and a safe staged carousel draft is explicitly approved
 
 ## Agent handoff
-Future agents should start with `AGENTS.md`, then `docs/plans/current-agent-roadmap.md`. The durable plan for local/NAS sources, review artifacts, and Cloudflare R2 staging is `docs/plans/content-pipeline-r2-staging-plan.md`.
+Future agents should start with `AGENTS.md`, then `docs/plans/current-agent-roadmap.md`. The durable plan for local/NAS sources, review artifacts, and Cloudflare R2 staging is `docs/plans/content-pipeline-r2-staging-plan.md`. The current Discord-before-live-publish plan is `docs/plans/discord-photo-selection-before-carousel-smoke.md`.
 
 ## Local CLI
 Use the project virtualenv when running locally:
