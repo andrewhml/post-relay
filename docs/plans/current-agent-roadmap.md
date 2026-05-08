@@ -370,7 +370,7 @@ Agents must preserve these unless Andrew explicitly changes the product directio
 - R2 credentials are read only from environment variables named by config in execute mode; dry runs do not require credentials.
 - Failed publishes should leave uploaded staged records available until explicit cleanup.
 
-### Milestone 6: `feat/publish-from-staged-r2` (completed in PR TBD)
+### Milestone 6: `feat/publish-from-staged-r2` (completed in PR #26)
 
 **Goal:** Let Meta publish validation use staged R2 HTTPS URLs for single-image and carousel drafts.
 
