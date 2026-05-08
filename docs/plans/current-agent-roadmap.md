@@ -17,10 +17,12 @@ Future agents should read these files before implementing:
 1. `AGENTS.md`
 2. `README.md`
 3. `docs/plans/current-agent-roadmap.md`
-4. `implementation-plan.md`
-5. `technical-design.md`
-6. `requirements.md`
-7. `setup-checklist.md`
+4. `docs/plans/discord-dm-conversation-orchestration.md`
+5. `docs/plans/discord-photo-selection-before-carousel-smoke.md`
+6. `implementation-plan.md`
+7. `technical-design.md`
+8. `requirements.md`
+9. `setup-checklist.md`
 
 If these files conflict, prefer the newest concrete implementation facts in `README.md`, `AGENTS.md`, and this roadmap, then reconcile by updating docs in the same PR.
 
@@ -455,42 +457,83 @@ Agents must preserve these unless Andrew explicitly changes the product directio
 - Unsupported metadata remains local/review-only until a future official capability validation milestone changes the matrix.
 - Publish attempts remain sanitized and only include the already-validated media/caption fields.
 
-### Milestone 11: `feat/discord-selection-bot`
+### Milestone 11: `feat/discord-dm-opportunity-model`
 
-**Goal:** Let Andrew interact with the Discord bot to choose X photos from Y suggestions and persist the choice into the draft media selection.
+**Goal:** Add local models/services for private-DM post opportunities so either Andrew or the agent can initiate a post conversation without calling Discord yet.
+
+**Reference plan:** `docs/plans/discord-dm-conversation-orchestration.md`
 
 **Expected behavior:**
-- Send a selection message to the configured Discord review channel.
+- Represent Andrew-initiated DM starts as `user_dm` opportunities.
+- Represent agent-initiated opportunities for new media, ideal posting cadence, inactivity since last post, Andrew life/trip context, holidays/current events, and trend timing windows.
+- Store trigger rationale, suggested next action, status, and optional candidate/draft links in SQLite.
+- Dedupe active opportunities by trigger key.
+- Support dismiss/snooze/convert-to-draft state changes locally.
+- Keep raw DM content minimal; persist durable decisions and sanitized summaries rather than private transcripts.
+- Do not send Discord DMs or call Meta publishing endpoints in this milestone.
+
+### Milestone 12: `feat/discord-dm-intake-harness`
+
+**Goal:** Add a no-network harness that turns Andrew's private-DM-style text into a post opportunity or draft-context update.
+
+**Expected behavior:**
+- Simulate Andrew initiating a post conversation at any time with natural-language context.
+- Route the conversation to candidate selection, active draft context, guided package, scheduling, or approval as appropriate.
+- Return concise DM-style prompts with concrete next options.
+- Keep local/private paths and secrets out of DM-facing copy unless the output is explicitly local-only CLI text.
+- Do not send Discord messages or call Meta publishing endpoints in this milestone.
+
+### Milestone 13: `feat/discord-dm-selection-bot`
+
+**Goal:** Let Andrew interact with the live Discord bot in a private DM to choose X photos from Y suggestions and persist the choice into draft media selection.
+
+**Expected behavior:**
+- Send selection prompts to Andrew's private DM by default, not a review channel.
+- Allow Andrew to start selection from a DM command or by replying to an agent-initiated opportunity.
 - Accept exactly X selected photo numbers plus a lead/cover choice through Discord interactions or a command fallback.
 - Apply the selection through the same local service as the CLI harness.
-- Confirm selected count, lead/cover, final included order, excluded photos, and any approval invalidation back to Discord.
+- Confirm selected count, lead/cover, final included order, excluded photos, and any approval invalidation back in DM.
 - Reject incomplete, duplicate, out-of-range, or too-large selections with actionable feedback.
 - Keep Discord credentials private; no tokens or secrets in git, logs, or chat.
 - Do not call Meta publishing endpoints in this milestone.
 
-### Milestone 12: `feat/discord-guided-review-bot`
+### Milestone 14: `feat/opportunity-trigger-checks`
 
-**Goal:** Expand the live Discord bot from media selection into a guided post-building conversation for post type, content, metadata, and schedule alignment.
+**Goal:** Add safe local checks that create agent-initiated post opportunities before any DM is sent.
 
 **Expected behavior:**
-- Guide Andrew through post type, media choice, caption direction, hashtags, location confirmation, alt text/review-only metadata, and schedule slot.
+- Detect new indexed/candidate media that may deserve a post conversation.
+- Detect cadence due and inactivity windows from local draft/post history and configurable thresholds.
+- Allow manually seeded life/trip/event/current-event/trend opportunities before adding external data adapters.
+- Dedupe, rate-limit, snooze, and dismiss opportunities.
+- Default to dry-run/local opportunity creation; live DM sending requires a later explicit integration path.
+- Do not call Meta publishing endpoints in this milestone.
+
+### Milestone 15: `feat/discord-dm-guided-review`
+
+**Goal:** Expand private DM conversations from media selection into guided post-building for post type, content, metadata, schedule, and approvals.
+
+**Expected behavior:**
+- Guide Andrew through post type, media choice, hook-first caption direction, hashtags, location confirmation, alt text/review-only metadata, and schedule slot.
+- Incorporate Andrew-provided context from the DM conversation.
 - Provide concise recommendations with rationales rather than just open-ended questions.
 - Support natural-language revisions and persist accepted decisions to SQLite.
 - Require explicit draft approval before queueing and explicit publish approval before live publish.
 - Confirm when a requested field is local/review-only rather than publishable through Meta Graph.
+- Do not run live Instagram publish execution in this milestone.
 
-### Milestone 13: `feat/discord-schedule-queue-guidance`
+### Milestone 16: `feat/discord-schedule-queue-guidance`
 
-**Goal:** Let the Discord bot guide Andrew from approved draft to scheduled queue while optimizing cadence toward follower growth.
+**Goal:** Let the Discord DM bot guide Andrew from approved draft to scheduled queue while optimizing cadence toward follower growth.
 
 **Expected behavior:**
 - Recommend schedule slots using configured cadence and simple interpretable rules.
 - Avoid clustering similar posts or dumping too much backlog at once.
-- Ask Andrew to approve or adjust the proposed slot in Discord.
+- Ask Andrew to approve or adjust the proposed slot in DM.
 - Persist the chosen schedule with the existing scheduling state machine.
 - Request final publish approval near the publish window according to the configured policy.
 
-### Milestone 14: `feat/live-carousel-publish-smoke-notes`
+### Milestone 17: `feat/live-carousel-publish-smoke-notes`
 
 **Goal:** After Discord photo selection and guided post-package approval are proven, run one explicitly approved live carousel smoke test through the guarded carousel path, ideally using R2-staged public HTTPS image URLs, then document observed Meta behavior.
 
