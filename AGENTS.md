@@ -39,6 +39,7 @@ Post Relay is a local-first Instagram travel content workflow for Andrew's `andr
 - Local Discord-style X-from-Y photo selection can be modeled without network calls using `drafts discord-selection-plan`/`drafts discord-selection-preview`/`drafts discord-selection-apply`; selection application reuses the same media-selection rules and approval invalidation as `drafts media-edit`.
 - Queue-approved drafts can be scheduled locally and moved through final publish approval without live API calls.
 - Guarded single-image/carousel publish validation can use either explicit public HTTPS `--image-url` values or recorded uploaded R2 staged media via `--from-staged-r2`, preserving dry-run defaults, double approval, and explicit `--execute` publish safeguards.
+- Instagram publish capabilities are explicit: media URLs/carousel children, captions, and hashtags-in-caption are publishable; alt text, rationale, location ideas, collaborators, music, product/story/reel-only metadata stay local/review-only unless a later milestone validates official support.
 - Live Discord delivery should only be added after the local payload harness remains green; next Discord work should first support Andrew selecting X photos from Y suggestions, then guide post type, caption/content, hashtags, location handling, schedule, and approvals before the live carousel smoke test.
 
 ## Safety and product constraints
@@ -111,4 +112,4 @@ Post Relay is a local-first Instagram travel content workflow for Andrew's `andr
 
 ## Current next milestone
 
-See `docs/plans/current-agent-roadmap.md`. The next planned code milestone is currently `feat/instagram-capability-matrix`, the next no-network step in `docs/plans/discord-photo-selection-before-carousel-smoke.md`. Live Discord bot testing should not begin until Andrew reviews the dry-run selection payload and guided draft package shapes.
+See `docs/plans/current-agent-roadmap.md`. The next planned code milestone is currently `feat/discord-selection-bot`, the first live Discord step in `docs/plans/discord-photo-selection-before-carousel-smoke.md`. Do not run live Instagram publish execution from Discord milestones.

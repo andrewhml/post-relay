@@ -227,10 +227,10 @@ Run this before opening or merging any PR:
 .venv/bin/python -m pytest -q
 ```
 
-Expected current result after guided draft package milestone:
+Expected current result after Instagram capability matrix milestone:
 
 ```text
-107 passed
+112 passed
 ```
 
 ## Milestone execution rules
@@ -439,15 +439,21 @@ Agents must preserve these unless Andrew explicitly changes the product directio
 - No Discord, R2, or Meta network calls.
 - Local alt text and rationale are stored for review/approval, not assumed publishable through Meta until the capability matrix milestone validates fields.
 
-### Milestone 10: `feat/instagram-capability-matrix`
+### Milestone 10: `feat/instagram-capability-matrix` (completed in PR TBD)
 
 **Goal:** Make Post Relay explicit about which Instagram post fields it can publish programmatically and which remain local/review-only.
 
-**Expected behavior:**
-- Document and test capability handling for media URLs/carousel children, caption text, hashtags in captions, local alt text, location tagging, collaborators, music, product tags, story/reel-only fields, and future unsupported fields.
-- Prevent unsupported metadata from silently being sent to Meta publish endpoints.
-- Show review-only metadata clearly in Discord so Andrew can still use it manually when useful.
-- Keep publish attempts sanitized.
+**Delivered behavior:**
+- Added `src/post_relay/instagram_capabilities.py` as the explicit publish capability matrix.
+- Marks media URLs/carousel children, approved caption text, and hashtags embedded in captions as publishable in the validated v1 Graph path.
+- Marks local alt text/accessibility notes, growth/schedule rationale, location ideas, collaborators, product tags, story fields, reel fields, music, and unknown future fields as review-only, needs-validation, or unsupported v1.
+- Discord selection preview output includes capability notes so Andrew can see which metadata is publishable versus local/manual.
+- Publish validation tests assert review-only metadata is not sent to Meta media or carousel container requests.
+
+**Safety notes:**
+- No new live Meta, Discord, or R2 network calls.
+- Unsupported metadata remains local/review-only until a future official capability validation milestone changes the matrix.
+- Publish attempts remain sanitized and only include the already-validated media/caption fields.
 
 ### Milestone 11: `feat/discord-selection-bot`
 
