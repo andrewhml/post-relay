@@ -85,6 +85,22 @@ class ApprovalRecord:
 
 
 @dataclass(frozen=True)
+class GuidedDraftPackageRecord:
+    id: int
+    draft_id: int
+    post_type_recommendation: str
+    post_type_rationale: str
+    caption_options: list[str]
+    hashtag_suggestions: list[str]
+    location_text: Optional[str]
+    alt_text: str
+    growth_rationale: str
+    context_questions: list[str]
+    accepted_caption_index: Optional[int]
+    accepted_at: Optional[str]
+
+
+@dataclass(frozen=True)
 class PublishAttemptRecord:
     id: int
     draft_id: int
@@ -539,6 +555,115 @@ def update_draft_content(
     return get_draft(connection, draft_id)
 
 
+def upsert_guided_draft_package(
+    connection,
+    *,
+    draft_id: int,
+    post_type_recommendation: str,
+    post_type_rationale: str,
+    caption_options: Sequence[str],
+    hashtag_suggestions: Sequence[str],
+    location_text: Optional[str],
+    alt_text: str,
+    growth_rationale: str,
+    context_questions: Sequence[str],
+    accepted_caption_index: Optional[int] = None,
+    mark_accepted: bool = False,
+) -> GuidedDraftPackageRecord:
+    existing = get_guided_draft_package(connection, draft_id)
+    accepted_at_insert_expression = "current_timestamp" if mark_accepted else "null"
+    accepted_at_update_expression = "current_timestamp" if mark_accepted else "accepted_at"
+    if existing is None:
+        cursor = connection.execute(
+            f"""
+            insert into guided_draft_packages (
+                draft_id, post_type_recommendation, post_type_rationale,
+                caption_options_json, hashtag_suggestions_json, location_text,
+                alt_text, growth_rationale, context_questions_json,
+                accepted_caption_index, accepted_at
+            ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, {accepted_at_insert_expression})
+            """,
+            (
+                draft_id,
+                post_type_recommendation,
+                post_type_rationale,
+                json.dumps(list(caption_options)),
+                json.dumps(list(hashtag_suggestions)),
+                location_text,
+                alt_text,
+                growth_rationale,
+                json.dumps(list(context_questions)),
+                accepted_caption_index,
+            ),
+        )
+        return get_guided_draft_package_by_id(connection, int(cursor.lastrowid))
+    connection.execute(
+        f"""
+        update guided_draft_packages
+        set post_type_recommendation = ?,
+            post_type_rationale = ?,
+            caption_options_json = ?,
+            hashtag_suggestions_json = ?,
+            location_text = ?,
+            alt_text = ?,
+            growth_rationale = ?,
+            context_questions_json = ?,
+            accepted_caption_index = ?,
+            accepted_at = {accepted_at_update_expression},
+            updated_at = current_timestamp
+        where draft_id = ?
+        """,
+        (
+            post_type_recommendation,
+            post_type_rationale,
+            json.dumps(list(caption_options)),
+            json.dumps(list(hashtag_suggestions)),
+            location_text,
+            alt_text,
+            growth_rationale,
+            json.dumps(list(context_questions)),
+            accepted_caption_index,
+            draft_id,
+        ),
+    )
+    return get_guided_draft_package(connection, draft_id)
+
+
+def get_guided_draft_package(connection, draft_id: int) -> Optional[GuidedDraftPackageRecord]:
+    row = connection.execute(
+        """
+        select id, draft_id, post_type_recommendation, post_type_rationale,
+               caption_options_json, hashtag_suggestions_json, location_text,
+               alt_text, growth_rationale, context_questions_json,
+               accepted_caption_index, accepted_at
+        from guided_draft_packages
+        where draft_id = ?
+        order by id desc
+        limit 1
+        """,
+        (draft_id,),
+    ).fetchone()
+    if row is None:
+        return None
+    return _guided_draft_package_from_row(row)
+
+
+def get_guided_draft_package_by_id(connection, package_id: int) -> Optional[GuidedDraftPackageRecord]:
+    row = connection.execute(
+        """
+        select id, draft_id, post_type_recommendation, post_type_rationale,
+               caption_options_json, hashtag_suggestions_json, location_text,
+               alt_text, growth_rationale, context_questions_json,
+               accepted_caption_index, accepted_at
+        from guided_draft_packages
+        where id = ?
+        """,
+        (package_id,),
+    ).fetchone()
+    if row is None:
+        return None
+    return _guided_draft_package_from_row(row)
+
 def create_approval_record(
     connection,
     *,
@@ -889,6 +1014,23 @@ def _r2_staged_object_from_row(row) -> R2StagedObjectRecord:
         staged_at=row[8],
         deleted_at=row[9],
         cleanup_reason=row[10],
+    )
+
+
+def _guided_draft_package_from_row(row) -> GuidedDraftPackageRecord:
+    return GuidedDraftPackageRecord(
+        id=int(row[0]),
+        draft_id=int(row[1]),
+        post_type_recommendation=row[2],
+        post_type_rationale=row[3],
+        caption_options=_json_list(row[4]),
+        hashtag_suggestions=_json_list(row[5]),
+        location_text=row[6],
+        alt_text=row[7],
+        growth_rationale=row[8],
+        context_questions=_json_list(row[9]),
+        accepted_caption_index=int(row[10]) if row[10] is not None else None,
+        accepted_at=row[11],
     )
 
 

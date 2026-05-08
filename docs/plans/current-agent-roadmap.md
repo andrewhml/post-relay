@@ -227,10 +227,10 @@ Run this before opening or merging any PR:
 .venv/bin/python -m pytest -q
 ```
 
-Expected current result after Discord selection payload milestone:
+Expected current result after guided draft package milestone:
 
 ```text
-102 passed
+107 passed
 ```
 
 ## Milestone execution rules
@@ -423,16 +423,21 @@ Agents must preserve these unless Andrew explicitly changes the product directio
 - Fallback notes document contact sheets, thumbnail/local artifact paths, source paths, and staged review media as later options if Discord attachments are unreliable.
 - The next no-network milestone is `feat/discord-guided-draft-package`; live Discord bot testing should wait until Andrew reviews this payload shape.
 
-### Milestone 9: `feat/discord-guided-draft-package`
+### Milestone 9: `feat/discord-guided-draft-package` (completed in PR #33)
 
 **Goal:** Add a local, testable guided drafting service that turns selected media plus Andrew's answers into a complete growth-oriented post package.
 
-**Expected behavior:**
-- Recommend post type with rationale: single image, carousel, or reel-planning-only.
-- Ask focused context questions for location/place/trip/date, story angle, mood/tone, audience hook, and things to include/avoid.
-- Generate multiple hook-first caption options, hashtag suggestions, location text for confirmation, local alt text/accessibility notes, and a concise growth rationale.
-- Store accepted draft package fields and rationale in SQLite so approval, scheduling, and publishing use audited values.
-- Do not fabricate factual details; uncertain location/date/event facts must be confirmed by Andrew.
+**Delivered behavior:**
+- Added `drafts guided-package-plan` and `drafts guided-package-accept` as no-network CLI harnesses.
+- Recommends `single_image`, `carousel`, or `reel-planning-only` from the selected/included media count and current draft type.
+- Generates focused context questions for missing location, story angle, mood, audience hook, include, and avoid fields.
+- Produces three hook-first caption options, hashtag suggestions, confirmed location text when provided, local alt text/accessibility notes, and a follower-growth rationale.
+- Does not invent missing location/date/event facts; missing facts remain explicit questions for Andrew.
+- Acceptance persists the chosen caption, hashtags, confirmed location text, alt text, and an audited guided package record in SQLite.
+
+**Safety notes:**
+- No Discord, R2, or Meta network calls.
+- Local alt text and rationale are stored for review/approval, not assumed publishable through Meta until the capability matrix milestone validates fields.
 
 ### Milestone 10: `feat/instagram-capability-matrix`
 
