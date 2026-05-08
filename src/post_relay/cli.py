@@ -31,6 +31,12 @@ from post_relay.discord_selection import (
     apply_discord_photo_selection,
     build_discord_selection_request,
 )
+from post_relay.guided_draft import (
+    DraftNotFound as GuidedDraftNotFound,
+    InvalidGuidedDraftPackage,
+    accept_guided_draft_package,
+    build_guided_draft_package,
+)
 from post_relay.indexer import index_photo_sources
 from post_relay.meta_graph import (
     MetaGraphClient,
@@ -410,6 +416,66 @@ def drafts_media_edit(
     except InvalidMediaSelection as error:
         raise typer.BadParameter(str(error), param_hint="--lead/--keep/--remove") from error
     typer.echo(result.to_text())
+
+
+@drafts_app.command("guided-package-plan")
+def drafts_guided_package_plan(
+    draft_id: int = typer.Option(..., "--draft-id", help="Draft id."),
+    location_text: Optional[str] = typer.Option(None, "--location", help="Confirmed location/place text."),
+    story_angle: Optional[str] = typer.Option(None, "--story-angle", help="Story or memory to center."),
+    mood: Optional[str] = typer.Option(None, "--mood", help="Caption tone or mood."),
+    audience_hook: Optional[str] = typer.Option(None, "--audience-hook", help="First-line audience hook."),
+    include: Optional[str] = typer.Option(None, "--include", help="Details to include."),
+    avoid: Optional[str] = typer.Option(None, "--avoid", help="Things to avoid."),
+    db_path: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
+) -> None:
+    connection = connect_db(db_path)
+    initialize_db(connection)
+    try:
+        package = build_guided_draft_package(
+            connection,
+            draft_id,
+            location_text=location_text,
+            story_angle=story_angle,
+            mood=mood,
+            audience_hook=audience_hook,
+            include=include,
+            avoid=avoid,
+        )
+    except GuidedDraftNotFound as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    typer.echo(package.to_text())
+
+
+@drafts_app.command("guided-package-accept")
+def drafts_guided_package_accept(
+    draft_id: int = typer.Option(..., "--draft-id", help="Draft id."),
+    caption_index: int = typer.Option(1, "--caption-index", help="Generated caption option to accept."),
+    location_text: Optional[str] = typer.Option(None, "--location", help="Confirmed location/place text."),
+    story_angle: Optional[str] = typer.Option(None, "--story-angle", help="Story or memory to center."),
+    mood: Optional[str] = typer.Option(None, "--mood", help="Caption tone or mood."),
+    audience_hook: Optional[str] = typer.Option(None, "--audience-hook", help="First-line audience hook."),
+    include: Optional[str] = typer.Option(None, "--include", help="Details to include."),
+    avoid: Optional[str] = typer.Option(None, "--avoid", help="Things to avoid."),
+    db_path: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
+) -> None:
+    connection = connect_db(db_path)
+    initialize_db(connection)
+    try:
+        package = build_guided_draft_package(
+            connection,
+            draft_id,
+            location_text=location_text,
+            story_angle=story_angle,
+            mood=mood,
+            audience_hook=audience_hook,
+            include=include,
+            avoid=avoid,
+        )
+        accepted = accept_guided_draft_package(connection, package, caption_index=caption_index)
+    except (GuidedDraftNotFound, InvalidGuidedDraftPackage) as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    typer.echo(accepted.to_text())
 
 
 @drafts_app.command("discord-selection-plan")

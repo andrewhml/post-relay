@@ -147,6 +147,25 @@ SCHEMA_STATEMENTS = [
         foreign key(draft_id) references drafts(id)
     )
     """,
+    """
+    create table if not exists guided_draft_packages (
+        id integer primary key,
+        draft_id integer not null,
+        post_type_recommendation text not null,
+        post_type_rationale text not null,
+        caption_options_json text not null,
+        hashtag_suggestions_json text not null,
+        location_text text,
+        alt_text text not null,
+        growth_rationale text not null,
+        context_questions_json text not null,
+        accepted_caption_index integer,
+        accepted_at text,
+        created_at text not null default current_timestamp,
+        updated_at text not null default current_timestamp,
+        foreign key(draft_id) references drafts(id)
+    )
+    """,
 ]
 
 
