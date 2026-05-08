@@ -332,7 +332,7 @@ Agents must preserve these unless Andrew explicitly changes the product directio
 - Carousel media order is preserved from candidate group item order.
 - The command makes no network calls and does not require R2 credentials.
 
-### Milestone 4: `feat/draft-media-selection` (completed in PR TBD)
+### Milestone 4: `feat/draft-media-selection` (completed in PR #24)
 
 **Goal:** Let Andrew explicitly translate numbered contact-sheet review feedback into local draft media selection before Discord natural-language handling exists.
 
