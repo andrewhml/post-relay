@@ -410,7 +410,28 @@ Agents must preserve these unless Andrew explicitly changes the product directio
 - Document fallbacks for Discord attachment issues: contact sheets, local artifact paths, or staged review URLs.
 - Do not send live Discord messages yet.
 
-### Milestone 9: `feat/discord-selection-bot`
+### Milestone 9: `feat/discord-guided-draft-package`
+
+**Goal:** Add a local, testable guided drafting service that turns selected media plus Andrew's answers into a complete growth-oriented post package.
+
+**Expected behavior:**
+- Recommend post type with rationale: single image, carousel, or reel-planning-only.
+- Ask focused context questions for location/place/trip/date, story angle, mood/tone, audience hook, and things to include/avoid.
+- Generate multiple hook-first caption options, hashtag suggestions, location text for confirmation, local alt text/accessibility notes, and a concise growth rationale.
+- Store accepted draft package fields and rationale in SQLite so approval, scheduling, and publishing use audited values.
+- Do not fabricate factual details; uncertain location/date/event facts must be confirmed by Andrew.
+
+### Milestone 10: `feat/instagram-capability-matrix`
+
+**Goal:** Make Post Relay explicit about which Instagram post fields it can publish programmatically and which remain local/review-only.
+
+**Expected behavior:**
+- Document and test capability handling for media URLs/carousel children, caption text, hashtags in captions, local alt text, location tagging, collaborators, music, product tags, story/reel-only fields, and future unsupported fields.
+- Prevent unsupported metadata from silently being sent to Meta publish endpoints.
+- Show review-only metadata clearly in Discord so Andrew can still use it manually when useful.
+- Keep publish attempts sanitized.
+
+### Milestone 11: `feat/discord-selection-bot`
 
 **Goal:** Let Andrew interact with the Discord bot to choose X photos from Y suggestions and persist the choice into the draft media selection.
 
@@ -423,12 +444,35 @@ Agents must preserve these unless Andrew explicitly changes the product directio
 - Keep Discord credentials private; no tokens or secrets in git, logs, or chat.
 - Do not call Meta publishing endpoints in this milestone.
 
-### Milestone 10: `feat/live-carousel-publish-smoke-notes`
+### Milestone 12: `feat/discord-guided-review-bot`
 
-**Goal:** After Discord photo selection is proven, run one explicitly approved live carousel smoke test through the guarded carousel path, ideally using R2-staged public HTTPS image URLs, then document observed Meta behavior.
+**Goal:** Expand the live Discord bot from media selection into a guided post-building conversation for post type, content, metadata, and schedule alignment.
+
+**Expected behavior:**
+- Guide Andrew through post type, media choice, caption direction, hashtags, location confirmation, alt text/review-only metadata, and schedule slot.
+- Provide concise recommendations with rationales rather than just open-ended questions.
+- Support natural-language revisions and persist accepted decisions to SQLite.
+- Require explicit draft approval before queueing and explicit publish approval before live publish.
+- Confirm when a requested field is local/review-only rather than publishable through Meta Graph.
+
+### Milestone 13: `feat/discord-schedule-queue-guidance`
+
+**Goal:** Let the Discord bot guide Andrew from approved draft to scheduled queue while optimizing cadence toward follower growth.
+
+**Expected behavior:**
+- Recommend schedule slots using configured cadence and simple interpretable rules.
+- Avoid clustering similar posts or dumping too much backlog at once.
+- Ask Andrew to approve or adjust the proposed slot in Discord.
+- Persist the chosen schedule with the existing scheduling state machine.
+- Request final publish approval near the publish window according to the configured policy.
+
+### Milestone 14: `feat/live-carousel-publish-smoke-notes`
+
+**Goal:** After Discord photo selection and guided post-package approval are proven, run one explicitly approved live carousel smoke test through the guarded carousel path, ideally using R2-staged public HTTPS image URLs, then document observed Meta behavior.
 
 **Preconditions:**
 - Discord selection has selected the final carousel media from a larger suggested set.
+- Discord guided review has confirmed post type, content direction, caption, hashtags, location handling, alt text/review-only metadata, and schedule intent.
 - Andrew has confirmed the selected media order and lead/cover in Discord.
 - Keep the single-image live smoke result documented as the baseline.
 - Preserve double approval before any live publish; refresh draft and publish approvals after any selection changes.
@@ -446,7 +490,7 @@ Agents must preserve these unless Andrew explicitly changes the product directio
 ## Later milestones
 
 - Video/reel validation after feed/carousel path is reliable.
-- Analytics/insights collection.
+- Analytics/insights collection and follower-growth progress tracking.
 - Recommendation improvements using approval and engagement history.
 - Immich/NAS enrichment once the processed-folder MVP works.
 
