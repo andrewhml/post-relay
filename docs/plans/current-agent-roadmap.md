@@ -439,7 +439,7 @@ Agents must preserve these unless Andrew explicitly changes the product directio
 - No Discord, R2, or Meta network calls.
 - Local alt text and rationale are stored for review/approval, not assumed publishable through Meta until the capability matrix milestone validates fields.
 
-### Milestone 10: `feat/instagram-capability-matrix` (completed in PR TBD)
+### Milestone 10: `feat/instagram-capability-matrix` (completed in PR #34)
 
 **Goal:** Make Post Relay explicit about which Instagram post fields it can publish programmatically and which remain local/review-only.
 
