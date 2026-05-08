@@ -387,7 +387,7 @@ Agents must preserve these unless Andrew explicitly changes the product directio
 - Successful publish moves the draft to `posted`; staged records remain uploaded so `drafts r2-cleanup --execute --reason "publish complete"` can delete only recorded app-created objects.
 - Failed publish keeps staged objects available until explicit cleanup.
 
-### Milestone 7: `feat/discord-selection-model` (completed in PR TBD)
+### Milestone 7: `feat/discord-selection-model` (completed in PR #31)
 
 **Goal:** Add a local, testable model for Andrew to select X photos from Y suggested draft photos before any live carousel smoke test.
 
