@@ -38,12 +38,11 @@ Early local-first MVP scaffold with:
 - `graph.instagram.com` returned `Invalid platform app` in current setup
 
 ## Immediate goals
-1. Define the Post Relay agent baseline as a specialized content curator and social media manager with focused skills for media curation, hook-first post packaging, factuality/sensitivity, scheduling, approvals, and Instagram capability checks
-2. Add a private-DM-first, user-initiated Discord workflow where Andrew can start a post conversation at any time and provide context as needed
-3. Let Andrew choose post type, select X photos from Y suggested draft photos, align on hook/caption/hashtags/location/schedule, and approve the complete package in DM before any live carousel post
-4. After the user-initiated DM workflow is working effectively and proven, add agent-initiated suggestions from safe local opportunity triggers such as new media, cadence/inactivity, life/trip context, relevant events, or trend timing
-5. Use staged public HTTPS media for publish validation while preserving dry-run, double-approval, and explicit `--execute` safeguards
-6. Run a guarded carousel publish smoke test only after Discord DM selection/review is proven and a safe staged carousel draft is explicitly approved
+1. Make broad natural DM requests safer and more useful with bounded review artifact plans, better candidate matching, and clear narrowing prompts before giant contact sheets are rendered
+2. Keep improving the private-DM-first, user-initiated workflow for selecting photos, accepting hook-first captions/metadata, scheduling, and recording local approvals
+3. Keep agent-initiated suggestions local-only until the user-initiated flow has enough successful sessions; then add proactive Discord DMs behind explicit safe trigger and opt-out controls
+4. Complete the guarded live carousel publish smoke only after a chosen carousel draft is staged, double-approved, dry-run reviewed, and Andrew explicitly authorizes the Meta `--execute` command in the active session
+5. After feed/carousel publishing is reliable, add analytics/insights collection, recommendation improvements, and later reel/video validation
 
 ## Agent handoff
 Future agents should start with `AGENTS.md`, then `docs/plans/current-agent-roadmap.md`. The durable plan for local/NAS sources, review artifacts, and Cloudflare R2 staging is `docs/plans/content-pipeline-r2-staging-plan.md`. The specialized agent baseline is `docs/plans/postrelay-agent-operating-baseline.md`. The current private-DM conversation plan is `docs/plans/discord-dm-conversation-orchestration.md`, and the Discord-before-live-publish selection/review plan is `docs/plans/discord-photo-selection-before-carousel-smoke.md`.
