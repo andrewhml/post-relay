@@ -22,6 +22,13 @@ from post_relay.db import connect_db, initialize_db
 from post_relay.drafts import CandidateNotFound, create_draft_from_candidate
 from post_relay.dm_guided_review import DmGuidedReviewError, handle_dm_guided_review_reply
 from post_relay.dm_intake import DmIntakeError, handle_dm_intake
+from post_relay.dm_scheduling import (
+    DmSchedulingError,
+    handle_dm_publish_approval_reply,
+    handle_dm_schedule_reply,
+    poll_dm_schedule_reply,
+    send_dm_schedule_prompt,
+)
 from post_relay.discord_dm import (
     DiscordDmError,
     DiscordSelectionParseError,
@@ -471,6 +478,104 @@ def discord_dm_selection_apply(
         )
     except (DiscordDmError, DiscordSelectionParseError) as error:
         raise typer.BadParameter(str(error), param_hint="--message") from error
+    typer.echo(result.to_text())
+
+
+@discord_app.command("dm-schedule-send")
+def discord_dm_schedule_send(
+    draft_id: int = typer.Option(..., "--draft-id", help="Approved draft id."),
+    now: Optional[str] = typer.Option(None, "--now", help="Override current time for deterministic local testing."),
+    db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
+) -> None:
+    """Send a live private Discord DM schedule prompt using env-configured bot credentials."""
+    connection = connect_db(db)
+    initialize_db(connection)
+    try:
+        config = load_discord_dm_config_from_env()
+        result = send_dm_schedule_prompt(
+            connection,
+            draft_id,
+            now=now,
+            config=config,
+            transport=DiscordRestTransport(config.bot_token, api_base_url=config.api_base_url),
+        )
+    except (DiscordDmError, DmSchedulingError) as error:
+        raise typer.BadParameter(str(error), param_hint="--draft-id") from error
+    typer.echo(result.to_text())
+
+
+@discord_app.command("dm-schedule-poll")
+def discord_dm_schedule_poll(
+    draft_id: int = typer.Option(..., "--draft-id", help="Draft id."),
+    channel_id: str = typer.Option(..., "--channel-id", help="Discord DM channel id returned by dm-schedule-send."),
+    after_message_id: str = typer.Option(..., "--after-message-id", help="Only inspect Discord replies after this prompt message id."),
+    now: Optional[str] = typer.Option(None, "--now", help="Override current time for deterministic local testing."),
+    db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
+) -> None:
+    """Poll a private Discord DM for Andrew's schedule reply and send a confirmation."""
+    connection = connect_db(db)
+    initialize_db(connection)
+    try:
+        config = load_discord_dm_config_from_env()
+        result = poll_dm_schedule_reply(
+            connection,
+            draft_id,
+            channel_id=channel_id,
+            target_user_id=config.target_user_id,
+            after_message_id=after_message_id,
+            now=now,
+            transport=DiscordRestTransport(config.bot_token, api_base_url=config.api_base_url),
+        )
+    except (DiscordDmError, DmSchedulingError) as error:
+        raise typer.BadParameter(str(error), param_hint="--channel-id/--draft-id") from error
+    typer.echo(result.confirmation_text)
+
+
+@discord_app.command("dm-schedule-apply")
+def discord_dm_schedule_apply(
+    draft_id: int = typer.Option(..., "--draft-id", help="Draft id."),
+    message: str = typer.Option(..., "--message", help="Andrew's DM schedule reply."),
+    now: Optional[str] = typer.Option(None, "--now", help="Override current time for deterministic local testing."),
+    discord_channel_id: Optional[str] = typer.Option(None, "--discord-channel-id", help="Sanitized Discord DM channel id for local thread update."),
+    db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
+) -> None:
+    """Apply a private-DM schedule reply locally without calling Discord or Meta."""
+    connection = connect_db(db)
+    initialize_db(connection)
+    try:
+        result = handle_dm_schedule_reply(
+            connection,
+            draft_id,
+            message,
+            now=now,
+            discord_channel_id=discord_channel_id,
+        )
+    except DmSchedulingError as error:
+        raise typer.BadParameter(str(error), param_hint="--message/--draft-id") from error
+    typer.echo(result.to_text())
+
+
+@discord_app.command("dm-publish-approval-apply")
+def discord_dm_publish_approval_apply(
+    draft_id: int = typer.Option(..., "--draft-id", help="Scheduled draft id."),
+    message: str = typer.Option(..., "--message", help="Andrew's final approval reply, e.g. 'approve publish'."),
+    now: Optional[str] = typer.Option(None, "--now", help="Override current time for deterministic local testing."),
+    discord_channel_id: Optional[str] = typer.Option(None, "--discord-channel-id", help="Sanitized Discord DM channel id for local thread update."),
+    db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
+) -> None:
+    """Apply a private-DM final publish approval locally without calling Discord or Meta."""
+    connection = connect_db(db)
+    initialize_db(connection)
+    try:
+        result = handle_dm_publish_approval_reply(
+            connection,
+            draft_id,
+            message,
+            now=now,
+            discord_channel_id=discord_channel_id,
+        )
+    except DmSchedulingError as error:
+        raise typer.BadParameter(str(error), param_hint="--message/--draft-id") from error
     typer.echo(result.to_text())
 
 
