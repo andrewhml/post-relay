@@ -20,6 +20,7 @@ from post_relay.context_questions import (
 )
 from post_relay.db import connect_db, initialize_db
 from post_relay.drafts import CandidateNotFound, create_draft_from_candidate
+from post_relay.dm_guided_review import DmGuidedReviewError, handle_dm_guided_review_reply
 from post_relay.dm_intake import DmIntakeError, handle_dm_intake
 from post_relay.discord_dm import (
     DiscordDmError,
@@ -440,6 +441,28 @@ def discord_dm_selection_apply(
         )
     except (DiscordDmError, DiscordSelectionParseError) as error:
         raise typer.BadParameter(str(error), param_hint="--message") from error
+    typer.echo(result.to_text())
+
+
+@discord_app.command("dm-guided-review-apply")
+def discord_dm_guided_review_apply(
+    draft_id: int = typer.Option(..., "--draft-id", help="Draft id."),
+    message: str = typer.Option(..., "--message", help="Andrew's DM guided-review reply."),
+    discord_channel_id: Optional[str] = typer.Option(None, "--discord-channel-id", help="Sanitized Discord DM channel id for local thread update."),
+    db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
+) -> None:
+    """Apply a private-DM guided-review reply locally without calling Discord or Meta."""
+    connection = connect_db(db)
+    initialize_db(connection)
+    try:
+        result = handle_dm_guided_review_reply(
+            connection,
+            draft_id,
+            message,
+            discord_channel_id=discord_channel_id,
+        )
+    except DmGuidedReviewError as error:
+        raise typer.BadParameter(str(error), param_hint="--message/--draft-id") from error
     typer.echo(result.to_text())
 
 

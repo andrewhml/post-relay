@@ -518,6 +518,21 @@ Current local result: `129 passed`.
 
 **Goal:** Expand private DM conversations from media selection into guided post-building for post type, content, metadata, schedule, and approvals.
 
+**Current branch progress:**
+- Added a no-network `discord dm-guided-review-apply` harness that parses DM-style guided review replies with location, story angle, mood, audience hook, include/avoid notes, and caption choice.
+- The harness builds/reuses the local guided draft package service, persists accepted caption/hashtags/location/alt text/growth rationale when Andrew chooses a caption option, records a sanitized conversation context note, and updates the private DM conversation thread summary.
+- DM-facing output distinguishes Meta-publishable v1 fields from review-only/local metadata and avoids local absolute paths.
+- Remaining work for this milestone: live DM prompt/poll wiring for guided review, scheduling guidance, and explicit draft/publish approval prompts. Do not call live Instagram publish execution.
+
+**Verification for current branch slice:**
+
+```bash
+.venv/bin/python -m pytest tests/test_dm_guided_review.py -q
+.venv/bin/python -m pytest -q
+```
+
+Current local result: `133 passed`.
+
 **Expected behavior:**
 - Guide Andrew through post type, media choice, hook-first caption direction, hashtags, location confirmation, alt text/review-only metadata, and schedule slot.
 - Incorporate Andrew-provided context from the DM conversation.
