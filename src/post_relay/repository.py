@@ -148,6 +148,24 @@ class ConversationContextNoteRecord:
     summary: str
 
 
+@dataclass(frozen=True)
+class PostOpportunityRecord:
+    id: int
+    trigger_type: str
+    trigger_key: str
+    title: str
+    summary: str
+    rationale: str
+    suggested_next_action: str
+    status: str
+    candidate_group_id: Optional[int]
+    draft_id: Optional[int]
+    due_at: Optional[str]
+    expires_at: Optional[str]
+    snoozed_until: Optional[str]
+    dismissed_reason: Optional[str]
+
+
 def upsert_photo_source(connection, source: PhotoSource) -> int:
     connection.execute(
         """
@@ -883,6 +901,131 @@ def list_conversation_context_notes(
     return [_conversation_context_note_from_row(row) for row in rows]
 
 
+def create_post_opportunity_record(
+    connection,
+    *,
+    trigger_type: str,
+    trigger_key: str,
+    title: str,
+    summary: str,
+    rationale: str,
+    suggested_next_action: str,
+    status: str = "new",
+    candidate_group_id: Optional[int] = None,
+    draft_id: Optional[int] = None,
+    due_at: Optional[str] = None,
+    expires_at: Optional[str] = None,
+) -> PostOpportunityRecord:
+    cursor = connection.execute(
+        """
+        insert into post_opportunities (
+            trigger_type, trigger_key, title, summary, rationale, suggested_next_action,
+            status, candidate_group_id, draft_id, due_at, expires_at
+        ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            trigger_type,
+            trigger_key,
+            title,
+            summary,
+            rationale,
+            suggested_next_action,
+            status,
+            candidate_group_id,
+            draft_id,
+            due_at,
+            expires_at,
+        ),
+    )
+    return get_post_opportunity(connection, int(cursor.lastrowid))
+
+
+def get_post_opportunity(connection, opportunity_id: int) -> Optional[PostOpportunityRecord]:
+    row = connection.execute(
+        """
+        select id, trigger_type, trigger_key, title, summary, rationale,
+               suggested_next_action, status, candidate_group_id, draft_id,
+               due_at, expires_at, snoozed_until, dismissed_reason
+        from post_opportunities
+        where id = ?
+        """,
+        (opportunity_id,),
+    ).fetchone()
+    if row is None:
+        return None
+    return _post_opportunity_from_row(row)
+
+
+def get_active_post_opportunity_by_trigger(
+    connection,
+    *,
+    trigger_type: str,
+    trigger_key: str,
+) -> Optional[PostOpportunityRecord]:
+    row = connection.execute(
+        """
+        select id, trigger_type, trigger_key, title, summary, rationale,
+               suggested_next_action, status, candidate_group_id, draft_id,
+               due_at, expires_at, snoozed_until, dismissed_reason
+        from post_opportunities
+        where trigger_type = ?
+          and trigger_key = ?
+          and status in ('new', 'dm_sent')
+        order by id desc
+        limit 1
+        """,
+        (trigger_type, trigger_key),
+    ).fetchone()
+    if row is None:
+        return None
+    return _post_opportunity_from_row(row)
+
+
+def list_post_opportunities(
+    connection,
+    *,
+    status: Optional[str] = None,
+) -> list[PostOpportunityRecord]:
+    status_clause = "where status = ?" if status is not None else ""
+    params: tuple[object, ...] = (status,) if status is not None else ()
+    rows = connection.execute(
+        f"""
+        select id, trigger_type, trigger_key, title, summary, rationale,
+               suggested_next_action, status, candidate_group_id, draft_id,
+               due_at, expires_at, snoozed_until, dismissed_reason
+        from post_opportunities
+        {status_clause}
+        order by id
+        """,
+        params,
+    ).fetchall()
+    return [_post_opportunity_from_row(row) for row in rows]
+
+
+def update_post_opportunity_status(
+    connection,
+    opportunity_id: int,
+    *,
+    status: str,
+    draft_id: Optional[int] = None,
+    snoozed_until: Optional[str] = None,
+    dismissed_reason: Optional[str] = None,
+) -> Optional[PostOpportunityRecord]:
+    connection.execute(
+        """
+        update post_opportunities
+        set status = ?,
+            draft_id = coalesce(?, draft_id),
+            snoozed_until = coalesce(?, snoozed_until),
+            dismissed_reason = coalesce(?, dismissed_reason),
+            updated_at = current_timestamp
+        where id = ?
+        """,
+        (status, draft_id, snoozed_until, dismissed_reason, opportunity_id),
+    )
+    return get_post_opportunity(connection, opportunity_id)
+
+
 def create_publish_attempt(
     connection,
     *,
@@ -1173,6 +1316,25 @@ def _conversation_context_note_from_row(row) -> ConversationContextNoteRecord:
         thread_id=int(row[1]),
         draft_id=int(row[2]) if row[2] is not None else None,
         summary=row[3],
+    )
+
+
+def _post_opportunity_from_row(row) -> PostOpportunityRecord:
+    return PostOpportunityRecord(
+        id=int(row[0]),
+        trigger_type=row[1],
+        trigger_key=row[2],
+        title=row[3],
+        summary=row[4],
+        rationale=row[5],
+        suggested_next_action=row[6],
+        status=row[7],
+        candidate_group_id=int(row[8]) if row[8] is not None else None,
+        draft_id=int(row[9]) if row[9] is not None else None,
+        due_at=row[10],
+        expires_at=row[11],
+        snoozed_until=row[12],
+        dismissed_reason=row[13],
     )
 
 

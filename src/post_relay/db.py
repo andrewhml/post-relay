@@ -189,6 +189,28 @@ SCHEMA_STATEMENTS = [
         foreign key(draft_id) references drafts(id)
     )
     """,
+    """
+    create table if not exists post_opportunities (
+        id integer primary key,
+        trigger_type text not null,
+        trigger_key text not null,
+        title text not null,
+        summary text not null,
+        rationale text not null,
+        suggested_next_action text not null,
+        status text not null default 'new',
+        candidate_group_id integer,
+        draft_id integer,
+        due_at text,
+        expires_at text,
+        snoozed_until text,
+        dismissed_reason text,
+        created_at text not null default current_timestamp,
+        updated_at text not null default current_timestamp,
+        foreign key(candidate_group_id) references candidate_groups(id),
+        foreign key(draft_id) references drafts(id)
+    )
+    """,
 ]
 
 

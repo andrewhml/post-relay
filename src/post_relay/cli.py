@@ -82,12 +82,20 @@ from post_relay.publishing import (
     prepare_single_image_publish_validation,
     resolve_staged_r2_publish_image_urls,
 )
+from post_relay.post_opportunities import (
+    PostOpportunityError,
+    convert_post_opportunity_to_draft,
+    create_post_opportunity_result,
+    dismiss_post_opportunity,
+    snooze_post_opportunity,
+)
 from post_relay.repository import (
     get_library_stats,
     list_active_approvals,
     list_candidate_groups,
     list_context_questions,
     list_drafts,
+    list_post_opportunities,
 )
 from post_relay.r2_staging import (
     DraftNotFound as R2StagingDraftNotFound,
@@ -121,6 +129,7 @@ candidates_app = typer.Typer(help="Candidate post group commands.")
 drafts_app = typer.Typer(help="Draft record commands.")
 dm_app = typer.Typer(help="Private DM simulation commands.")
 discord_app = typer.Typer(help="Discord DM integration commands.")
+opportunities_app = typer.Typer(help="Local post opportunity commands.")
 draft_questions_app = typer.Typer(help="Draft context question commands.")
 draft_artifacts_app = typer.Typer(help="Draft review artifact commands.")
 app.add_typer(db_app, name="db")
@@ -131,6 +140,7 @@ app.add_typer(candidates_app, name="candidates")
 app.add_typer(drafts_app, name="drafts")
 app.add_typer(dm_app, name="dm")
 app.add_typer(discord_app, name="discord")
+app.add_typer(opportunities_app, name="opportunities")
 drafts_app.add_typer(draft_questions_app, name="questions")
 drafts_app.add_typer(draft_artifacts_app, name="artifacts")
 
@@ -351,6 +361,116 @@ def candidates_list(
         typer.echo(
             f"#{group.id} {group.title} — {group.post_type_recommendation}, {group.photo_count} photo{photo_plural}, confidence {group.confidence:.2f}"
         )
+
+
+@opportunities_app.command("create")
+def opportunities_create(
+    trigger_type: str = typer.Option(..., "--trigger-type", help="Opportunity trigger type."),
+    trigger_key: str = typer.Option(..., "--trigger-key", help="Stable dedupe key for the trigger."),
+    title: str = typer.Option(..., "--title", help="Human-readable opportunity title."),
+    summary: str = typer.Option(..., "--summary", help="Sanitized summary of the opportunity."),
+    rationale: str = typer.Option(..., "--rationale", help="Why this opportunity is worth considering."),
+    suggested_next_action: str = typer.Option(..., "--suggested-next-action", help="Concrete next action to offer Andrew."),
+    candidate_id: Optional[int] = typer.Option(None, "--candidate-id", help="Optional candidate group to link."),
+    due_at: Optional[str] = typer.Option(None, "--due-at", help="Optional due time/window."),
+    expires_at: Optional[str] = typer.Option(None, "--expires-at", help="Optional expiration time/window."),
+    db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
+) -> None:
+    """Create or dedupe a local post opportunity without sending DMs."""
+    connection = connect_db(db)
+    initialize_db(connection)
+    try:
+        result = create_post_opportunity_result(
+            connection,
+            trigger_type=trigger_type,
+            trigger_key=trigger_key,
+            title=title,
+            summary=summary,
+            rationale=rationale,
+            suggested_next_action=suggested_next_action,
+            candidate_group_id=candidate_id,
+            due_at=due_at,
+            expires_at=expires_at,
+        )
+    except PostOpportunityError as error:
+        raise typer.BadParameter(str(error), param_hint="--trigger-type/--trigger-key") from error
+    connection.commit()
+    typer.echo(result.to_text())
+
+
+@opportunities_app.command("list")
+def opportunities_list(
+    status: Optional[str] = typer.Option(None, "--status", help="Optional opportunity status filter."),
+    db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
+) -> None:
+    """List local post opportunities."""
+    connection = connect_db(db)
+    initialize_db(connection)
+    opportunities = list_post_opportunities(connection, status=status)
+    if not opportunities:
+        typer.echo("No post opportunities found. No Discord or Meta network calls were made.")
+        return
+    for opportunity in opportunities:
+        candidate = f", candidate #{opportunity.candidate_group_id}" if opportunity.candidate_group_id else ""
+        draft = f", draft #{opportunity.draft_id}" if opportunity.draft_id else ""
+        typer.echo(
+            f"#{opportunity.id} {opportunity.title} — {opportunity.trigger_type}, {opportunity.status}{candidate}{draft}"
+        )
+    typer.echo("No Discord or Meta network calls were made.")
+
+
+@opportunities_app.command("dismiss")
+def opportunities_dismiss(
+    opportunity_id: int = typer.Option(..., "--opportunity-id", help="Opportunity id."),
+    reason: Optional[str] = typer.Option(None, "--reason", help="Dismissal reason."),
+    db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
+) -> None:
+    """Dismiss a local post opportunity without sending DMs."""
+    connection = connect_db(db)
+    initialize_db(connection)
+    try:
+        opportunity = dismiss_post_opportunity(connection, opportunity_id, reason=reason)
+    except PostOpportunityError as error:
+        raise typer.BadParameter(str(error), param_hint="--opportunity-id") from error
+    connection.commit()
+    typer.echo(f"Post opportunity #{opportunity.id} dismissed. No Discord or Meta network calls were made.")
+
+
+@opportunities_app.command("snooze")
+def opportunities_snooze(
+    opportunity_id: int = typer.Option(..., "--opportunity-id", help="Opportunity id."),
+    snoozed_until: str = typer.Option(..., "--until", help="When to revisit this opportunity."),
+    db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
+) -> None:
+    """Snooze a local post opportunity without sending DMs."""
+    connection = connect_db(db)
+    initialize_db(connection)
+    try:
+        opportunity = snooze_post_opportunity(connection, opportunity_id, snoozed_until=snoozed_until)
+    except PostOpportunityError as error:
+        raise typer.BadParameter(str(error), param_hint="--opportunity-id/--until") from error
+    connection.commit()
+    typer.echo(
+        f"Post opportunity #{opportunity.id} snoozed until {opportunity.snoozed_until}. No Discord or Meta network calls were made."
+    )
+
+
+@opportunities_app.command("convert-to-draft")
+def opportunities_convert_to_draft(
+    opportunity_id: int = typer.Option(..., "--opportunity-id", help="Opportunity id."),
+    db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
+) -> None:
+    """Convert a candidate-linked opportunity into a local draft."""
+    connection = connect_db(db)
+    initialize_db(connection)
+    try:
+        opportunity = convert_post_opportunity_to_draft(connection, opportunity_id)
+    except PostOpportunityError as error:
+        raise typer.BadParameter(str(error), param_hint="--opportunity-id") from error
+    connection.commit()
+    typer.echo(
+        f"Post opportunity #{opportunity.id} converted to draft #{opportunity.draft_id}. No Discord or Meta network calls were made."
+    )
 
 
 @dm_app.command("intake")
