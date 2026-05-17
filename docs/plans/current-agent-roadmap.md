@@ -230,10 +230,10 @@ Run this before opening or merging any PR:
 .venv/bin/python -m pytest -q
 ```
 
-Expected current result after Discord schedule guidance milestone:
+Expected current result after local post opportunity model milestone:
 
 ```text
-152 passed
+157 passed
 ```
 
 ## Milestone execution rules
@@ -572,18 +572,32 @@ Current local result: `10 passed` focused; `139 passed` full suite.
 
 Current local result: `9 passed` focused; `152 passed` full suite.
 
-### Milestone 16: `feat/discord-dm-opportunity-model`
+### Milestone 16: `feat/discord-dm-opportunity-model` (completed in PR #41)
 
 **Goal:** After the user-initiated DM workflow is proven, add local models/services for agent-initiated post opportunities without sending Discord DMs yet.
 
-**Expected behavior:**
-- Represent agent-initiated opportunities for new media, ideal posting cadence, inactivity since last post, Andrew life/trip context, holidays/current events, and trend timing windows.
-- Store trigger rationale, suggested next action, status, and optional candidate/draft links in SQLite.
-- Dedupe active opportunities by trigger key.
-- Support dismiss/snooze/convert-to-draft state changes locally.
-- Keep raw DM content minimal; persist durable decisions and sanitized summaries rather than private transcripts.
-- Preserve the already-proven user-initiated DM flow.
-- Do not send Discord DMs or call Meta publishing endpoints in this milestone.
+**Delivered behavior:**
+- Added a `post_opportunities` SQLite table for local agent-initiated suggestion records with trigger type/key, title, sanitized summary, rationale, suggested next action, status, optional candidate/draft links, snooze/dismiss metadata, and timestamps.
+- Added `src/post_relay/post_opportunities.py` for local opportunity creation, active dedupe by trigger type/key, sanitization, listing, dismissing, snoozing, and candidate-linked conversion to a draft.
+- Added `post-relay opportunities create|list|snooze|dismiss|convert-to-draft` CLI commands.
+- Conversion to draft reuses the existing candidate-to-draft creation path so post type and idempotency stay consistent.
+- Mutating CLI commands commit their local SQLite changes and explicitly confirm that no Discord or Meta network calls were made.
+- Active duplicate opportunities are reused; terminal opportunities can be recreated later for the same trigger if needed.
+- Tests cover local creation/dedupe/sanitization, validation, dismiss, snooze, candidate conversion, and CLI behavior.
+
+**Safety notes:**
+- No Discord DMs, Meta calls, or other network integrations are performed in this milestone.
+- Secret-like values in opportunity summaries are redacted before persistence/output.
+- This milestone only creates and manages local opportunity records; safe local trigger checks remain the next milestone.
+
+**Verification:**
+
+```bash
+.venv/bin/python -m pytest tests/test_post_opportunities.py -q
+.venv/bin/python -m pytest -q
+```
+
+Current local result: `5 passed` focused; `157 passed` full suite.
 
 ### Milestone 17: `feat/opportunity-trigger-checks`
 
