@@ -1,7 +1,7 @@
 # Post Relay — Implementation Plan
 
 ## Status
-Draft v0.1
+Current roadmap snapshot after PR #44. This file is historical; the canonical, actively maintained agent plan is `docs/plans/current-agent-roadmap.md`.
 
 ## Purpose
 This document breaks Post Relay into concrete implementation phases and tasks.
@@ -14,7 +14,19 @@ It assumes the currently validated setup:
 - primary integration route: `graph.facebook.com` with Page-linked Instagram account access
 - initial product scope: single-account v1
 
+## Current Engineering Snapshot
+Post Relay has now implemented most of Phases 0-6 for feed/carousel workflows:
+- local SQLite content/draft pipeline, candidate grouping, context questions, approvals, scheduling, and publish approval
+- review artifacts, numbered media selection, R2 staging plans/uploads/cleanup, and staged-R2 publish URL resolution
+- sanitized Meta Graph read-only validation, live-proven single-image publishing, and guarded carousel publish validation
+- private Discord DM user-initiated intake, media selection, guided review, scheduling, and local publish approval
+- local agent-initiated opportunity records and safe no-network trigger checks
+- broad DM request guardrails that ask for narrowing before huge weak matches
+
+Remaining near-term gaps are no longer generic scaffolding. They are targeted operational improvements: bounded review artifacts for large matched folders, better natural request matching, live carousel smoke execution after explicit active-session approval, then analytics/recommendation improvements.
+
 ## Build Strategy
+
 Build in layers so we prove the workflow before we trust live publishing.
 
 Order of truth:
@@ -201,15 +213,17 @@ Make Post Relay smarter over time.
 - fail visibly on API errors
 - keep audit history for all state transitions
 
-## Recommended Next Build Artifact
-After this plan, the most useful next detailed artifact is:
-- `data-model.md`
+## Recommended Next Build Artifacts
+The next useful detailed artifacts are now:
+- `docs/plans/dm-bounded-review-artifacts.md` for large-folder contact-sheet safety and bounded review packages
+- `docs/plans/dm-semantic-candidate-matching.md` for local request-to-candidate matching beyond substring overlap
+- an updated `docs/publishing/live-carousel-smoke-preflight-YYYY-MM-DD.md` only when the live carousel smoke blockers change
 
 ## Practical Next Human Steps
 Andrew should continue with:
 - keeping tokens private and rotating any exposed test tokens
-- identifying the final set of permissions actually needed
-- pausing on app publication/review until publish testing requires it
+- using private DM-driven sessions to prove the user-initiated workflow on real travel sets
+- explicitly choosing and approving a carousel smoke-test draft only when ready to run the guarded live path
 
 ## Immediate Next Engineering Step
-After this milestone, continue with controlled single-image publish validation behind the existing local draft/publish approval safeguards. Preconditions: Andrew explicitly provides local token environment variables, picks a safe test image/caption, and confirms the target account. Use the sanitized read-only Meta Graph client as the base, keep secrets redacted, and do not add autonomous publishing. The repo-level current roadmap is maintained in `docs/plans/current-agent-roadmap.md`; future agents should read `AGENTS.md` first, then the roadmap before implementing.
+Build `feat/dm-bounded-review-artifacts`: a local-only guardrail that prevents matched large folders from immediately producing oversized contact sheets. It should offer a bounded first-pass review plan or ask for a smaller date/folder/range/filename slice, then verify with focused DM intake/review artifact tests and the full `.venv/bin/python -m pytest -q` suite. After that, improve natural candidate matching (`feat/dm-semantic-candidate-matching`). Resume live carousel publish execution only after the PR #43 preflight blockers are resolved and Andrew explicitly approves the Meta `--execute` command in the active session.

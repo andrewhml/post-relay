@@ -4,7 +4,7 @@
 
 **Goal:** Make the Post Relay plan discoverable and executable for future agents across sessions.
 
-**Architecture:** Post Relay is a local-first Python CLI and SQLite workflow. The repo currently supports source config loading, media indexing, library stats, candidate group building/listing, and guarded draft workflow states. The next milestones should turn indexed candidate groups into drafts, then add review, scheduling, approval, and eventually official Meta Graph publishing.
+**Architecture:** Post Relay is a local-first Python CLI and SQLite workflow. The repo now supports processed-folder indexing, candidate/draft creation, numbered media selection, local review artifacts, R2 staging, guarded single-image/carousel publish validation, private Discord DM intake/selection/guided review/scheduling, local opportunity records, safe opportunity trigger checks, and DM narrowing guardrails. The next milestones should improve candidate/media narrowing and bounded review artifacts, then resume guarded carousel publish smoke execution only after a specific draft is staged, double-approved, and explicitly authorized in the active session.
 
 **Tech Stack:** Python 3.9+, SQLite, Typer, Pydantic, PyYAML, Pillow, pytest, GitHub PR milestone workflow.
 
@@ -230,10 +230,10 @@ Run this before opening or merging any PR:
 .venv/bin/python -m pytest -q
 ```
 
-Expected current result after local opportunity trigger checks milestone:
+Expected current result after the DM candidate narrowing milestone:
 
 ```text
-161 passed
+163 passed
 ```
 
 ## Milestone execution rules
@@ -287,7 +287,7 @@ Agents must preserve these unless Andrew explicitly changes the product directio
 - Reels are later experiments unless explicitly validated.
 - Feed/carousel workflows are the early publishing target.
 
-## Next planned milestones
+## Implemented roadmap milestones
 
 ### Milestone 1: `feat/content-pipeline-config` (completed in PR #21)
 
@@ -663,7 +663,7 @@ Current local result after PR #43 merge: `161 passed` full suite.
 - Record sanitized child container ids, carousel container id, status, and published media id.
 - Move the draft to `posted` only after Meta returns a published media id.
 
-### Milestone 19: `feat/dm-candidate-narrowing`
+### Milestone 19: `feat/dm-candidate-narrowing` (completed in PR #44)
 
 **Goal:** Reduce the risk that a broad natural DM request selects a huge weak candidate folder and produces an unusable contact sheet.
 
@@ -683,6 +683,73 @@ Current local result after PR #43 merge: `161 passed` full suite.
 
 Current local result: `10 passed` focused; `163 passed` full suite.
 
+## Current project state
+
+As of PR #44, the local-first workflow is past the original scaffold phase:
+
+- Local processed/NAS folders are still the source of truth; generated artifacts and R2 objects are disposable staging/review layers.
+- Candidate groups, drafts, media selection, context questions, guided packages, scheduling, draft approval, and publish approval all exist as local SQLite/CLI workflows.
+- Private Discord DM flows are live-capable for user-initiated intake, X-from-Y media selection, guided review/copy acceptance, scheduling, and final local publish approval.
+- Agent-initiated suggestions are modeled locally through `post_opportunities` and safe trigger checks, but proactive Discord outreach has not been implemented yet.
+- DM intake now avoids the worst broad-request failure mode by asking for narrowing cues before suggesting huge weak matches.
+- Single-image publish validation has completed one live smoke test; carousel publish support exists but the live carousel smoke is still blocked by intentional draft state, R2 staging, double approval, and active-session `--execute` authorization gates.
+
+## Next planned milestones
+
+### Milestone 20: `feat/dm-bounded-review-artifacts`
+
+**Goal:** Make broad DM-driven review safe and usable by preventing oversized contact sheets and offering a bounded first-pass review package.
+
+**Why now:** PR #44 prevents huge weak matches, but a genuinely matched large folder can still be selected. The next risk is rendering an enormous contact sheet before Andrew has narrowed the set.
+
+**Expected behavior:**
+- Add a local planning layer that classifies candidate/draft media volume before artifact rendering.
+- For large matched sets, provide a bounded first-pass review plan such as a capped sample/contact sheet, date/folder slice, or explicit request for a smaller range before full render.
+- Keep source paths out of DM-facing text; include enough internal IDs/commands for the CLI operator to continue safely.
+- Do not mutate source media, upload to R2, send Discord DMs, or call Meta.
+
+**Suggested TDD entry points:**
+- Tests around the existing artifact/render or DM intake boundary that assert huge drafts produce a narrowing/bounded-plan message instead of an immediate full-sheet recommendation.
+- CLI test with a fixture folder of 120+ images.
+
+**Verification:**
+
+```bash
+.venv/bin/python -m pytest tests/test_dm_intake.py tests/test_review_artifacts.py -q
+.venv/bin/python -m pytest -q
+```
+
+### Milestone 21: `feat/dm-semantic-candidate-matching`
+
+**Goal:** Improve natural DM request matching beyond substring overlap while staying local-first.
+
+**Expected behavior:**
+- Normalize folder names, filenames, years, and simple location/date tokens into searchable candidate descriptors.
+- Prefer strong folder/date/location matches over generic large folders.
+- Return explainable match rationale in local/DM-facing output without leaking absolute source paths.
+- Keep embeddings or image-content analysis optional/later unless a small local implementation is clearly justified.
+
+**Verification:**
+
+```bash
+.venv/bin/python -m pytest tests/test_dm_intake.py -q
+.venv/bin/python -m pytest -q
+```
+
+### Milestone 22: `feat/live-carousel-publish-smoke-execution`
+
+**Goal:** Complete the guarded live carousel smoke only after the preflight blockers are resolved and Andrew explicitly authorizes the Meta `--execute` command in the active session.
+
+**Preconditions:**
+- Use the PR #43 preflight notes as the runbook baseline.
+- A carousel draft is intentionally selected, packaged, and approved for queueing.
+- Final local publish approval is recorded after any media/caption changes.
+- R2 draft media upload has been executed successfully, or explicit public HTTPS image URLs are supplied.
+- `meta validate-carousel-publish --from-staged-r2 --dry-run` is reviewed.
+- Andrew explicitly approves the live `--execute` publish command in the active session.
+
+**Safety rule:** If any precondition is missing, update the preflight notes with the blocker and stop before live Meta publish execution.
+
 ## Later milestones
 
 - Video/reel validation after feed/carousel path is reliable.
@@ -693,12 +760,10 @@ Current local result: `10 passed` focused; `163 passed` full suite.
 
 ## Known open questions
 
-- Exact processed photo source path(s) on Andrew's machine/NAS mount.
-- Whether to create local preview thumbnails or lightweight contact sheets before Discord integration.
-- How Hermes/Discord should handle image preview delivery reliably, given prior messaging-gateway image issues.
-- Exact current Meta permission/token state at the time publishing validation starts.
-- Whether the first draft generator should be rule-based placeholders or LLM-assisted captions.
-- What metadata/indexing strategy should power natural request narrowing: folder names only, EXIF dates/GPS, generated captions/tags, perceptual/semantic embeddings, or Immich/NAS metadata once reliable.
+- Whether proactive agent-initiated Discord opportunity DMs should be enabled after more user-initiated DM sessions prove the workflow.
+- How far candidate/media narrowing should go before Immich/NAS enrichment: folder/date/filename tokens only, lightweight local metadata, generated tags, perceptual/semantic embeddings, or Immich metadata once reliable.
+- Exact current Meta permission/token state at the time live carousel publish execution resumes.
+- Whether reel/video validation should happen immediately after carousel smoke or wait until feed/carousel cadence and analytics are stable.
 
 ## Documentation maintenance rule
 
