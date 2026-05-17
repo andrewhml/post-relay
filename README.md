@@ -27,6 +27,7 @@ Early local-first MVP scaffold with:
 - live-capable private Discord DM guided review sender/poller plus no-network apply fallback for accepting hook/caption/metadata decisions from DM-style replies
 - live-capable private Discord DM scheduling guidance sender/poller plus no-network schedule/final-publish-approval apply fallbacks
 - local post opportunity model and safe trigger checks for agent-initiated suggestions with dry-run planning, dedupe, snooze/dismiss respect, manual seeds, and candidate-to-draft conversion, without sending DMs
+- private DM intake narrowing guardrails that ask for more specific cues before suggesting huge weak candidate matches and warn before rendering contact sheets for large matched sets
 
 ## Proven setup facts
 - Meta app: Post Relay

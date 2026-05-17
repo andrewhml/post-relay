@@ -62,6 +62,22 @@ def _build_fixture_library(tmp_path: Path):
     return connection, root
 
 
+def _build_broad_fixture_library(tmp_path: Path, *, folder_name: str = "Processed", image_count: int = 130):
+    root = tmp_path / "processed"
+    folder = root / "2025" / folder_name
+    folder.mkdir(parents=True)
+    for index in range(image_count):
+        (folder / f"image-{index:03d}.jpg").write_bytes(b"fake image")
+    connection = connect_db(tmp_path / "post_relay.sqlite")
+    initialize_db(connection)
+    config = PostRelayConfig(
+        photo_sources=[PhotoSource(name="processed", root=root, source_type="processed_folder")]
+    )
+    index_photo_sources(connection, config)
+    build_candidate_groups(connection)
+    return connection, root
+
+
 def test_user_dm_starts_private_conversation_and_suggests_matching_candidates(tmp_path: Path):
     connection, root = _build_fixture_library(tmp_path)
 
@@ -83,6 +99,46 @@ def test_user_dm_starts_private_conversation_and_suggests_matching_candidates(tm
     assert "choose candidate #" in text
     assert root.as_posix() not in text
     assert "fake-token" not in text
+
+
+def test_user_dm_asks_for_narrowing_before_suggesting_huge_weak_match(tmp_path: Path):
+    connection, root = _build_broad_fixture_library(tmp_path)
+
+    result = handle_dm_intake(
+        connection,
+        "start a post about San Francisco spring flowers",
+        discord_channel_id="dm-andrew-123",
+    )
+
+    assert result.suggested_candidates == []
+    assert result.narrowing_question is not None
+    assert "San Francisco spring flowers" in result.narrowing_question
+    assert result.next_safe_step == "candidate narrowing"
+    text = result.to_text()
+    assert "Narrowing needed:" in text
+    assert "date, neighborhood, folder name, or 5-10 filenames" in text
+    assert "Suggested candidate groups:" not in text
+    assert "130 photos" not in text
+    assert root.as_posix() not in text
+    assert "No Discord or Meta network calls were made." in text
+
+
+def test_user_dm_warns_when_matching_candidate_is_large(tmp_path: Path):
+    connection, _root = _build_broad_fixture_library(
+        tmp_path, folder_name="san-francisco-spring-flowers"
+    )
+
+    result = handle_dm_intake(
+        connection,
+        "start a post about San Francisco spring flowers",
+        discord_channel_id="dm-andrew-123",
+    )
+
+    assert result.suggested_candidates
+    assert result.narrowing_question is None
+    text = result.to_text()
+    assert "2025 / san-francisco-spring-flowers" in text
+    assert "Large set: narrow before rendering a contact sheet." in text
 
 
 def test_user_dm_with_active_draft_records_sanitized_context_and_routes_to_next_step(tmp_path: Path):
