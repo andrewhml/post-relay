@@ -230,10 +230,10 @@ Run this before opening or merging any PR:
 .venv/bin/python -m pytest -q
 ```
 
-Expected current result after local post opportunity model milestone:
+Expected current result after local opportunity trigger checks milestone:
 
 ```text
-157 passed
+161 passed
 ```
 
 ## Milestone execution rules
@@ -599,17 +599,33 @@ Current local result: `9 passed` focused; `152 passed` full suite.
 
 Current local result: `5 passed` focused; `157 passed` full suite.
 
-### Milestone 17: `feat/opportunity-trigger-checks`
+### Milestone 17: `feat/opportunity-trigger-checks` (completed in PR #42)
 
 **Goal:** Add safe local checks that create agent-initiated post opportunities before any DM is sent.
 
-**Expected behavior:**
-- Detect new indexed/candidate media that may deserve a post conversation.
-- Detect cadence due and inactivity windows from local draft/post history and configurable thresholds.
-- Allow manually seeded life/trip/event/current-event/trend opportunities before adding external data adapters.
-- Dedupe, rate-limit, snooze, and dismiss opportunities.
-- Default to dry-run/local opportunity creation; live DM sending requires a later explicit integration path.
-- Do not call Meta publishing endpoints in this milestone.
+**Delivered behavior:**
+- Added `src/post_relay/opportunity_checks.py` for safe local trigger planning/execution.
+- Added `post-relay opportunities check`, dry-run by default, with `--execute` required to persist local opportunity records.
+- Detects undrafted indexed candidate groups as `new_media` opportunities, capped by `--max-new-media-candidates`.
+- Detects cadence due from local scheduled/posted draft history with configurable `--cadence-due-after-days`.
+- Detects local inactivity when no scheduled/posted history and no more specific new-media opportunity is available.
+- Supports manually seeded local opportunities with `--manual-trigger-type`, `--manual-trigger-key`, title, summary, rationale, and suggested next action before external adapters exist.
+- Skips existing active opportunities, future snoozes, dismissed opportunities, and already-converted opportunities for the same trigger key during automated checks.
+- Prints explicit no-Discord/no-Meta messaging for both dry-run and execute paths.
+
+**Safety notes:**
+- Dry run is the default and writes no opportunity records.
+- Execute mode only writes local SQLite opportunity records; it does not send Discord DMs, query external event/trend APIs, or call Meta publishing endpoints.
+- Manual summary text still flows through the existing opportunity sanitizer before persistence/output.
+
+**Verification:**
+
+```bash
+.venv/bin/python -m pytest tests/test_opportunity_trigger_checks.py -q
+.venv/bin/python -m pytest -q
+```
+
+Current local result: `4 passed` focused; `161 passed` full suite.
 
 ### Milestone 18: `feat/live-carousel-publish-smoke-notes`
 

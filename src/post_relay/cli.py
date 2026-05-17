@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -82,6 +83,7 @@ from post_relay.publishing import (
     prepare_single_image_publish_validation,
     resolve_staged_r2_publish_image_urls,
 )
+from post_relay.opportunity_checks import execute_opportunity_checks, plan_opportunity_checks
 from post_relay.post_opportunities import (
     PostOpportunityError,
     convert_post_opportunity_to_draft,
@@ -361,6 +363,62 @@ def candidates_list(
         typer.echo(
             f"#{group.id} {group.title} — {group.post_type_recommendation}, {group.photo_count} photo{photo_plural}, confidence {group.confidence:.2f}"
         )
+
+
+@opportunities_app.command("check")
+def opportunities_check(
+    execute: bool = typer.Option(False, "--execute", help="Persist planned local opportunities."),
+    now: Optional[str] = typer.Option(None, "--now", help="ISO timestamp for deterministic local checks."),
+    cadence_due_after_days: int = typer.Option(3, "--cadence-due-after-days", help="Days after last scheduled/posted item before cadence is due."),
+    inactivity_after_days: int = typer.Option(14, "--inactivity-after-days", help="Days threshold for no local posting history."),
+    include_new_media: bool = typer.Option(True, "--include-new-media/--no-new-media", help="Include indexed candidate media checks."),
+    max_new_media_candidates: int = typer.Option(5, "--max-new-media-candidates", help="Maximum undrafted candidate media opportunities to plan."),
+    manual_trigger_type: Optional[str] = typer.Option(None, "--manual-trigger-type", help="Optional manual opportunity trigger type."),
+    manual_trigger_key: Optional[str] = typer.Option(None, "--manual-trigger-key", help="Optional manual opportunity trigger key."),
+    manual_title: Optional[str] = typer.Option(None, "--manual-title", help="Optional manual opportunity title."),
+    manual_summary: Optional[str] = typer.Option(None, "--manual-summary", help="Optional manual opportunity summary."),
+    manual_rationale: Optional[str] = typer.Option(None, "--manual-rationale", help="Optional manual opportunity rationale."),
+    manual_suggested_next_action: Optional[str] = typer.Option(None, "--manual-suggested-next-action", help="Optional manual opportunity next action."),
+    db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
+) -> None:
+    """Run safe local opportunity trigger checks without sending DMs."""
+    connection = connect_db(db)
+    initialize_db(connection)
+    check_now = now or datetime.now(timezone.utc).isoformat()
+    try:
+        if execute:
+            result = execute_opportunity_checks(
+                connection,
+                now=check_now,
+                cadence_due_after_days=cadence_due_after_days,
+                inactivity_after_days=inactivity_after_days,
+                include_new_media=include_new_media,
+                max_new_media_candidates=max_new_media_candidates,
+                manual_trigger_type=manual_trigger_type,
+                manual_trigger_key=manual_trigger_key,
+                manual_title=manual_title,
+                manual_summary=manual_summary,
+                manual_rationale=manual_rationale,
+                manual_suggested_next_action=manual_suggested_next_action,
+            )
+        else:
+            result = plan_opportunity_checks(
+                connection,
+                now=check_now,
+                cadence_due_after_days=cadence_due_after_days,
+                inactivity_after_days=inactivity_after_days,
+                include_new_media=include_new_media,
+                max_new_media_candidates=max_new_media_candidates,
+                manual_trigger_type=manual_trigger_type,
+                manual_trigger_key=manual_trigger_key,
+                manual_title=manual_title,
+                manual_summary=manual_summary,
+                manual_rationale=manual_rationale,
+                manual_suggested_next_action=manual_suggested_next_action,
+            )
+    except (ValueError, PostOpportunityError) as error:
+        raise typer.BadParameter(str(error), param_hint="--manual-trigger-type/--now") from error
+    typer.echo(result.to_text())
 
 
 @opportunities_app.command("create")
