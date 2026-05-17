@@ -139,6 +139,7 @@ def test_user_dm_warns_when_matching_candidate_is_large(tmp_path: Path):
     text = result.to_text()
     assert "2025 / san-francisco-spring-flowers" in text
     assert "Large set: narrow before rendering a contact sheet." in text
+    assert "Run drafts artifacts render after choosing this candidate to get a bounded first-pass plan." in text
 
 
 def test_user_dm_with_active_draft_records_sanitized_context_and_routes_to_next_step(tmp_path: Path):

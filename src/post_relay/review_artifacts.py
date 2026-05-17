@@ -4,6 +4,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Sequence
 
+
+LARGE_REVIEW_ARTIFACT_MEDIA_COUNT = 120
+BOUNDED_REVIEW_SAMPLE_COUNT = 24
+
 from PIL import Image, ImageOps
 
 from post_relay.config import ReviewArtifactsConfig
@@ -16,6 +20,62 @@ class DraftNotFound(ValueError):
 
 class UnsafeArtifactRoot(ValueError):
     pass
+
+
+class OversizedReviewArtifactSet(ValueError):
+    def __init__(self, plan: "BoundedReviewArtifactPlan") -> None:
+        super().__init__(
+            f"Draft {plan.draft_id} has {plan.media_count} included photos; "
+            "use a bounded review plan before rendering a full contact sheet."
+        )
+        self.plan = plan
+
+
+@dataclass(frozen=True)
+class BoundedReviewArtifactPlan:
+    draft_id: int
+    candidate_title: str
+    media_count: int
+    large_threshold: int
+    sample_count: int
+
+    @property
+    def classification(self) -> str:
+        if self.media_count >= self.large_threshold:
+            return "large"
+        return "normal"
+
+    @property
+    def full_render_safe(self) -> bool:
+        return self.classification != "large"
+
+    def to_text(self) -> str:
+        lines = [
+            "Bounded Review Artifact Plan",
+            f"Draft ID: {self.draft_id}",
+            f"Candidate: {self.candidate_title}",
+            f"Media volume: {self.media_count} included photos ({self.classification})",
+        ]
+        if self.full_render_safe:
+            lines.extend(
+                [
+                    "Full contact sheet render is safe for this draft.",
+                    f"Next command: drafts artifacts render --draft-id {self.draft_id}",
+                ]
+            )
+        else:
+            sample_end = min(self.sample_count, self.media_count)
+            lines.extend(
+                [
+                    "Full contact sheet render blocked until the set is narrowed.",
+                    f"Recommended bounded first-pass review: inspect a capped first-pass review of items 1-{sample_end}, then choose a smaller range or explicit keep list.",
+                    f"Operator commands: drafts media-plan --draft-id {self.draft_id}",
+                    f"Operator commands: drafts media-edit --draft-id {self.draft_id} --keep <comma-separated-numbers> --lead <number> --post-type carousel",
+                    "DM-safe prompt: This matched a large photo set. Please send a smaller range, date/neighborhood cue, or 5-10 filenames before I render the full contact sheet.",
+                ]
+            )
+        lines.append("No Discord, R2, or Meta network calls were made.")
+        return "\n".join(lines)
 
 
 @dataclass(frozen=True)
@@ -53,12 +113,36 @@ class ReviewArtifactsPackage:
         return "\n".join(lines)
 
 
+def plan_bounded_review_artifacts_for_draft(
+    connection,
+    draft_id: int,
+    *,
+    large_threshold: int = LARGE_REVIEW_ARTIFACT_MEDIA_COUNT,
+    sample_count: int = BOUNDED_REVIEW_SAMPLE_COUNT,
+) -> BoundedReviewArtifactPlan:
+    draft = get_draft(connection, draft_id)
+    if draft is None:
+        raise DraftNotFound(f"Draft {draft_id} was not found.")
+
+    source_paths = list_candidate_group_photo_paths(connection, draft.candidate_group_id)
+    candidate = get_candidate_group(connection, draft.candidate_group_id)
+    candidate_title = candidate.title if candidate is not None else f"candidate #{draft.candidate_group_id}"
+    return BoundedReviewArtifactPlan(
+        draft_id=draft.id,
+        candidate_title=candidate_title,
+        media_count=len(source_paths),
+        large_threshold=large_threshold,
+        sample_count=sample_count,
+    )
+
+
 def render_review_artifacts_for_draft(
     connection,
     draft_id: int,
     config: ReviewArtifactsConfig,
     *,
     protected_source_roots: Sequence[Path] = (),
+    allow_large: bool = False,
 ) -> ReviewArtifactsPackage:
     draft = get_draft(connection, draft_id)
     if draft is None:
@@ -67,6 +151,16 @@ def render_review_artifacts_for_draft(
     source_paths = list_candidate_group_photo_paths(connection, draft.candidate_group_id)
     candidate = get_candidate_group(connection, draft.candidate_group_id)
     candidate_title = candidate.title if candidate is not None else f"candidate #{draft.candidate_group_id}"
+    plan = BoundedReviewArtifactPlan(
+        draft_id=draft.id,
+        candidate_title=candidate_title,
+        media_count=len(source_paths),
+        large_threshold=LARGE_REVIEW_ARTIFACT_MEDIA_COUNT,
+        sample_count=BOUNDED_REVIEW_SAMPLE_COUNT,
+    )
+    if not allow_large and not plan.full_render_safe:
+        raise OversizedReviewArtifactSet(plan)
+
     artifact_root = config.root / f"draft-{draft.id}"
     _ensure_artifact_root_is_safe(artifact_root, protected_source_roots)
     thumbnails_root = artifact_root / "thumbnails"

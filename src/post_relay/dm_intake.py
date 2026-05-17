@@ -53,7 +53,7 @@ class DmIntakeResult:
             for candidate in self.suggested_candidates:
                 photo_label = "photo" if candidate.photo_count == 1 else "photos"
                 large_set_note = (
-                    " Large set: narrow before rendering a contact sheet."
+                    " Large set: narrow before rendering a contact sheet. Run drafts artifacts render after choosing this candidate to get a bounded first-pass plan."
                     if candidate.photo_count >= LARGE_CANDIDATE_PHOTO_COUNT
                     else ""
                 )
