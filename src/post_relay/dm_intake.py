@@ -4,6 +4,7 @@ from dataclasses import dataclass
 import re
 from typing import Optional
 
+from post_relay.drafts import CandidateNotFound, create_draft_from_candidate
 from post_relay.repository import (
     CandidateGroupRecord,
     ConversationContextNoteRecord,
@@ -69,6 +70,14 @@ def handle_dm_intake(
     if draft_id is not None and get_draft(connection, draft_id) is None:
         raise DmIntakeError(f"Draft #{draft_id} was not found")
 
+    chosen_candidate_id = _chosen_candidate_id(sanitized_message)
+    if draft_id is None and chosen_candidate_id is not None:
+        try:
+            draft = create_draft_from_candidate(connection, chosen_candidate_id)
+        except CandidateNotFound as error:
+            raise DmIntakeError(str(error)) from error
+        draft_id = draft.id
+
     active_thread = (
         get_active_conversation_thread_for_channel(connection, discord_channel_id)
         if discord_channel_id is not None
@@ -124,6 +133,16 @@ def _rank_candidate_suggestions(connection, message: str, limit: int = 3) -> lis
         scored.append((score, candidate.id, candidate))
     scored.sort(key=lambda item: (-item[0], item[1]))
     return [candidate for _score, _id, candidate in scored[:limit]]
+
+
+def _chosen_candidate_id(message: str) -> Optional[int]:
+    match = re.search(r"(?i)\b(?:choose|use|select)\s+(?:candidate\s*)?#?\s*(\d+)\b", message)
+    if match:
+        return int(match.group(1))
+    match = re.search(r"(?i)\bcandidate\s*#?\s*(\d+)\b", message)
+    if match:
+        return int(match.group(1))
+    return None
 
 
 def _keywords(message: str) -> list[str]:

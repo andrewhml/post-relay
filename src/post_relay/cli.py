@@ -29,6 +29,7 @@ from post_relay.discord_dm import (
     handle_dm_selection_reply,
     load_discord_dm_config_from_env,
     poll_dm_guided_review_reply,
+    poll_dm_intake_reply,
     poll_dm_selection_reply,
     send_dm_guided_review_prompt,
     send_dm_selection_prompt,
@@ -365,6 +366,33 @@ def dm_intake(
     except DmIntakeError as error:
         raise typer.BadParameter(str(error), param_hint="--message/--draft-id") from error
     typer.echo(result.to_text())
+
+
+@discord_app.command("dm-intake-poll")
+def discord_dm_intake_poll(
+    after_message_id: Optional[str] = typer.Option(
+        None,
+        "--after-message-id",
+        help="Only inspect Discord DMs after this message id. Optional for user-initiated intake.",
+    ),
+    draft_id: Optional[int] = typer.Option(None, "--draft-id", help="Optional active draft id to attach context to."),
+    db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
+) -> None:
+    """Poll Andrew's private Discord DM for a natural user-initiated Post Relay message."""
+    connection = connect_db(db)
+    initialize_db(connection)
+    try:
+        config = load_discord_dm_config_from_env()
+        result = poll_dm_intake_reply(
+            connection,
+            target_user_id=config.target_user_id,
+            after_message_id=after_message_id,
+            draft_id=draft_id,
+            transport=DiscordRestTransport(config.bot_token, api_base_url=config.api_base_url),
+        )
+    except DiscordDmError as error:
+        raise typer.BadParameter(str(error), param_hint="--after-message-id/--draft-id") from error
+    typer.echo(result.confirmation_text)
 
 
 @discord_app.command("dm-selection-send")
