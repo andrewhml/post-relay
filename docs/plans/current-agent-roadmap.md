@@ -230,10 +230,10 @@ Run this before opening or merging any PR:
 .venv/bin/python -m pytest -q
 ```
 
-Expected current result after DM intake harness milestone:
+Expected current result after Discord schedule guidance milestone:
 
 ```text
-116 passed
+152 passed
 ```
 
 ## Milestone execution rules
@@ -545,14 +545,32 @@ Current local result: `10 passed` focused; `139 passed` full suite.
 
 ### Milestone 15: `feat/discord-schedule-queue-guidance`
 
+**Latest live DM smoke observation:** Andrew confirmed user-initiated Discord DM draft creation, back-and-forth copy review, and contact-sheet image selection worked in the Discord app. The main discovered gap is candidate/media narrowing: a broad request such as "San Francisco spring flowers" can currently select an overly broad year/folder scope and generate an unusably large contact sheet with hundreds of images. Future selection work should improve semantic request-to-directory/media matching, cap initial contact-sheet size, and ask a narrowing question before rendering huge sheets.
+
 **Goal:** Let the Discord DM bot guide Andrew from approved draft to scheduled queue while optimizing cadence toward follower growth.
 
-**Expected behavior:**
-- Recommend schedule slots using configured cadence and simple interpretable rules.
-- Avoid clustering similar posts or dumping too much backlog at once.
-- Ask Andrew to approve or adjust the proposed slot in DM.
-- Persist the chosen schedule with the existing scheduling state machine.
-- Request final publish approval near the publish window according to the configured policy.
+**Delivered behavior:**
+- Added `src/post_relay/dm_scheduling.py` for private-DM schedule guidance and final local publish-approval handling.
+- Added live-capable `discord dm-schedule-send` and `discord dm-schedule-poll` commands for sending schedule options and applying Andrew's first private-DM reply.
+- Added no-network `discord dm-schedule-apply` fallback for copied replies such as `slot 1` or explicit ISO timestamps.
+- Added no-network `discord dm-publish-approval-apply` fallback for recording final local publish approval from an explicit `approve publish` DM reply inside the configured final-approval window.
+- Schedule guidance uses simple interpretable Tue/Thu/Sun 09:30 slots, a 36-hour lead-time buffer, and skips already scheduled days so posts do not cluster or dump backlog at once.
+- The DM flow reuses the existing local scheduling state machine: schedule choices require `approved_for_queue`, move drafts to `scheduled`, and final approval moves scheduled drafts through `awaiting_publish_approval` to `ready_to_publish` without Meta calls.
+
+**Safety notes:**
+- Discord credentials are read only from environment/private configuration in live send/poll commands.
+- The no-network apply commands are available for copied DM replies and do not call Discord or Meta.
+- Final publish approval recorded through DM still only prepares the local draft for guarded publish validation; it does not publish to Instagram.
+- Live Instagram publish execution remains out of scope for Discord milestones.
+
+**Verification:**
+
+```bash
+.venv/bin/python -m pytest tests/test_dm_scheduling.py -q
+.venv/bin/python -m pytest -q
+```
+
+Current local result: `9 passed` focused; `152 passed` full suite.
 
 ### Milestone 16: `feat/discord-dm-opportunity-model`
 
@@ -605,6 +623,7 @@ Current local result: `10 passed` focused; `139 passed` full suite.
 - Video/reel validation after feed/carousel path is reliable.
 - Analytics/insights collection and follower-growth progress tracking.
 - Recommendation improvements using approval and engagement history.
+- Candidate/media narrowing for natural DM requests: semantic folder/media matching, bounded contact sheets, image/date/location metadata search, and clarifying questions when the initial request is too broad.
 - Immich/NAS enrichment once the processed-folder MVP works.
 
 ## Known open questions
@@ -614,6 +633,7 @@ Current local result: `10 passed` focused; `139 passed` full suite.
 - How Hermes/Discord should handle image preview delivery reliably, given prior messaging-gateway image issues.
 - Exact current Meta permission/token state at the time publishing validation starts.
 - Whether the first draft generator should be rule-based placeholders or LLM-assisted captions.
+- What metadata/indexing strategy should power natural request narrowing: folder names only, EXIF dates/GPS, generated captions/tags, perceptual/semantic embeddings, or Immich/NAS metadata once reliable.
 
 ## Documentation maintenance rule
 

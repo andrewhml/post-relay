@@ -14,6 +14,7 @@ from post_relay.discord_selection import (
     build_discord_selection_request,
 )
 from post_relay.dm_guided_review import DmGuidedReviewError, handle_dm_guided_review_reply
+from post_relay.dm_intake import DmIntakeError, handle_dm_intake
 from post_relay.guided_draft import DraftNotFound as GuidedDraftNotFound
 from post_relay.guided_draft import build_guided_draft_package
 from post_relay.media_selection import DraftMediaSelectionResult, DraftNotFound
@@ -103,6 +104,14 @@ class DmSelectionPollResult:
 @dataclass(frozen=True)
 class DmGuidedReviewPollResult:
     applied: bool
+    reply_message_id: Optional[str]
+    confirmation_text: str
+
+
+@dataclass(frozen=True)
+class DmIntakePollResult:
+    applied: bool
+    channel_id: str
     reply_message_id: Optional[str]
     confirmation_text: str
 
@@ -438,6 +447,57 @@ def poll_dm_selection_reply(
         applied=False,
         reply_message_id=None,
         confirmation_text="No parseable selection reply found yet.",
+    )
+
+
+def poll_dm_intake_reply(
+    connection,
+    *,
+    target_user_id: str,
+    after_message_id: Optional[str],
+    transport: DiscordDmTransport,
+    draft_id: Optional[int] = None,
+) -> DmIntakePollResult:
+    channel_id = transport.create_dm_channel(target_user_id)
+    messages = transport.list_messages(channel_id, after_message_id=after_message_id, limit=20)
+    for message in sorted(messages, key=lambda item: int(item.id) if item.id.isdigit() else 0):
+        if message.author_id != target_user_id:
+            continue
+        if not message.content.strip():
+            continue
+        try:
+            intake_result = handle_dm_intake(
+                connection,
+                message.content,
+                discord_channel_id=channel_id,
+                draft_id=draft_id,
+            )
+        except DmIntakeError as error:
+            confirmation = f"I couldn't start that Post Relay DM intake yet: {error}"
+            transport.send_message(channel_id, confirmation)
+            return DmIntakePollResult(
+                applied=False,
+                channel_id=channel_id,
+                reply_message_id=message.id,
+                confirmation_text=confirmation,
+            )
+        connection.commit()
+        confirmation = intake_result.to_text().replace(
+            "No Discord or Meta network calls were made.",
+            "No Meta publishing endpoints were called.",
+        )
+        transport.send_message(channel_id, confirmation)
+        return DmIntakePollResult(
+            applied=True,
+            channel_id=channel_id,
+            reply_message_id=message.id,
+            confirmation_text=confirmation,
+        )
+    return DmIntakePollResult(
+        applied=False,
+        channel_id=channel_id,
+        reply_message_id=None,
+        confirmation_text="No new user-initiated DM intake message found yet.",
     )
 
 
