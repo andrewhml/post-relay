@@ -23,6 +23,7 @@ Early local-first MVP scaffold with:
 - explicit Instagram capability matrix separating publishable fields from local/review-only metadata
 - guarded draft workflow state model
 - no-network private DM intake harness for user-initiated post conversations and draft-context updates
+- live-capable private Discord DM selection sender/poller for Discord-only selection smoke tests, guarded by environment-provided bot credentials
 
 ## Proven setup facts
 - Meta app: Post Relay
@@ -72,6 +73,9 @@ Use the project virtualenv when running locally:
 .venv/bin/post-relay drafts discord-selection-apply --draft-id 1 --select 3,1,5,7,8 --lead 3 --target-count 5 --post-type carousel --db data/post_relay.sqlite
 .venv/bin/post-relay dm intake --message "start a post about Kyoto night market" --discord-channel-id dm-andrew --db data/post_relay.sqlite
 .venv/bin/post-relay dm intake --message "make this cinematic and less touristy" --draft-id 1 --discord-channel-id dm-andrew --db data/post_relay.sqlite
+.venv/bin/post-relay discord dm-selection-send --draft-id 1 --target-count 5 --db data/post_relay.sqlite
+.venv/bin/post-relay discord dm-selection-poll --draft-id 1 --channel-id <discord-dm-channel-id> --after-message-id <prompt-message-id> --target-count 5 --db data/post_relay.sqlite
+.venv/bin/post-relay discord dm-selection-apply --draft-id 1 --message "select 3,1,5,7,8 lead 3" --target-count 5 --discord-channel-id <discord-dm-channel-id> --db data/post_relay.sqlite
 .venv/bin/post-relay drafts r2-stage-plan --draft-id 1 --config config/photo_sources.yaml --db data/post_relay.sqlite
 .venv/bin/post-relay drafts r2-stage-upload --draft-id 1 --config config/photo_sources.yaml --db data/post_relay.sqlite
 .venv/bin/post-relay drafts r2-stage-upload --draft-id 1 --config config/photo_sources.yaml --db data/post_relay.sqlite --execute

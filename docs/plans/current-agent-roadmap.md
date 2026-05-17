@@ -490,15 +490,29 @@ Agents must preserve these unless Andrew explicitly changes the product directio
 
 **Goal:** Let Andrew interact with the live Discord bot in a private DM to choose X photos from Y suggestions and persist the choice into draft media selection.
 
-**Expected behavior:**
-- Send selection prompts to Andrew's private DM by default, not a review channel.
-- Allow Andrew to start selection from a DM command or by continuing a user-initiated DM conversation.
-- Accept exactly X selected photo numbers plus a lead/cover choice through Discord interactions or a command fallback.
-- Apply the selection through the same local service as the CLI harness.
-- Confirm selected count, lead/cover, final included order, excluded photos, and any approval invalidation back in DM.
-- Reject incomplete, duplicate, out-of-range, or too-large selections with actionable feedback.
-- Keep Discord credentials private; no tokens or secrets in git, logs, or chat.
-- Do not call Meta publishing endpoints in this milestone.
+**Delivered behavior:**
+- Added `src/post_relay/discord_dm.py` with a live-capable private DM adapter for selection prompts, reply polling, DM-friendly reply parsing, and confirmation messages.
+- Added `post-relay discord dm-selection-send` to create Andrew's private DM channel through Discord's REST API, send a selection prompt, and record/update a local conversation thread.
+- Added `post-relay discord dm-selection-poll` to poll a private DM after the prompt message, apply the first parseable Andrew-authored selection reply, and send a confirmation back to the same DM.
+- Added `post-relay discord dm-selection-apply` as a no-network command fallback for applying a copied DM reply locally.
+- Reused the existing local selection service so final included ordering, lead/cover, excluded photos, and approval invalidation match `drafts discord-selection-apply`/`drafts media-edit` behavior.
+- Added environment-only Discord bot configuration via `POST_RELAY_DISCORD_BOT_TOKEN` and `POST_RELAY_DISCORD_TARGET_USER_ID`; no secrets are committed or printed.
+- Added fake-transport and CLI tests for private DM prompt sending, reply parsing, polling, confirmation output, REST message listing, and no-network fallback application.
+
+**Safety notes:**
+- Discord credentials are read only from environment/private `.env` equivalents and are redacted from errors/output.
+- DM-facing selection text avoids local absolute source paths and token-like values.
+- The live-capable commands are Discord-only for this milestone; no Meta publishing endpoints are called.
+- A real Discord-only private DM smoke test can be run after credentials are configured, but live Instagram publish execution remains deferred.
+
+**Verification:**
+
+```bash
+.venv/bin/python -m pytest tests/test_discord_dm.py -q
+.venv/bin/python -m pytest -q
+```
+
+Current local result: `127 passed`.
 
 ### Milestone 14: `feat/discord-dm-guided-review`
 

@@ -21,6 +21,15 @@ from post_relay.context_questions import (
 from post_relay.db import connect_db, initialize_db
 from post_relay.drafts import CandidateNotFound, create_draft_from_candidate
 from post_relay.dm_intake import DmIntakeError, handle_dm_intake
+from post_relay.discord_dm import (
+    DiscordDmError,
+    DiscordSelectionParseError,
+    DiscordRestTransport,
+    handle_dm_selection_reply,
+    load_discord_dm_config_from_env,
+    poll_dm_selection_reply,
+    send_dm_selection_prompt,
+)
 from post_relay.discord_preview import (
     DraftNotFound as DiscordPreviewDraftNotFound,
     build_discord_preview_payload,
@@ -100,6 +109,7 @@ meta_app = typer.Typer(help="Meta Graph validation commands.")
 candidates_app = typer.Typer(help="Candidate post group commands.")
 drafts_app = typer.Typer(help="Draft record commands.")
 dm_app = typer.Typer(help="Private DM simulation commands.")
+discord_app = typer.Typer(help="Discord DM integration commands.")
 draft_questions_app = typer.Typer(help="Draft context question commands.")
 draft_artifacts_app = typer.Typer(help="Draft review artifact commands.")
 app.add_typer(db_app, name="db")
@@ -109,6 +119,7 @@ app.add_typer(meta_app, name="meta")
 app.add_typer(candidates_app, name="candidates")
 app.add_typer(drafts_app, name="drafts")
 app.add_typer(dm_app, name="dm")
+app.add_typer(discord_app, name="discord")
 drafts_app.add_typer(draft_questions_app, name="questions")
 drafts_app.add_typer(draft_artifacts_app, name="artifacts")
 
@@ -350,6 +361,85 @@ def dm_intake(
         )
     except DmIntakeError as error:
         raise typer.BadParameter(str(error), param_hint="--message/--draft-id") from error
+    typer.echo(result.to_text())
+
+
+@discord_app.command("dm-selection-send")
+def discord_dm_selection_send(
+    draft_id: int = typer.Option(..., "--draft-id", help="Draft id."),
+    target_count: int = typer.Option(..., "--target-count", help="Number of photos Andrew should select."),
+    post_type: Optional[str] = typer.Option(None, "--post-type", help="Optional post type: single_image, carousel, or reel."),
+    db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
+) -> None:
+    """Send a live private Discord DM selection prompt using env-configured bot credentials."""
+    connection = connect_db(db)
+    initialize_db(connection)
+    try:
+        config = load_discord_dm_config_from_env()
+        result = send_dm_selection_prompt(
+            connection,
+            draft_id,
+            target_count=target_count,
+            post_type=post_type,
+            config=config,
+        )
+    except (DiscordDmError, DiscordSelectionDraftNotFound, InvalidDiscordSelection) as error:
+        raise typer.BadParameter(str(error), param_hint="--draft-id/--target-count") from error
+    typer.echo(result.to_text())
+
+
+@discord_app.command("dm-selection-poll")
+def discord_dm_selection_poll(
+    draft_id: int = typer.Option(..., "--draft-id", help="Draft id."),
+    channel_id: str = typer.Option(..., "--channel-id", help="Discord DM channel id returned by dm-selection-send."),
+    target_count: int = typer.Option(..., "--target-count", help="Expected selected photo count."),
+    after_message_id: Optional[str] = typer.Option(None, "--after-message-id", help="Only inspect Discord replies after this message id."),
+    post_type: Optional[str] = typer.Option(None, "--post-type", help="Optional post type: single_image, carousel, or reel."),
+    db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
+) -> None:
+    """Poll a private Discord DM for Andrew's selection reply and send a confirmation."""
+    connection = connect_db(db)
+    initialize_db(connection)
+    try:
+        config = load_discord_dm_config_from_env()
+        result = poll_dm_selection_reply(
+            connection,
+            draft_id,
+            channel_id=channel_id,
+            target_count=target_count,
+            target_user_id=config.target_user_id,
+            after_message_id=after_message_id,
+            post_type=post_type,
+            transport=DiscordRestTransport(config.bot_token, api_base_url=config.api_base_url),
+        )
+    except (DiscordDmError, DiscordSelectionParseError) as error:
+        raise typer.BadParameter(str(error), param_hint="--channel-id/--draft-id") from error
+    typer.echo(result.confirmation_text)
+
+
+@discord_app.command("dm-selection-apply")
+def discord_dm_selection_apply(
+    draft_id: int = typer.Option(..., "--draft-id", help="Draft id."),
+    message: str = typer.Option(..., "--message", help="Andrew's DM reply, e.g. 'select 3,1,5 lead 3'."),
+    target_count: int = typer.Option(..., "--target-count", help="Expected selected photo count."),
+    post_type: Optional[str] = typer.Option(None, "--post-type", help="Optional post type: single_image, carousel, or reel."),
+    discord_channel_id: Optional[str] = typer.Option(None, "--discord-channel-id", help="Sanitized Discord DM channel id for local thread update."),
+    db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
+) -> None:
+    """Apply a private-DM selection reply locally without calling Discord or Meta."""
+    connection = connect_db(db)
+    initialize_db(connection)
+    try:
+        result = handle_dm_selection_reply(
+            connection,
+            draft_id,
+            message,
+            target_count=target_count,
+            post_type=post_type,
+            discord_channel_id=discord_channel_id,
+        )
+    except (DiscordDmError, DiscordSelectionParseError) as error:
+        raise typer.BadParameter(str(error), param_hint="--message") from error
     typer.echo(result.to_text())
 
 
