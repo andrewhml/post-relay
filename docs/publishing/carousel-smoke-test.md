@@ -150,6 +150,10 @@ Expected success indicators:
 
 Record the observed Meta behavior, sanitized ids/statuses, and any account/app limitation in `docs/plans/current-agent-roadmap.md`. If staged R2 was used and the live publish succeeded, review the cleanup dry-run output and only then run `drafts r2-cleanup --execute --reason "publish complete"` to delete recorded Post Relay-created staging objects.
 
+## Current preflight notes
+
+- `docs/publishing/live-carousel-smoke-preflight-2026-05-17.md` records the first safe preflight after PR #42. It identified draft `2` as the current local carousel candidate, confirmed selected media and R2 dry-run planning, and documented the remaining approval/staging/live-authorization blockers. No Meta publishing endpoints were called.
+
 ## Current implementation status
 
 Implemented locally with tests only. No live carousel publish smoke test has been run yet.

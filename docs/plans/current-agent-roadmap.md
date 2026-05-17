@@ -631,6 +631,13 @@ Current local result: `4 passed` focused; `161 passed` full suite.
 
 **Goal:** After Discord photo selection and guided post-package approval are proven, run one explicitly approved live carousel smoke test through the guarded carousel path, ideally using R2-staged public HTTPS image URLs, then document observed Meta behavior.
 
+**Current branch progress:**
+- Branch `feat/live-carousel-publish-smoke-notes` started from synced `main` after PR #42.
+- Safe preflight notes were added at `docs/publishing/live-carousel-smoke-preflight-2026-05-17.md`.
+- Current local smoke candidate is draft `2`, a 5-image Mt. Cook carousel with caption text present and R2 dry-run planning ready.
+- Live execution is not yet run because draft `2` remains `drafting`, active draft/publish approvals still need to be completed intentionally, R2 upload execution has not been run, and Andrew has not explicitly authorized the live Meta `--execute` publish command in the active session.
+- No Discord DMs, R2 upload execution, or Meta publishing endpoints were called during preflight.
+
 **Preconditions:**
 - Discord selection has selected the final carousel media from a larger suggested set.
 - Discord guided review has confirmed post type, content direction, caption, hashtags, location handling, alt text/review-only metadata, and schedule intent.
