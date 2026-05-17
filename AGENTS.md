@@ -43,7 +43,7 @@ Post Relay is a local-first Instagram travel content workflow for Andrew's `andr
 - Queue-approved drafts can be scheduled locally and moved through final publish approval without live API calls.
 - Guarded single-image/carousel publish validation can use either explicit public HTTPS `--image-url` values or recorded uploaded R2 staged media via `--from-staged-r2`, preserving dry-run defaults, double approval, and explicit `--execute` publish safeguards.
 - Instagram publish capabilities are explicit: media URLs/carousel children, captions, and hashtags-in-caption are publishable; alt text, rationale, location ideas, collaborators, music, product/story/reel-only metadata stay local/review-only unless a later milestone validates official support.
-- Live Discord delivery should only be added after the local payload harness remains green; next Discord work should be private-DM-first and user-initiated-first. Post Relay now has a no-network `dm intake` harness, live-capable Discord DM selection/guided-review/scheduling loops, and a local `opportunities` harness for agent-initiated suggestion records. Next, add safe local opportunity trigger checks before any live agent-initiated DM outreach. Do not run live Instagram publish execution from Discord milestones.
+- Live Discord delivery should only be added after the local payload harness remains green; next Discord work should be private-DM-first and user-initiated-first. Post Relay now has a no-network `dm intake` harness, live-capable Discord DM selection/guided-review/scheduling loops, a local `opportunities` harness, and safe local opportunity trigger checks for agent-initiated suggestion records. Do not run live Instagram publish execution from Discord milestones.
 
 ## Safety and product constraints
 
@@ -119,6 +119,9 @@ Post Relay is a local-first Instagram travel content workflow for Andrew's `andr
 .venv/bin/post-relay drafts approve-publish --draft-id 1 --approved-by andrew --notes "Final approval" --db data/post_relay.sqlite
 .venv/bin/post-relay drafts questions generate --draft-id 1 --db data/post_relay.sqlite
 .venv/bin/post-relay drafts questions list --draft-id 1 --db data/post_relay.sqlite
+.venv/bin/post-relay opportunities check --db data/post_relay.sqlite
+.venv/bin/post-relay opportunities check --execute --now "2026-05-17T09:00:00-07:00" --cadence-due-after-days 3 --db data/post_relay.sqlite
+.venv/bin/post-relay opportunities check --execute --manual-trigger-type life_event --manual-trigger-key andrew-kyoto-memory --manual-title "Kyoto memory" --manual-summary "Andrew mentioned a Kyoto memory" --manual-rationale "Manual trip context can become a post" --manual-suggested-next-action "Ask Andrew whether to turn this into a carousel draft" --db data/post_relay.sqlite
 .venv/bin/post-relay opportunities create --trigger-type cadence_due --trigger-key weekly-2026-05-17 --title "Weekly posting window" --summary "Queue a reviewed travel set" --rationale "Maintain posting cadence" --next-action "Pick a candidate and create a draft" --db data/post_relay.sqlite
 .venv/bin/post-relay opportunities list --db data/post_relay.sqlite
 .venv/bin/post-relay opportunities snooze --opportunity-id 1 --until "2026-05-18T09:00:00-07:00" --db data/post_relay.sqlite
@@ -128,4 +131,4 @@ Post Relay is a local-first Instagram travel content workflow for Andrew's `andr
 
 ## Current next milestone
 
-See `docs/plans/current-agent-roadmap.md`. The next planned milestone is safe local opportunity trigger checks before any live agent-initiated DM outreach. The product direction is private-DM-first and user-initiated-first; the no-network `dm intake` harness, live Discord-only DM selection/guided-review/scheduling loops, and local `opportunities` harness exist. Do not run live Instagram publish execution from Discord milestones.
+See `docs/plans/current-agent-roadmap.md`. The next planned milestone is live carousel publish smoke notes, only after Discord selection/guided review/scheduling and local opportunity checks are proven. Do not run live Instagram publish execution without Andrew's explicit approval in the active session.

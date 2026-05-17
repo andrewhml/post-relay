@@ -26,7 +26,7 @@ Early local-first MVP scaffold with:
 - live-capable private Discord DM selection sender/poller for Discord-only selection smoke tests, guarded by environment-provided bot credentials
 - live-capable private Discord DM guided review sender/poller plus no-network apply fallback for accepting hook/caption/metadata decisions from DM-style replies
 - live-capable private Discord DM scheduling guidance sender/poller plus no-network schedule/final-publish-approval apply fallbacks
-- local post opportunity model for agent-initiated suggestions with dedupe, dismiss, snooze, and candidate-to-draft conversion, without sending DMs
+- local post opportunity model and safe trigger checks for agent-initiated suggestions with dry-run planning, dedupe, snooze/dismiss respect, manual seeds, and candidate-to-draft conversion, without sending DMs
 
 ## Proven setup facts
 - Meta app: Post Relay
@@ -87,6 +87,9 @@ Use the project virtualenv when running locally:
 .venv/bin/post-relay discord dm-schedule-poll --draft-id 1 --channel-id <discord-dm-channel-id> --after-message-id <prompt-message-id> --db data/post_relay.sqlite
 .venv/bin/post-relay discord dm-schedule-apply --draft-id 1 --message "slot 1" --discord-channel-id <discord-dm-channel-id> --db data/post_relay.sqlite
 .venv/bin/post-relay discord dm-publish-approval-apply --draft-id 1 --message "approve publish" --discord-channel-id <discord-dm-channel-id> --db data/post_relay.sqlite
+.venv/bin/post-relay opportunities check --db data/post_relay.sqlite
+.venv/bin/post-relay opportunities check --execute --now "2026-05-17T09:00:00-07:00" --cadence-due-after-days 3 --db data/post_relay.sqlite
+.venv/bin/post-relay opportunities check --execute --manual-trigger-type life_event --manual-trigger-key andrew-kyoto-memory --manual-title "Kyoto memory" --manual-summary "Andrew mentioned a Kyoto memory" --manual-rationale "Manual trip context can become a post" --manual-suggested-next-action "Ask Andrew whether to turn this into a carousel draft" --db data/post_relay.sqlite
 .venv/bin/post-relay opportunities create --trigger-type new_media --trigger-key processed-2025-kyoto --title "Kyoto night market" --summary "Fresh processed set" --rationale "Enough images for a carousel" --suggested-next-action "Ask Andrew whether to pick 5 photos" --candidate-id 1 --db data/post_relay.sqlite
 .venv/bin/post-relay opportunities list --db data/post_relay.sqlite
 .venv/bin/post-relay opportunities snooze --opportunity-id 1 --until "2026-05-20T09:30:00-07:00" --db data/post_relay.sqlite
