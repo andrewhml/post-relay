@@ -572,7 +572,7 @@ Current local result: `10 passed` focused; `139 passed` full suite.
 
 Current local result: `9 passed` focused; `152 passed` full suite.
 
-### Milestone 16: `feat/discord-dm-opportunity-model`
+### Milestone 16: `feat/discord-dm-opportunity-model` (completed in PR #41)
 
 **Goal:** After the user-initiated DM workflow is proven, add local models/services for agent-initiated post opportunities without sending Discord DMs yet.
 
