@@ -23,8 +23,9 @@ Post Relay has now implemented most of Phases 0-6 for feed/carousel workflows:
 - local agent-initiated opportunity records and safe no-network trigger checks
 - broad DM request guardrails that ask for narrowing before huge weak matches
 - bounded review artifact planning that blocks oversized full contact sheets until Andrew narrows the set
+- local semantic DM candidate matching from folder/year/filename descriptors with simple explainable aliases
 
-Remaining near-term gaps are no longer generic scaffolding. They are targeted operational improvements: bounded review artifacts for large matched folders, better natural request matching, live carousel smoke execution after explicit active-session approval, then analytics/recommendation improvements.
+Remaining near-term gaps are no longer generic scaffolding. They are targeted operational improvements: live carousel smoke execution after explicit active-session approval, then analytics/recommendation improvements and deeper media discovery/enrichment.
 
 ## Build Strategy
 

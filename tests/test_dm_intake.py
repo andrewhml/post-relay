@@ -142,6 +142,71 @@ def test_user_dm_warns_when_matching_candidate_is_large(tmp_path: Path):
     assert "Run drafts artifacts render after choosing this candidate to get a bounded first-pass plan." in text
 
 
+def test_user_dm_semantic_matching_uses_aliases_years_and_filenames(tmp_path: Path):
+    root = tmp_path / "processed"
+    san_francisco = root / "2025" / "san-francisco"
+    generic = root / "2025" / "processed"
+    san_francisco.mkdir(parents=True)
+    generic.mkdir(parents=True)
+    for filename in ["01-cherry-blossoms.jpg", "02-golden-gate.jpg", "03-street.jpg"]:
+        (san_francisco / filename).write_bytes(b"fake image")
+    for index in range(8):
+        (generic / f"image-{index:03d}.jpg").write_bytes(b"fake image")
+    connection = connect_db(tmp_path / "post_relay.sqlite")
+    initialize_db(connection)
+    config = PostRelayConfig(
+        photo_sources=[PhotoSource(name="processed", root=root, source_type="processed_folder")]
+    )
+    index_photo_sources(connection, config)
+    build_candidate_groups(connection)
+
+    result = handle_dm_intake(
+        connection,
+        "start a post about SF blossoms from 2025",
+        discord_channel_id="dm-andrew-123",
+    )
+
+    assert result.suggested_candidates[0].title == "2025 / san-francisco"
+    text = result.to_text()
+    assert "Match rationale:" in text
+    assert "sf → san francisco" in text
+    assert "blossoms → flowers" in text
+    assert "2025" in text
+    assert root.as_posix() not in text
+    assert "01-cherry-blossoms.jpg" not in text
+
+
+def test_user_dm_prefers_strong_location_match_over_generic_large_year_match(tmp_path: Path):
+    root = tmp_path / "processed"
+    kyoto = root / "2025" / "kyoto-night-market"
+    generic = root / "2025" / "processed"
+    kyoto.mkdir(parents=True)
+    generic.mkdir(parents=True)
+    for filename in ["01-lantern.jpg", "02-alley.jpg", "03-food-stall.jpg"]:
+        (kyoto / filename).write_bytes(b"fake image")
+    for index in range(130):
+        (generic / f"image-{index:03d}.jpg").write_bytes(b"fake image")
+    connection = connect_db(tmp_path / "post_relay.sqlite")
+    initialize_db(connection)
+    config = PostRelayConfig(
+        photo_sources=[PhotoSource(name="processed", root=root, source_type="processed_folder")]
+    )
+    index_photo_sources(connection, config)
+    build_candidate_groups(connection)
+
+    result = handle_dm_intake(
+        connection,
+        "start a post from Kyoto 2025",
+        discord_channel_id="dm-andrew-123",
+    )
+
+    assert result.narrowing_question is None
+    assert result.suggested_candidates[0].title == "2025 / kyoto-night-market"
+    text = result.to_text()
+    assert "2025 / kyoto-night-market" in text
+    assert "Suggested candidate groups:" in text
+
+
 def test_user_dm_with_active_draft_records_sanitized_context_and_routes_to_next_step(tmp_path: Path):
     connection, _root = _build_fixture_library(tmp_path)
     candidate = list_candidate_groups(connection)[0]

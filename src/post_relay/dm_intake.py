@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 import re
 from typing import Optional
 
@@ -16,6 +17,7 @@ from post_relay.repository import (
     create_conversation_thread,
     get_active_conversation_thread_for_channel,
     get_draft,
+    list_candidate_group_photo_items,
     list_candidate_groups,
     update_conversation_thread,
 )
@@ -33,6 +35,7 @@ class DmIntakeResult:
     continuing_existing_thread: bool
     next_safe_step: str
     narrowing_question: Optional[str] = None
+    match_rationales: Optional[dict[int, str]] = None
 
     def to_text(self) -> str:
         lines = [
@@ -61,6 +64,9 @@ class DmIntakeResult:
                     f"  - #{candidate.id} {candidate.title} — {candidate.post_type_recommendation}, "
                     f"{candidate.photo_count} {photo_label}.{large_set_note}"
                 )
+                rationale = (self.match_rationales or {}).get(candidate.id)
+                if rationale:
+                    lines.append(f"    Match rationale: {rationale}")
             lines.append("Next options: choose candidate #<id>, ask for a different set, or add more context.")
         lines.append(f"Next safe step: {self.next_safe_step}")
         lines.append("No Discord or Meta network calls were made.")
@@ -128,6 +134,11 @@ def handle_dm_intake(
         )
     else:
         suggested_candidates = []
+    match_rationales = {
+        item.candidate.id: item.rationale
+        for item in _rank_scored_candidates(connection, sanitized_message)
+        if item.rationale
+    }
     next_safe_step = "media selection" if draft_id is not None else "candidate selection"
     if narrowing_question is not None:
         next_safe_step = "candidate narrowing"
@@ -138,6 +149,7 @@ def handle_dm_intake(
         continuing_existing_thread=continuing,
         next_safe_step=next_safe_step,
         narrowing_question=narrowing_question,
+        match_rationales=match_rationales,
     )
 
 
@@ -145,6 +157,18 @@ def handle_dm_intake(
 class _ScoredCandidate:
     score: int
     candidate: CandidateGroupRecord
+    rationale: str = ""
+
+
+_SEMANTIC_ALIASES = {
+    "sf": ("san", "francisco"),
+    "sfo": ("san", "francisco"),
+    "nyc": ("new", "york"),
+    "blossom": ("flowers",),
+    "blossoms": ("flowers",),
+    "lantern": ("night", "market"),
+    "lanterns": ("night", "market"),
+}
 
 
 def _candidate_suggestions_or_narrowing(
@@ -168,13 +192,72 @@ def _rank_scored_candidates(connection, message: str) -> list[_ScoredCandidate]:
     candidates = list_candidate_groups(connection)
     scored = []
     for candidate in candidates:
-        haystack = " ".join(
-            [candidate.title, candidate.source_folder, candidate.reason or "", candidate.post_type_recommendation or ""]
-        ).lower()
-        score = sum(1 for term in terms if term in haystack)
-        scored.append((score, candidate.id, candidate))
+        score, rationale = _score_candidate_match(connection, candidate, terms)
+        scored.append((score, candidate.id, candidate, rationale))
     scored.sort(key=lambda item: (-item[0], item[1]))
-    return [_ScoredCandidate(score=score, candidate=candidate) for score, _id, candidate in scored]
+    return [
+        _ScoredCandidate(score=score, candidate=candidate, rationale=rationale)
+        for score, _id, candidate, rationale in scored
+    ]
+
+
+def _score_candidate_match(
+    connection, candidate: CandidateGroupRecord, terms: list[str]
+) -> tuple[int, str]:
+    folder_tokens = _tokens_for_text(f"{candidate.title} {candidate.source_folder}")
+    metadata_tokens = _tokens_for_text(
+        f"{candidate.reason or ''} {candidate.post_type_recommendation or ''}"
+    )
+    filename_tokens = _tokens_for_text(
+        " ".join(
+            Path(item.local_file_path).name
+            for item in list_candidate_group_photo_items(connection, candidate.id)
+        )
+    )
+    all_tokens = folder_tokens | metadata_tokens | filename_tokens
+    score = 0
+    reasons: list[str] = []
+    for term in terms:
+        aliases = _SEMANTIC_ALIASES.get(term, ())
+        expanded_terms = (term, *aliases)
+        matched = [expanded for expanded in expanded_terms if expanded in all_tokens]
+        if not matched:
+            continue
+        if term.isdigit() and len(term) == 4:
+            score += 1
+            reasons.append(f"year {term}")
+        elif term in folder_tokens or any(alias in folder_tokens for alias in aliases):
+            score += 4
+            reasons.append(_semantic_reason(term, aliases, matched, "folder/location"))
+        elif term in filename_tokens or any(alias in filename_tokens for alias in aliases):
+            score += 3
+            reasons.append(_semantic_reason(term, aliases, matched, "filename"))
+        else:
+            score += 1
+            reasons.append(_semantic_reason(term, aliases, matched, "metadata"))
+    return score, "; ".join(_unique_preserving_order(reasons)[:4])
+
+
+def _semantic_reason(term: str, aliases: tuple[str, ...], matched: list[str], source: str) -> str:
+    if aliases:
+        return f"{term} → {' '.join(aliases)} ({source})"
+    return f"{term} ({source})"
+
+
+def _tokens_for_text(value: str) -> set[str]:
+    return set(_tokenize(value))
+
+
+def _tokenize(value: str) -> list[str]:
+    return [word.lower() for word in re.findall(r"[a-zA-Z0-9]+", value)]
+
+
+def _unique_preserving_order(values: list[str]) -> list[str]:
+    unique: list[str] = []
+    for value in values:
+        if value not in unique:
+            unique.append(value)
+    return unique
 
 
 def _narrowing_question(message: str) -> str:
@@ -208,8 +291,12 @@ def _keywords(message: str) -> list[str]:
         "this",
         "with",
     }
-    words = [word.lower() for word in re.findall(r"[a-zA-Z0-9]+", message)]
-    return [word for word in words if len(word) > 2 and word not in stop_words]
+    words = _tokenize(message)
+    return [
+        word
+        for word in words
+        if (len(word) > 2 or word in _SEMANTIC_ALIASES) and word not in stop_words
+    ]
 
 
 def _sanitize_text(value: str) -> str:

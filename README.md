@@ -28,6 +28,7 @@ Early local-first MVP scaffold with:
 - live-capable private Discord DM scheduling guidance sender/poller plus no-network schedule/final-publish-approval apply fallbacks
 - local post opportunity model and safe trigger checks for agent-initiated suggestions with dry-run planning, dedupe, snooze/dismiss respect, manual seeds, and candidate-to-draft conversion, without sending DMs
 - private DM intake narrowing guardrails that ask for more specific cues before suggesting huge weak candidate matches and warn before rendering contact sheets for large matched sets
+- local semantic DM candidate matching using folder/year/filename descriptors, simple aliases, and source-path-safe match rationale
 - bounded review artifact planning that blocks oversized full contact-sheet renders and returns a DM-safe first-pass narrowing plan without source paths or network calls
 
 ## Proven setup facts
