@@ -599,7 +599,7 @@ Current local result: `9 passed` focused; `152 passed` full suite.
 
 Current local result: `5 passed` focused; `157 passed` full suite.
 
-### Milestone 17: `feat/opportunity-trigger-checks`
+### Milestone 17: `feat/opportunity-trigger-checks` (completed in PR #42)
 
 **Goal:** Add safe local checks that create agent-initiated post opportunities before any DM is sent.
 
