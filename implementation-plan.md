@@ -22,6 +22,7 @@ Post Relay has now implemented most of Phases 0-6 for feed/carousel workflows:
 - private Discord DM user-initiated intake, media selection, guided review, scheduling, and local publish approval
 - local agent-initiated opportunity records and safe no-network trigger checks
 - broad DM request guardrails that ask for narrowing before huge weak matches
+- bounded review artifact planning that blocks oversized full contact sheets until Andrew narrows the set
 
 Remaining near-term gaps are no longer generic scaffolding. They are targeted operational improvements: bounded review artifacts for large matched folders, better natural request matching, live carousel smoke execution after explicit active-session approval, then analytics/recommendation improvements.
 

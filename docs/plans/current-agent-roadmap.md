@@ -230,10 +230,10 @@ Run this before opening or merging any PR:
 .venv/bin/python -m pytest -q
 ```
 
-Expected current result after the DM candidate narrowing milestone:
+Expected current result after the bounded review artifact milestone:
 
 ```text
-163 passed
+166 passed
 ```
 
 ## Milestone execution rules
@@ -685,32 +685,28 @@ Current local result: `10 passed` focused; `163 passed` full suite.
 
 ## Current project state
 
-As of PR #44, the local-first workflow is past the original scaffold phase:
+As of Milestone 20, the local-first workflow is past the original scaffold phase:
 
 - Local processed/NAS folders are still the source of truth; generated artifacts and R2 objects are disposable staging/review layers.
 - Candidate groups, drafts, media selection, context questions, guided packages, scheduling, draft approval, and publish approval all exist as local SQLite/CLI workflows.
 - Private Discord DM flows are live-capable for user-initiated intake, X-from-Y media selection, guided review/copy acceptance, scheduling, and final local publish approval.
 - Agent-initiated suggestions are modeled locally through `post_opportunities` and safe trigger checks, but proactive Discord outreach has not been implemented yet.
-- DM intake now avoids the worst broad-request failure mode by asking for narrowing cues before suggesting huge weak matches.
+- DM intake now avoids the worst broad-request failure mode by asking for narrowing cues before suggesting huge weak matches, and matched large sets point operators to bounded artifact planning.
+- Oversized full contact-sheet renders are blocked by `drafts artifacts render`; instead, the CLI prints a bounded, DM-safe first-pass plan with narrowing/sample guidance and no source paths.
 - Single-image publish validation has completed one live smoke test; carousel publish support exists but the live carousel smoke is still blocked by intentional draft state, R2 staging, double approval, and active-session `--execute` authorization gates.
 
 ## Next planned milestones
 
-### Milestone 20: `feat/dm-bounded-review-artifacts`
+### Milestone 20: `feat/dm-bounded-review-artifacts` (completed in this branch)
 
 **Goal:** Make broad DM-driven review safe and usable by preventing oversized contact sheets and offering a bounded first-pass review package.
 
-**Why now:** PR #44 prevents huge weak matches, but a genuinely matched large folder can still be selected. The next risk is rendering an enormous contact sheet before Andrew has narrowed the set.
-
-**Expected behavior:**
-- Add a local planning layer that classifies candidate/draft media volume before artifact rendering.
-- For large matched sets, provide a bounded first-pass review plan such as a capped sample/contact sheet, date/folder slice, or explicit request for a smaller range before full render.
-- Keep source paths out of DM-facing text; include enough internal IDs/commands for the CLI operator to continue safely.
-- Do not mutate source media, upload to R2, send Discord DMs, or call Meta.
-
-**Suggested TDD entry points:**
-- Tests around the existing artifact/render or DM intake boundary that assert huge drafts produce a narrowing/bounded-plan message instead of an immediate full-sheet recommendation.
-- CLI test with a fixture folder of 120+ images.
+**Delivered behavior in branch:**
+- Added `BoundedReviewArtifactPlan` and `plan_bounded_review_artifacts_for_draft(...)` to classify draft media volume before artifact rendering.
+- `drafts artifacts render` now blocks full contact-sheet rendering for drafts with at least 120 included photos and prints a bounded first-pass plan instead of creating thumbnails/contact sheets.
+- The bounded plan includes media count/classification, a capped first-pass recommendation, `media-plan`/`media-edit` operator commands, and a DM-safe narrowing prompt.
+- DM intake warnings for matched large candidates now point operators to the bounded artifact plan after candidate selection.
+- Plan/render-block output avoids absolute source paths and filenames and makes clear no Discord, R2, or Meta network calls were made.
 
 **Verification:**
 
@@ -718,6 +714,8 @@ As of PR #44, the local-first workflow is past the original scaffold phase:
 .venv/bin/python -m pytest tests/test_dm_intake.py tests/test_review_artifacts.py -q
 .venv/bin/python -m pytest -q
 ```
+
+Focused local result: `17 passed`.
 
 ### Milestone 21: `feat/dm-semantic-candidate-matching`
 

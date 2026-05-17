@@ -111,7 +111,11 @@ from post_relay.r2_staging_upload import (
     upload_r2_staging_for_draft,
 )
 from post_relay.review_artifacts import DraftNotFound as ArtifactDraftNotFound
-from post_relay.review_artifacts import UnsafeArtifactRoot, render_review_artifacts_for_draft
+from post_relay.review_artifacts import (
+    OversizedReviewArtifactSet,
+    UnsafeArtifactRoot,
+    render_review_artifacts_for_draft,
+)
 from post_relay.review_package import DraftNotFound, build_draft_review_package
 from post_relay.scheduling import (
     DraftNotFound as SchedulingDraftNotFound,
@@ -1301,6 +1305,9 @@ def draft_artifacts_render(
         )
     except ArtifactDraftNotFound as error:
         raise typer.BadParameter(str(error), param_hint="--draft-id") from error
+    except OversizedReviewArtifactSet as error:
+        typer.echo(error.plan.to_text())
+        return
     except UnsafeArtifactRoot as error:
         raise typer.BadParameter(str(error), param_hint="--config") from error
     typer.echo(package.to_text())

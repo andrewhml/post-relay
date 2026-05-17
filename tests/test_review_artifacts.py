@@ -11,7 +11,9 @@ from post_relay.indexer import index_photo_sources
 from post_relay.repository import list_candidate_groups
 from post_relay.review_artifacts import (
     DraftNotFound,
+    OversizedReviewArtifactSet,
     UnsafeArtifactRoot,
+    plan_bounded_review_artifacts_for_draft,
     render_review_artifacts_for_draft,
 )
 
@@ -110,6 +112,102 @@ def test_render_review_artifacts_rejects_artifact_root_inside_source_root(tmp_pa
             protected_source_roots=[source_root],
         )
 
+
+
+def _build_large_image_fixture_draft(tmp_path: Path, *, image_count: int = 130):
+    root = tmp_path / "processed"
+    folder = root / "2025" / "san-francisco-spring-flowers"
+    for index in range(image_count):
+        _write_image(folder / f"image-{index:03d}.jpg", (32, 32), "green")
+
+    connection = connect_db(tmp_path / "post_relay.sqlite")
+    initialize_db(connection)
+    config = PostRelayConfig(
+        photo_sources=[PhotoSource(name="processed", root=root, source_type="processed_folder")]
+    )
+    index_photo_sources(connection, config)
+    build_candidate_groups(connection)
+    candidate = list_candidate_groups(connection)[0]
+    draft = create_draft_from_candidate(connection, candidate.id)
+    return connection, draft, root
+
+
+def test_bounded_review_artifact_plan_classifies_large_draft_without_source_paths(tmp_path: Path):
+    connection, draft, root = _build_large_image_fixture_draft(tmp_path)
+
+    plan = plan_bounded_review_artifacts_for_draft(connection, draft.id)
+
+    assert plan.draft_id == draft.id
+    assert plan.media_count == 130
+    assert plan.classification == "large"
+    assert plan.full_render_safe is False
+    assert plan.sample_count == 24
+    text = plan.to_text()
+    assert "Bounded Review Artifact Plan" in text
+    assert "130 included photos" in text
+    assert "capped first-pass review" in text
+    assert "drafts media-edit --draft-id" in text
+    assert root.as_posix() not in text
+    assert "image-000.jpg" not in text
+    assert "No Discord, R2, or Meta network calls were made." in text
+
+
+def test_render_review_artifacts_refuses_large_draft_and_returns_bounded_plan(tmp_path: Path):
+    connection, draft, _root = _build_large_image_fixture_draft(tmp_path)
+    artifact_config = ReviewArtifactsConfig(root=tmp_path / "review_artifacts")
+
+    with pytest.raises(OversizedReviewArtifactSet) as error:
+        render_review_artifacts_for_draft(connection, draft.id, artifact_config)
+
+    assert error.value.plan.media_count == 130
+    assert error.value.plan.full_render_safe is False
+    assert not (artifact_config.root / f"draft-{draft.id}" / "contact-sheet.jpg").exists()
+
+
+def test_cli_review_artifacts_render_prints_bounded_plan_for_large_draft(tmp_path: Path):
+    from typer.testing import CliRunner
+    from post_relay.cli import app
+
+    connection, draft, root = _build_large_image_fixture_draft(tmp_path)
+    connection.close()
+    config_path = tmp_path / "photo_sources.yaml"
+    artifact_root = tmp_path / "review_artifacts"
+    config_path.write_text(
+        f"""
+photo_sources:
+  - name: processed
+    root: {root.as_posix()}
+    source_type: processed_folder
+review_artifacts:
+  root: {artifact_root.as_posix()}
+  thumbnail_max_px: 160
+  contact_sheet_columns: 4
+  mode: local
+""".strip()
+    )
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "drafts",
+            "artifacts",
+            "render",
+            "--draft-id",
+            str(draft.id),
+            "--config",
+            str(config_path),
+            "--db",
+            str(tmp_path / "post_relay.sqlite"),
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Bounded Review Artifact Plan" in result.output
+    assert "Full contact sheet render blocked" in result.output
+    assert "130 included photos" in result.output
+    assert "No Discord, R2, or Meta network calls were made." in result.output
+    assert root.as_posix() not in result.output
+    assert not (artifact_root / f"draft-{draft.id}" / "contact-sheet.jpg").exists()
 
 
 def test_render_review_artifacts_raises_for_missing_draft(tmp_path: Path):

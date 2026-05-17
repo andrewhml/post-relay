@@ -35,6 +35,7 @@ Post Relay is a local-first Instagram travel content workflow for Andrew's `andr
 - Draft content direction can be submitted for review, approved for queueing, and invalidated by material edits.
 - Dry-run Discord preview payloads can be generated locally with ordered existing image paths and missing-file reporting.
 - Local draft review artifacts can be rendered with `drafts artifacts render`; generated thumbnails/contact sheets are written under the configured artifact root without modifying source media.
+- Oversized draft review artifact renders are blocked by a bounded planning layer that classifies large media sets and returns DM-safe narrowing/sample guidance before a full contact sheet is rendered.
 - No-network R2 staging plans can be generated with `drafts r2-stage-plan`; plans use sanitized object keys/public URLs, preserve included draft media order, and report missing local files before upload exists.
 - R2 staging upload/cleanup can be dry-run locally; `drafts r2-stage-upload --execute` uploads and records planned objects, while `drafts r2-cleanup --execute` deletes only recorded uploaded objects under the configured Post Relay prefix.
 - Numbered draft media plans and edits can be applied locally with `drafts media-plan` and `drafts media-edit`; lead/cover, keep/remove, and post-type changes update candidate media ordering/roles/inclusion and invalidate active approvals.
