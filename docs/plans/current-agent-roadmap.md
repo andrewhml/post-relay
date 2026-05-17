@@ -230,10 +230,10 @@ Run this before opening or merging any PR:
 .venv/bin/python -m pytest -q
 ```
 
-Expected current result after the bounded review artifact milestone:
+Expected current result after the semantic candidate matching milestone:
 
 ```text
-166 passed
+168 passed
 ```
 
 ## Milestone execution rules
@@ -685,13 +685,13 @@ Current local result: `10 passed` focused; `163 passed` full suite.
 
 ## Current project state
 
-As of Milestone 20, the local-first workflow is past the original scaffold phase:
+As of Milestone 21, the local-first workflow is past the original scaffold phase:
 
 - Local processed/NAS folders are still the source of truth; generated artifacts and R2 objects are disposable staging/review layers.
 - Candidate groups, drafts, media selection, context questions, guided packages, scheduling, draft approval, and publish approval all exist as local SQLite/CLI workflows.
 - Private Discord DM flows are live-capable for user-initiated intake, X-from-Y media selection, guided review/copy acceptance, scheduling, and final local publish approval.
 - Agent-initiated suggestions are modeled locally through `post_opportunities` and safe trigger checks, but proactive Discord outreach has not been implemented yet.
-- DM intake now avoids the worst broad-request failure mode by asking for narrowing cues before suggesting huge weak matches, and matched large sets point operators to bounded artifact planning.
+- DM intake now avoids the worst broad-request failure mode by asking for narrowing cues before suggesting huge weak matches, matched large sets point operators to bounded artifact planning, and natural request matching uses local folder/year/filename descriptors with explainable rationale.
 - Oversized full contact-sheet renders are blocked by `drafts artifacts render`; instead, the CLI prints a bounded, DM-safe first-pass plan with narrowing/sample guidance and no source paths.
 - Single-image publish validation has completed one live smoke test; carousel publish support exists but the live carousel smoke is still blocked by intentional draft state, R2 staging, double approval, and active-session `--execute` authorization gates.
 
@@ -717,15 +717,16 @@ As of Milestone 20, the local-first workflow is past the original scaffold phase
 
 Focused local result: `17 passed`.
 
-### Milestone 21: `feat/dm-semantic-candidate-matching`
+### Milestone 21: `feat/dm-semantic-candidate-matching` (completed in this branch)
 
 **Goal:** Improve natural DM request matching beyond substring overlap while staying local-first.
 
-**Expected behavior:**
-- Normalize folder names, filenames, years, and simple location/date tokens into searchable candidate descriptors.
-- Prefer strong folder/date/location matches over generic large folders.
-- Return explainable match rationale in local/DM-facing output without leaking absolute source paths.
-- Keep embeddings or image-content analysis optional/later unless a small local implementation is clearly justified.
+**Delivered behavior in branch:**
+- DM candidate ranking now builds local searchable descriptors from candidate title/source folder, source year, reason/post-type metadata, and candidate filenames.
+- Matching supports small local aliases for common location/description tokens such as `sf` → `san francisco`, `nyc` → `new york`, and `blossoms` → `flowers`.
+- Strong folder/location and filename matches outrank generic year-only matches, so specific local sets are preferred over generic large processed folders.
+- DM-facing output includes concise match rationale lines without leaking absolute source paths or filenames.
+- Embeddings, image-content analysis, and external services remain out of scope.
 
 **Verification:**
 
@@ -733,6 +734,8 @@ Focused local result: `17 passed`.
 .venv/bin/python -m pytest tests/test_dm_intake.py -q
 .venv/bin/python -m pytest -q
 ```
+
+Focused local result: `12 passed`.
 
 ### Milestone 22: `feat/live-carousel-publish-smoke-execution`
 
