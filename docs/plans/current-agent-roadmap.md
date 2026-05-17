@@ -486,7 +486,7 @@ Agents must preserve these unless Andrew explicitly changes the product directio
 - It stores sanitized summaries rather than raw Discord transcript logs.
 - It routes draft-linked context to media selection as the next safe step; later milestones can route to guided package, scheduling, or approvals once live DM selection/review is implemented.
 
-### Milestone 13: `feat/discord-dm-selection-bot`
+### Milestone 13: `feat/discord-dm-selection-bot` (completed in PR #38)
 
 **Goal:** Let Andrew interact with the live Discord bot in a private DM to choose X photos from Y suggestions and persist the choice into draft media selection.
 
