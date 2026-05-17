@@ -518,7 +518,7 @@ Current local result: `129 passed`.
 
 **Goal:** Expand private DM conversations from media selection into guided post-building for post type, content, metadata, schedule, and approvals.
 
-**Current branch progress:**
+**Current branch progress (draft PR #39):**
 - Added a no-network `discord dm-guided-review-apply` harness that parses DM-style guided review replies with location, story angle, mood, audience hook, include/avoid notes, and caption choice.
 - The harness builds/reuses the local guided draft package service, persists accepted caption/hashtags/location/alt text/growth rationale when Andrew chooses a caption option, records a sanitized conversation context note, and updates the private DM conversation thread summary.
 - DM-facing output distinguishes Meta-publishable v1 fields from review-only/local metadata and avoids local absolute paths.
