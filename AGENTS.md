@@ -133,4 +133,4 @@ Post Relay is a local-first Instagram travel content workflow for Andrew's `andr
 
 ## Current next milestone
 
-See `docs/plans/current-agent-roadmap.md`. The next planned milestone is `feat/dm-bounded-review-artifacts`, a local-only guardrail for large matched DM photo sets before rendering contact sheets. Live carousel publish execution remains deferred until the PR #43 preflight blockers are resolved and Andrew explicitly approves the Meta `--execute` command in the active session.
+See `docs/plans/current-agent-roadmap.md`. The next planned work is the guarded live carousel publish smoke path. Draft `2` is the current local carousel candidate, but live execution remains deferred until the approval gates, staged public media, dry-run review, and Andrew's explicit active-session Meta `--execute` authorization are all satisfied.

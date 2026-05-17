@@ -1,7 +1,7 @@
 # Post Relay — Implementation Plan
 
 ## Status
-Current roadmap snapshot after PR #44. This file is historical; the canonical, actively maintained agent plan is `docs/plans/current-agent-roadmap.md`.
+Current roadmap snapshot after PR #47 plus the live-carousel preflight refresh. This file is historical; the canonical, actively maintained agent plan is `docs/plans/current-agent-roadmap.md`.
 
 ## Purpose
 This document breaks Post Relay into concrete implementation phases and tasks.
@@ -25,7 +25,7 @@ Post Relay has now implemented most of Phases 0-6 for feed/carousel workflows:
 - bounded review artifact planning that blocks oversized full contact sheets until Andrew narrows the set
 - local semantic DM candidate matching from folder/year/filename descriptors with simple explainable aliases
 
-Remaining near-term gaps are no longer generic scaffolding. They are targeted operational improvements: live carousel smoke execution after explicit active-session approval, then analytics/recommendation improvements and deeper media discovery/enrichment.
+Remaining near-term gaps are no longer generic scaffolding. They are targeted operational gates: intentional draft and final publish approvals for the selected carousel smoke candidate, public media staging or explicit public URLs, immediate carousel dry-run review, explicit active-session live execution authorization, then analytics/recommendation improvements and deeper media discovery/enrichment.
 
 ## Build Strategy
 
