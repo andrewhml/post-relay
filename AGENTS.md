@@ -43,7 +43,7 @@ Post Relay is a local-first Instagram travel content workflow for Andrew's `andr
 - Queue-approved drafts can be scheduled locally and moved through final publish approval without live API calls.
 - Guarded single-image/carousel publish validation can use either explicit public HTTPS `--image-url` values or recorded uploaded R2 staged media via `--from-staged-r2`, preserving dry-run defaults, double approval, and explicit `--execute` publish safeguards.
 - Instagram publish capabilities are explicit: media URLs/carousel children, captions, and hashtags-in-caption are publishable; alt text, rationale, location ideas, collaborators, music, product/story/reel-only metadata stay local/review-only unless a later milestone validates official support.
-- Live Discord delivery should only be added after the local payload harness remains green; next Discord work should be private-DM-first and user-initiated-first. Post Relay now has a no-network `dm intake` harness and a live-capable `discord dm-selection-send`/`discord dm-selection-poll` flow for Andrew-initiated private DM selection. Next, prove guided review/scheduling in DM; only then add agent-initiated post suggestions from opportunity triggers before any live carousel smoke test.
+- Live Discord delivery should only be added after the local payload harness remains green; next Discord work should be private-DM-first and user-initiated-first. Post Relay now has a no-network `dm intake` harness, a live-capable `discord dm-selection-send`/`discord dm-selection-poll` flow for Andrew-initiated private DM selection, and a live-capable `discord dm-guided-review-send`/`discord dm-guided-review-poll` flow with a no-network apply fallback for DM-style content decisions. Next, prove scheduling/approval guidance in DM; only then add agent-initiated post suggestions from opportunity triggers before any live carousel smoke test.
 
 ## Safety and product constraints
 
@@ -102,6 +102,9 @@ Post Relay is a local-first Instagram travel content workflow for Andrew's `andr
 .venv/bin/post-relay discord dm-selection-send --draft-id 1 --target-count 5 --db data/post_relay.sqlite
 .venv/bin/post-relay discord dm-selection-poll --draft-id 1 --channel-id <discord-dm-channel-id> --after-message-id <prompt-message-id> --target-count 5 --db data/post_relay.sqlite
 .venv/bin/post-relay discord dm-selection-apply --draft-id 1 --message "select 3,1,5,7,8 lead 3" --target-count 5 --discord-channel-id <discord-dm-channel-id> --db data/post_relay.sqlite
+.venv/bin/post-relay discord dm-guided-review-send --draft-id 1 --mood cinematic --db data/post_relay.sqlite
+.venv/bin/post-relay discord dm-guided-review-poll --draft-id 1 --channel-id <discord-dm-channel-id> --after-message-id <prompt-message-id> --db data/post_relay.sqlite
+.venv/bin/post-relay discord dm-guided-review-apply --draft-id 1 --message "location: Seoul, South Korea; story: night market alleys; mood: cinematic; hook: food and light; caption 1" --discord-channel-id <discord-dm-channel-id> --db data/post_relay.sqlite
 .venv/bin/post-relay drafts r2-stage-plan --draft-id 1 --config config/photo_sources.yaml --db data/post_relay.sqlite
 .venv/bin/post-relay drafts r2-stage-upload --draft-id 1 --config config/photo_sources.yaml --db data/post_relay.sqlite
 .venv/bin/post-relay drafts r2-stage-upload --draft-id 1 --config config/photo_sources.yaml --db data/post_relay.sqlite --execute
@@ -120,4 +123,4 @@ Post Relay is a local-first Instagram travel content workflow for Andrew's `andr
 
 ## Current next milestone
 
-See `docs/plans/current-agent-roadmap.md`. The next planned milestone is currently `feat/discord-dm-selection-bot`. The product direction is private-DM-first and user-initiated-first; the no-network `dm intake` harness exists, and agent-initiated post suggestions come later after the live user-initiated DM loop is proven. Do not run live Instagram publish execution from Discord milestones.
+See `docs/plans/current-agent-roadmap.md`. The next planned milestone after guided review is `feat/discord-schedule-queue-guidance`. The product direction is private-DM-first and user-initiated-first; the no-network `dm intake` harness and live Discord-only DM selection/guided-review loops exist, and agent-initiated post suggestions come later after the live user-initiated DM loop is proven. Do not run live Instagram publish execution from Discord milestones.

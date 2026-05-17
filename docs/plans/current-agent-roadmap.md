@@ -516,14 +516,30 @@ Current local result: `129 passed`.
 
 ### Milestone 14: `feat/discord-dm-guided-review`
 
-**Goal:** Expand private DM conversations from media selection into guided post-building for post type, content, metadata, schedule, and approvals.
+**Goal:** Expand private DM conversations from media selection into guided post-building for post type, content, metadata, and accepted content decisions before scheduling/approval guidance.
+
+**Current branch progress (draft PR #39):**
+- Added a no-network `discord dm-guided-review-apply` harness that parses DM-style guided review replies with location, story angle, mood, audience hook, include/avoid notes, and caption choice.
+- Added live-capable `discord dm-guided-review-send` and `discord dm-guided-review-poll` commands for private Discord DM guided review prompts/replies using environment-provided bot credentials.
+- The guided review flow builds/reuses the local guided draft package service, persists accepted caption/hashtags/location/alt text/growth rationale when Andrew chooses a caption option, records a sanitized conversation context note, and updates the private DM conversation thread summary.
+- DM-facing output distinguishes Meta-publishable v1 fields from review-only/local metadata, avoids local absolute paths, and confirms that no Meta publishing endpoints are called.
+- A Discord-only live smoke test now makes sense after this PR is merged and a real draft is available: send a guided-review prompt, reply in the private DM with location/story/mood/hook/caption choice, then poll/apply it. Do not run live Instagram publish execution.
+- Scheduling guidance and explicit draft/publish approval prompts move to `feat/discord-schedule-queue-guidance`.
+
+**Verification for current branch slice:**
+
+```bash
+.venv/bin/python -m pytest tests/test_dm_guided_review.py -q
+.venv/bin/python -m pytest -q
+```
+
+Current local result: `10 passed` focused; `139 passed` full suite.
 
 **Expected behavior:**
-- Guide Andrew through post type, media choice, hook-first caption direction, hashtags, location confirmation, alt text/review-only metadata, and schedule slot.
+- Guide Andrew through post type, hook-first caption direction, hashtags, location confirmation, and alt text/review-only metadata.
 - Incorporate Andrew-provided context from the DM conversation.
 - Provide concise recommendations with rationales rather than just open-ended questions.
-- Support natural-language revisions and persist accepted decisions to SQLite.
-- Require explicit draft approval before queueing and explicit publish approval before live publish.
+- Support DM replies that persist accepted caption/content decisions to SQLite.
 - Confirm when a requested field is local/review-only rather than publishable through Meta Graph.
 - Do not run live Instagram publish execution in this milestone.
 
