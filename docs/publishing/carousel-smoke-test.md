@@ -152,7 +152,7 @@ Record the observed Meta behavior, sanitized ids/statuses, and any account/app l
 
 ## Current preflight notes
 
-- `docs/publishing/live-carousel-smoke-preflight-2026-05-17.md` records the first safe preflight after PR #42. It identified draft `2` as the current local carousel candidate, confirmed selected media and R2 dry-run planning, and documented the remaining approval/staging/live-authorization blockers. No Meta publishing endpoints were called.
+- `docs/publishing/live-carousel-smoke-preflight-2026-05-17.md` records the current safe preflight after PR #47. It identifies draft `2` as the current local carousel candidate, confirms selected media and R2 dry-run planning, and documents the remaining approval, staged-media, dry-run, and active-session live-authorization blockers. No R2 upload execution or Meta publishing endpoints were called.
 
 ## Current implementation status
 

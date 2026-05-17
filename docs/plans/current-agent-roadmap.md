@@ -4,7 +4,7 @@
 
 **Goal:** Make the Post Relay plan discoverable and executable for future agents across sessions.
 
-**Architecture:** Post Relay is a local-first Python CLI and SQLite workflow. The repo now supports processed-folder indexing, candidate/draft creation, numbered media selection, local review artifacts, R2 staging, guarded single-image/carousel publish validation, private Discord DM intake/selection/guided review/scheduling, local opportunity records, safe opportunity trigger checks, and DM narrowing guardrails. The next milestones should improve candidate/media narrowing and bounded review artifacts, then resume guarded carousel publish smoke execution only after a specific draft is staged, double-approved, and explicitly authorized in the active session.
+**Architecture:** Post Relay is a local-first Python CLI and SQLite workflow. The repo now supports processed-folder indexing, candidate/draft creation, numbered media selection, local review artifacts, R2 staging, guarded single-image/carousel publish validation, private Discord DM intake/selection/guided review/scheduling, local opportunity records, safe opportunity trigger checks, DM narrowing guardrails, bounded review artifact planning, and semantic local candidate matching. The next live carousel smoke execution remains blocked until a specific draft is staged, double-approved, dry-run reviewed, and explicitly authorized in the active session.
 
 **Tech Stack:** Python 3.9+, SQLite, Typer, Pydantic, PyYAML, Pillow, pytest, GitHub PR milestone workflow.
 
@@ -741,8 +741,15 @@ Focused local result: `12 passed`.
 
 **Goal:** Complete the guarded live carousel smoke only after the preflight blockers are resolved and Andrew explicitly authorizes the Meta `--execute` command in the active session.
 
-**Preconditions:**
-- Use the PR #43 preflight notes as the runbook baseline.
+**Current safe preflight refresh:**
+- Branch `feat/live-carousel-publish-smoke-execution` refreshed `docs/publishing/live-carousel-smoke-preflight-2026-05-17.md` after PR #47.
+- Draft `2` remains the current local carousel candidate: `carousel`, 5 included media, caption present, status `drafting`.
+- Safe checks run: full suite, read-only Meta dry-run, draft preview/media plan, R2 stage plan, staged-R2 carousel dry-run gate, and manual-URL carousel dry-run gate.
+- Observed blockers: draft `2` is not `ready_to_publish`, has no active draft or publish approvals, has no uploaded staged R2 media records, needs a passing immediate carousel dry run, and still needs Andrew's explicit active-session `--execute` authorization.
+- No Discord DMs, R2 upload execution, or Meta publishing endpoints were called during this preflight refresh.
+
+**Preconditions before live execution:**
+- Use `docs/publishing/live-carousel-smoke-preflight-2026-05-17.md` as the runbook baseline.
 - A carousel draft is intentionally selected, packaged, and approved for queueing.
 - Final local publish approval is recorded after any media/caption changes.
 - R2 draft media upload has been executed successfully, or explicit public HTTPS image URLs are supplied.
@@ -756,7 +763,7 @@ Focused local result: `12 passed`.
 - Video/reel validation after feed/carousel path is reliable.
 - Analytics/insights collection and follower-growth progress tracking.
 - Recommendation improvements using approval and engagement history.
-- Candidate/media narrowing follow-ups for natural DM requests: semantic folder/media matching beyond keyword overlap, bounded contact sheets, image/date/location metadata search, and clarifying questions when the initial request is too broad.
+- Candidate/media narrowing follow-ups for natural DM requests should now build on the completed local descriptor/alias ranking and bounded artifact guardrails: lightweight metadata search, generated tags, or Immich enrichment only if they stay auditable and local-first.
 - Immich/NAS enrichment once the processed-folder MVP works.
 
 ## Known open questions
