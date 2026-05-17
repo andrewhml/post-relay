@@ -545,6 +545,8 @@ Current local result: `10 passed` focused; `139 passed` full suite.
 
 ### Milestone 15: `feat/discord-schedule-queue-guidance`
 
+**Latest live DM smoke observation:** Andrew confirmed user-initiated Discord DM draft creation, back-and-forth copy review, and contact-sheet image selection worked in the Discord app. The main discovered gap is candidate/media narrowing: a broad request such as "San Francisco spring flowers" can currently select an overly broad year/folder scope and generate an unusably large contact sheet with hundreds of images. Future selection work should improve semantic request-to-directory/media matching, cap initial contact-sheet size, and ask a narrowing question before rendering huge sheets.
+
 **Goal:** Let the Discord DM bot guide Andrew from approved draft to scheduled queue while optimizing cadence toward follower growth.
 
 **Expected behavior:**
@@ -605,6 +607,7 @@ Current local result: `10 passed` focused; `139 passed` full suite.
 - Video/reel validation after feed/carousel path is reliable.
 - Analytics/insights collection and follower-growth progress tracking.
 - Recommendation improvements using approval and engagement history.
+- Candidate/media narrowing for natural DM requests: semantic folder/media matching, bounded contact sheets, image/date/location metadata search, and clarifying questions when the initial request is too broad.
 - Immich/NAS enrichment once the processed-folder MVP works.
 
 ## Known open questions
@@ -614,6 +617,7 @@ Current local result: `10 passed` focused; `139 passed` full suite.
 - How Hermes/Discord should handle image preview delivery reliably, given prior messaging-gateway image issues.
 - Exact current Meta permission/token state at the time publishing validation starts.
 - Whether the first draft generator should be rule-based placeholders or LLM-assisted captions.
+- What metadata/indexing strategy should power natural request narrowing: folder names only, EXIF dates/GPS, generated captions/tags, perceptual/semantic embeddings, or Immich/NAS metadata once reliable.
 
 ## Documentation maintenance rule
 
