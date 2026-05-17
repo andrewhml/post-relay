@@ -627,7 +627,7 @@ Current local result: `5 passed` focused; `157 passed` full suite.
 
 Current local result: `4 passed` focused; `161 passed` full suite.
 
-### Milestone 18: `feat/live-carousel-publish-smoke-notes`
+### Milestone 18: `feat/live-carousel-publish-smoke-notes` (preflight completed in PR #43)
 
 **Goal:** After Discord photo selection and guided post-package approval are proven, run one explicitly approved live carousel smoke test through the guarded carousel path, ideally using R2-staged public HTTPS image URLs, then document observed Meta behavior.
 
@@ -637,6 +637,14 @@ Current local result: `4 passed` focused; `161 passed` full suite.
 - Current local smoke candidate is draft `2`, a 5-image Mt. Cook carousel with caption text present and R2 dry-run planning ready.
 - Live execution is not yet run because draft `2` remains `drafting`, active draft/publish approvals still need to be completed intentionally, R2 upload execution has not been run, and Andrew has not explicitly authorized the live Meta `--execute` publish command in the active session.
 - No Discord DMs, R2 upload execution, or Meta publishing endpoints were called during preflight.
+
+**Verification:**
+
+```bash
+.venv/bin/python -m pytest -q
+```
+
+Current local result after PR #43 merge: `161 passed` full suite.
 
 **Preconditions:**
 - Discord selection has selected the final carousel media from a larger suggested set.
@@ -655,12 +663,32 @@ Current local result: `4 passed` focused; `161 passed` full suite.
 - Record sanitized child container ids, carousel container id, status, and published media id.
 - Move the draft to `posted` only after Meta returns a published media id.
 
+### Milestone 19: `feat/dm-candidate-narrowing`
+
+**Goal:** Reduce the risk that a broad natural DM request selects a huge weak candidate folder and produces an unusable contact sheet.
+
+**Delivered behavior in branch:**
+- Added a `narrowing_question` result for DM intake when the best local candidate has zero keyword overlap and at least 120 photos.
+- For those weak huge matches, `dm intake` now withholds candidate suggestions, sets `Next safe step: candidate narrowing`, and asks for a date, neighborhood, folder name, or 5-10 filenames before rendering a contact sheet.
+- Matched large candidates are still suggested, but the DM text explicitly warns: `Large set: narrow before rendering a contact sheet.`
+- Candidate ranking now includes `source_folder` text in addition to the public title/reason/post type, improving folder-name matching without adding external services.
+- All behavior remains local-only: no Discord, R2, or Meta network calls.
+
+**Verification:**
+
+```bash
+.venv/bin/python -m pytest tests/test_dm_intake.py -q
+.venv/bin/python -m pytest -q
+```
+
+Current local result: `10 passed` focused; `163 passed` full suite.
+
 ## Later milestones
 
 - Video/reel validation after feed/carousel path is reliable.
 - Analytics/insights collection and follower-growth progress tracking.
 - Recommendation improvements using approval and engagement history.
-- Candidate/media narrowing for natural DM requests: semantic folder/media matching, bounded contact sheets, image/date/location metadata search, and clarifying questions when the initial request is too broad.
+- Candidate/media narrowing follow-ups for natural DM requests: semantic folder/media matching beyond keyword overlap, bounded contact sheets, image/date/location metadata search, and clarifying questions when the initial request is too broad.
 - Immich/NAS enrichment once the processed-folder MVP works.
 
 ## Known open questions

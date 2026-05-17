@@ -31,4 +31,5 @@ data/instagram/logs/
 data/instagram/cache/
 data/*.sqlite
 data/review_artifacts/
+data/review_artifacts-small/
 config/photo_sources.yaml
