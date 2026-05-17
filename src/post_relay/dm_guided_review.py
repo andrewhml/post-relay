@@ -47,7 +47,7 @@ class DmGuidedReviewResult:
     thread: Optional[ConversationThreadRecord]
     context_note: Optional[ConversationContextNoteRecord]
 
-    def to_text(self) -> str:
+    def to_text(self, *, no_network: bool = True) -> str:
         lines = [
             (
                 f"Accepted DM guided review for draft #{self.draft_id}"
@@ -84,9 +84,12 @@ class DmGuidedReviewResult:
             [
                 "Publishable through Meta v1: media, caption text, hashtags in caption.",
                 "Review-only/local: alt text, growth rationale, unvalidated location ideas, collaborators, music, reels/story metadata.",
-                "No Discord or Meta network calls were made.",
             ]
         )
+        if no_network:
+            lines.append("No Discord or Meta network calls were made.")
+        else:
+            lines.append("No Meta publishing endpoints were called.")
         return "\n".join(lines)
 
 

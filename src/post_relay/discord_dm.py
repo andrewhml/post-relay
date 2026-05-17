@@ -13,6 +13,9 @@ from post_relay.discord_selection import (
     apply_discord_photo_selection,
     build_discord_selection_request,
 )
+from post_relay.dm_guided_review import DmGuidedReviewError, handle_dm_guided_review_reply
+from post_relay.guided_draft import DraftNotFound as GuidedDraftNotFound
+from post_relay.guided_draft import build_guided_draft_package
 from post_relay.media_selection import DraftMediaSelectionResult, DraftNotFound
 from post_relay.repository import (
     ConversationThreadRecord,
@@ -58,6 +61,26 @@ class DmSelectionPromptResult:
 
 
 @dataclass(frozen=True)
+class DmGuidedReviewPromptResult:
+    draft_id: int
+    channel_id: str
+    message_id: str
+    thread: ConversationThreadRecord
+
+    def to_text(self) -> str:
+        return "\n".join(
+            [
+                "Discord DM guided review prompt sent",
+                f"Draft ID: {self.draft_id}",
+                f"DM channel: {self.channel_id}",
+                f"Discord message: {self.message_id}",
+                f"Conversation thread: #{self.thread.id} ({self.thread.status})",
+                "No Meta publishing endpoints were called.",
+            ]
+        )
+
+
+@dataclass(frozen=True)
 class ParsedSelectionReply:
     selected_numbers: list[int]
     lead: int
@@ -72,6 +95,13 @@ class DiscordMessage:
 
 @dataclass(frozen=True)
 class DmSelectionPollResult:
+    applied: bool
+    reply_message_id: Optional[str]
+    confirmation_text: str
+
+
+@dataclass(frozen=True)
+class DmGuidedReviewPollResult:
     applied: bool
     reply_message_id: Optional[str]
     confirmation_text: str
@@ -246,7 +276,68 @@ def send_dm_selection_prompt(
             status="waiting_for_user",
             last_prompt_summary=summary,
         )
+    connection.commit()
     return DmSelectionPromptResult(
+        draft_id=draft_id,
+        channel_id=channel_id,
+        message_id=message_id,
+        thread=thread,
+    )
+
+
+def send_dm_guided_review_prompt(
+    connection,
+    draft_id: int,
+    *,
+    config: DiscordDmConfig,
+    transport: Optional[DiscordDmTransport] = None,
+    location_text: Optional[str] = None,
+    story_angle: Optional[str] = None,
+    mood: Optional[str] = None,
+    audience_hook: Optional[str] = None,
+    include: Optional[str] = None,
+    avoid: Optional[str] = None,
+) -> DmGuidedReviewPromptResult:
+    try:
+        package = build_guided_draft_package(
+            connection,
+            draft_id,
+            location_text=location_text,
+            story_angle=story_angle,
+            mood=mood,
+            audience_hook=audience_hook,
+            include=include,
+            avoid=avoid,
+        )
+    except GuidedDraftNotFound as error:
+        raise DiscordDmError(str(error)) from error
+    selected_transport = transport or DiscordRestTransport(
+        config.bot_token,
+        api_base_url=config.api_base_url,
+    )
+    channel_id = selected_transport.create_dm_channel(config.target_user_id)
+    content = _dm_guided_review_prompt_text(package)
+    message_id = selected_transport.send_message(channel_id, content)
+    thread = get_active_conversation_thread_for_channel(connection, channel_id)
+    summary = f"Sent private DM guided review prompt for draft #{draft_id}."
+    if thread is None:
+        thread = create_conversation_thread(
+            connection,
+            draft_id=draft_id,
+            discord_channel_id=channel_id,
+            status="waiting_for_user",
+            last_prompt_summary=summary,
+        )
+    else:
+        thread = update_conversation_thread(
+            connection,
+            thread.id,
+            draft_id=draft_id,
+            status="waiting_for_user",
+            last_prompt_summary=summary,
+        )
+    connection.commit()
+    return DmGuidedReviewPromptResult(
         draft_id=draft_id,
         channel_id=channel_id,
         message_id=message_id,
@@ -350,6 +441,51 @@ def poll_dm_selection_reply(
     )
 
 
+def poll_dm_guided_review_reply(
+    connection,
+    draft_id: int,
+    *,
+    channel_id: str,
+    target_user_id: str,
+    after_message_id: Optional[str],
+    transport: DiscordDmTransport,
+) -> DmGuidedReviewPollResult:
+    if not after_message_id:
+        raise DiscordDmError("after_message_id is required for guided review polling")
+    messages = transport.list_messages(channel_id, after_message_id=after_message_id, limit=20)
+    for message in sorted(messages, key=lambda item: int(item.id) if item.id.isdigit() else 0):
+        if message.author_id != target_user_id:
+            continue
+        try:
+            result = handle_dm_guided_review_reply(
+                connection,
+                draft_id,
+                message.content,
+                discord_channel_id=channel_id,
+            )
+        except DmGuidedReviewError as error:
+            confirmation = _guided_review_feedback_text(str(error))
+            transport.send_message(channel_id, confirmation)
+            return DmGuidedReviewPollResult(
+                applied=False,
+                reply_message_id=message.id,
+                confirmation_text=confirmation,
+            )
+        applied = result.accepted_package is not None
+        confirmation = result.to_text(no_network=False)
+        transport.send_message(channel_id, confirmation)
+        return DmGuidedReviewPollResult(
+            applied=applied,
+            reply_message_id=message.id,
+            confirmation_text=confirmation,
+        )
+    return DmGuidedReviewPollResult(
+        applied=False,
+        reply_message_id=None,
+        confirmation_text="No guided review reply found yet.",
+    )
+
+
 def parse_selection_reply(message: str) -> ParsedSelectionReply:
     numbers = [int(value) for value in re.findall(r"\d+", message)]
     lead_match = re.search(r"(?i)(?:lead|cover)\s*=?\s*(\d+)", message)
@@ -360,6 +496,35 @@ def parse_selection_reply(message: str) -> ParsedSelectionReply:
     if not selected_numbers:
         raise DiscordSelectionParseError("Reply must include at least one selected photo number")
     return ParsedSelectionReply(selected_numbers=selected_numbers, lead=lead)
+
+
+def _dm_guided_review_prompt_text(package) -> str:
+    lines = [
+        "Post Relay guided review",
+        f"Draft #{package.draft_id}",
+        f"Recommendation: {package.post_type_recommendation}",
+        f"Why: {package.post_type_rationale}",
+        "Caption options:",
+    ]
+    lines.extend(f"  {index}. {caption}" for index, caption in enumerate(package.caption_options, start=1))
+    lines.extend(
+        [
+            "Questions for Andrew:",
+        ]
+    )
+    if package.context_questions:
+        lines.extend(f"  - {question}" for question in package.context_questions)
+    else:
+        lines.append("  - <none>")
+    lines.extend(
+        [
+            "Publishable through Meta v1: media, caption text, hashtags in caption.",
+            "Review-only/local: alt text, growth rationale, unvalidated location ideas, collaborators, music, reels/story metadata.",
+            "Reply with location, story, mood, hook, include/avoid notes, and `caption 1`, `caption 2`, or `caption 3` when ready.",
+            "This DM step only updates the local draft after your reply; it never publishes to Instagram.",
+        ]
+    )
+    return "\n".join(lines)
 
 
 def _dm_selection_prompt_text(selection_request) -> str:
@@ -379,6 +544,16 @@ def _dm_selection_prompt_text(selection_request) -> str:
         ]
     )
     return "\n".join(lines)
+
+
+def _guided_review_feedback_text(detail: str) -> str:
+    return "\n".join(
+        [
+            f"I couldn't apply that guided review reply: {detail}.",
+            "Please reply with location, story, mood, hook, and `caption 1`, `caption 2`, or `caption 3` when ready.",
+            "No Meta publishing endpoints were called.",
+        ]
+    )
 
 
 def _selection_feedback_text(detail: str, *, target_count: int) -> str:

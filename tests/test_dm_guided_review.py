@@ -5,12 +5,19 @@ from typing import Optional
 import pytest
 from typer.testing import CliRunner
 
+import post_relay.cli as cli_module
 from post_relay.candidates import build_candidate_groups
 from post_relay.cli import app
 from post_relay.config import PhotoSource, PostRelayConfig
 from post_relay.db import connect_db, initialize_db
 from post_relay.drafts import create_draft_from_candidate
 from post_relay.dm_guided_review import handle_dm_guided_review_reply
+from post_relay.discord_dm import (
+    DiscordDmConfig,
+    DiscordMessage,
+    poll_dm_guided_review_reply,
+    send_dm_guided_review_prompt,
+)
 from post_relay.indexer import index_photo_sources
 from post_relay.repository import (
     get_active_conversation_thread_for_channel,
@@ -22,6 +29,22 @@ from post_relay.repository import (
 
 
 runner = CliRunner()
+
+
+class FakeDiscordTransport:
+    def __init__(self, *, messages: Optional[list[DiscordMessage]] = None):
+        self.messages = messages or []
+        self.sent_messages: list[tuple[str, str]] = []
+
+    def create_dm_channel(self, user_id: str) -> str:
+        return f"dm-{user_id}"
+
+    def send_message(self, channel_id: str, content: str) -> str:
+        self.sent_messages.append((channel_id, content))
+        return f"sent-{len(self.sent_messages)}"
+
+    def list_messages(self, channel_id: str, *, after_message_id: Optional[str] = None, limit: int = 10):
+        return self.messages
 
 
 def _build_fixture_draft(tmp_path: Path, filenames: Optional[list[str]] = None):
@@ -170,3 +193,204 @@ photo_sources:
     assert "Accepted DM guided review for draft #1" in result.output
     assert "No Discord or Meta network calls were made." in result.output
     assert root.as_posix() not in result.output
+
+
+def test_send_dm_guided_review_prompt_sends_private_dm_and_records_waiting_thread(tmp_path: Path):
+    connection, draft, root = _build_fixture_draft(tmp_path)
+    transport = FakeDiscordTransport()
+
+    result = send_dm_guided_review_prompt(
+        connection,
+        draft.id,
+        config=DiscordDmConfig(bot_token="x", target_user_id="andrew"),
+        transport=transport,
+        mood="cinematic",
+    )
+
+    thread = get_active_conversation_thread_for_channel(connection, "dm-andrew")
+
+    assert result.channel_id == "dm-andrew"
+    assert result.message_id == "sent-1"
+    assert thread is not None
+    assert thread.status == "waiting_for_user"
+    assert "guided review prompt" in thread.last_prompt_summary
+    sent_text = transport.sent_messages[0][1]
+    assert "Post Relay guided review" in sent_text
+    assert "Draft #" in sent_text
+    assert "Caption options:" in sent_text
+    assert "Reply with" in sent_text
+    assert "never publishes to Instagram" in sent_text
+    assert root.as_posix() not in sent_text
+
+    connection.close()
+    reopened = connect_db(tmp_path / "post_relay.sqlite")
+    persisted_thread = get_active_conversation_thread_for_channel(reopened, "dm-andrew")
+    assert persisted_thread is not None
+    assert persisted_thread.status == "waiting_for_user"
+
+
+def test_poll_dm_guided_review_reply_requires_prompt_message_boundary(tmp_path: Path):
+    connection, draft, _root = _build_fixture_draft(tmp_path)
+    transport = FakeDiscordTransport(
+        messages=[
+            DiscordMessage(id="102", author_id="andrew", content="caption 1"),
+        ]
+    )
+
+    with pytest.raises(Exception, match="after_message_id is required"):
+        poll_dm_guided_review_reply(
+            connection,
+            draft.id,
+            channel_id="dm-andrew",
+            target_user_id="andrew",
+            after_message_id=None,
+            transport=transport,
+        )
+
+    updated = get_draft(connection, draft.id)
+    assert updated.caption in (None, "")
+
+
+def test_poll_dm_guided_review_reply_accepts_and_confirms_first_andrew_reply(tmp_path: Path):
+    connection, draft, _root = _build_fixture_draft(tmp_path)
+    transport = FakeDiscordTransport(
+        messages=[
+            DiscordMessage(id="101", author_id="bot", content="ignore me"),
+            DiscordMessage(
+                id="102",
+                author_id="andrew",
+                content="location: Kyoto, Japan; story: lantern alleys; mood: cinematic; hook: food and light; caption 1",
+            ),
+        ]
+    )
+
+    result = poll_dm_guided_review_reply(
+        connection,
+        draft.id,
+        channel_id="dm-andrew",
+        target_user_id="andrew",
+        after_message_id="sent-1",
+        transport=transport,
+    )
+
+    updated = get_draft(connection, draft.id)
+
+    assert result.applied is True
+    assert result.reply_message_id == "102"
+    assert updated.location_text == "Kyoto, Japan"
+    assert "Accepted DM guided review" in result.confirmation_text
+    assert "No Meta publishing endpoints were called." in result.confirmation_text
+    assert "No Discord or Meta network calls were made." not in result.confirmation_text
+    assert transport.sent_messages[-1] == ("dm-andrew", result.confirmation_text)
+
+
+def test_poll_dm_guided_review_reply_reports_when_no_caption_choice_yet(tmp_path: Path):
+    connection, draft, _root = _build_fixture_draft(tmp_path)
+    transport = FakeDiscordTransport(
+        messages=[
+            DiscordMessage(
+                id="102",
+                author_id="andrew",
+                content="mood: cinematic and less touristy",
+            ),
+        ]
+    )
+
+    result = poll_dm_guided_review_reply(
+        connection,
+        draft.id,
+        channel_id="dm-andrew",
+        target_user_id="andrew",
+        after_message_id="sent-1",
+        transport=transport,
+    )
+
+    assert result.applied is False
+    assert result.reply_message_id == "102"
+    assert "Caption options:" in result.confirmation_text
+    assert "Reply with `caption 1`" in result.confirmation_text
+    assert transport.sent_messages[-1] == ("dm-andrew", result.confirmation_text)
+
+
+def test_cli_dm_guided_review_send_uses_live_discord_adapter_with_fake_transport(tmp_path: Path, monkeypatch):
+    connection, draft, _root = _build_fixture_draft(tmp_path)
+    connection.close()
+    db_path = tmp_path / "post_relay.sqlite"
+    transport = FakeDiscordTransport()
+
+    monkeypatch.setattr(
+        cli_module,
+        "load_discord_dm_config_from_env",
+        lambda: DiscordDmConfig(bot_token="x", target_user_id="andrew"),
+    )
+    monkeypatch.setattr(
+        cli_module,
+        "DiscordRestTransport",
+        lambda bot_token, api_base_url="https://discord.com/api/v10": transport,
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "discord",
+            "dm-guided-review-send",
+            "--draft-id",
+            str(draft.id),
+            "--mood",
+            "cinematic",
+            "--db",
+            str(db_path),
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Discord DM guided review prompt sent" in result.output
+    assert "No Meta publishing endpoints were called." in result.output
+    assert "Post Relay guided review" in transport.sent_messages[0][1]
+
+
+def test_cli_dm_guided_review_poll_uses_live_discord_adapter_with_fake_transport(tmp_path: Path, monkeypatch):
+    connection, draft, _root = _build_fixture_draft(tmp_path)
+    connection.close()
+    db_path = tmp_path / "post_relay.sqlite"
+    transport = FakeDiscordTransport(
+        messages=[
+            DiscordMessage(
+                id="102",
+                author_id="andrew",
+                content="location: Kyoto, Japan; story: lantern alleys; mood: cinematic; hook: food and light; caption 1",
+            ),
+        ]
+    )
+
+    monkeypatch.setattr(
+        cli_module,
+        "load_discord_dm_config_from_env",
+        lambda: DiscordDmConfig(bot_token="x", target_user_id="andrew"),
+    )
+    monkeypatch.setattr(
+        cli_module,
+        "DiscordRestTransport",
+        lambda bot_token, api_base_url="https://discord.com/api/v10": transport,
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "discord",
+            "dm-guided-review-poll",
+            "--draft-id",
+            str(draft.id),
+            "--channel-id",
+            "dm-andrew",
+            "--after-message-id",
+            "sent-1",
+            "--db",
+            str(db_path),
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Accepted DM guided review" in result.output
+    assert "No Meta publishing endpoints were called." in result.output
+    assert transport.sent_messages[-1] == ("dm-andrew", result.output.strip())
