@@ -83,7 +83,7 @@ class DmSelectionReplyResult:
     selection_result: DraftMediaSelectionResult
     discord_channel_id: Optional[str]
 
-    def to_text(self) -> str:
+    def to_text(self, *, no_network: bool = True) -> str:
         included_names = [_display_name(item.local_file_path) for item in self.selection_result.included_items]
         excluded_names = [_display_name(item.local_file_path) for item in self.selection_result.excluded_items]
         lead_name = included_names[0] if included_names else "<none>"
@@ -96,13 +96,10 @@ class DmSelectionReplyResult:
         if excluded_names:
             lines.append("Excluded:")
             lines.extend(f"  - {name}" for name in excluded_names)
-        lines.extend(
-            [
-                f"Approvals invalidated: {self.selection_result.invalidated_approval_count}",
-                "No Discord or Meta network calls were made.",
-                "No Meta publishing endpoints were called.",
-            ]
-        )
+        lines.append(f"Approvals invalidated: {self.selection_result.invalidated_approval_count}")
+        if no_network:
+            lines.append("No Discord or Meta network calls were made.")
+        lines.append("No Meta publishing endpoints were called.")
         return "\n".join(lines)
 
 
@@ -312,17 +309,34 @@ def poll_dm_selection_reply(
             continue
         try:
             parse_selection_reply(message.content)
-        except DiscordSelectionParseError:
+        except DiscordSelectionParseError as error:
+            if _looks_like_selection_attempt(message.content):
+                confirmation = _selection_feedback_text(str(error), target_count=target_count)
+                transport.send_message(channel_id, confirmation)
+                return DmSelectionPollResult(
+                    applied=False,
+                    reply_message_id=message.id,
+                    confirmation_text=confirmation,
+                )
             continue
-        result = handle_dm_selection_reply(
-            connection,
-            draft_id,
-            message.content,
-            target_count=target_count,
-            discord_channel_id=channel_id,
-            post_type=post_type,
-        )
-        confirmation = result.to_text()
+        try:
+            result = handle_dm_selection_reply(
+                connection,
+                draft_id,
+                message.content,
+                target_count=target_count,
+                discord_channel_id=channel_id,
+                post_type=post_type,
+            )
+        except DiscordDmError as error:
+            confirmation = _selection_feedback_text(str(error), target_count=target_count)
+            transport.send_message(channel_id, confirmation)
+            return DmSelectionPollResult(
+                applied=False,
+                reply_message_id=message.id,
+                confirmation_text=confirmation,
+            )
+        confirmation = result.to_text(no_network=False)
         transport.send_message(channel_id, confirmation)
         return DmSelectionPollResult(
             applied=True,
@@ -357,17 +371,36 @@ def _dm_selection_prompt_text(selection_request) -> str:
     ]
     for item in selection_request.items:
         lines.append(f"  {item.review_number}. {_display_name(item.local_file_path)}")
-    example_numbers = [item.review_number for item in selection_request.items[: selection_request.target_count]]
-    example_select = ",".join(str(number) for number in example_numbers) or "<numbers>"
-    example_lead = str(example_numbers[0]) if example_numbers else "<lead>"
     lines.extend(
         [
             "Lead/cover: choose the strongest opener.",
-            f"Reply like: select {example_select} lead {example_lead}",
+            f"Reply like: {_selection_reply_example(selection_request.target_count)}",
             "This DM step only updates local selection state after your reply; it never publishes to Instagram.",
         ]
     )
     return "\n".join(lines)
+
+
+def _selection_feedback_text(detail: str, *, target_count: int) -> str:
+    return "\n".join(
+        [
+            f"I couldn't apply that selection: {detail}.",
+            f"Please choose exactly {target_count} unique photo numbers and one lead/cover.",
+            f"Reply like: {_selection_reply_example(target_count)}",
+            "No Meta publishing endpoints were called.",
+        ]
+    )
+
+
+def _selection_reply_example(target_count: int) -> str:
+    example_numbers = list(range(1, target_count + 1))
+    example_select = ",".join(str(number) for number in example_numbers) or "<numbers>"
+    example_lead = str(example_numbers[0]) if example_numbers else "<lead>"
+    return f"select {example_select} lead {example_lead}"
+
+
+def _looks_like_selection_attempt(message: str) -> bool:
+    return bool(re.search(r"(?i)\b(select|pick|lead|cover)\b|\d", message))
 
 
 def _display_name(path: str) -> str:

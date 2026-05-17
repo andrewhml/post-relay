@@ -170,8 +170,45 @@ def test_poll_dm_selection_reply_applies_first_parseable_user_reply_and_sends_co
     assert result.applied is True
     assert result.reply_message_id == "201"
     assert "Selection applied for draft #" in result.confirmation_text
+    assert "No Discord or Meta network calls were made." not in result.confirmation_text
     assert transport.sent_messages[-1][0] == "dm-channel-123"
     assert "Lead/cover: 03-hero.jpg" in transport.sent_messages[-1][1]
+    assert root.as_posix() not in transport.sent_messages[-1][1]
+
+
+@pytest.mark.parametrize(
+    "message,expected_detail",
+    [
+        ("select 3,3,5 lead 3", "Duplicate selected photo numbers are not allowed"),
+        ("select 3,1,5", "Reply must include selected photo numbers and a lead/cover number"),
+    ],
+)
+def test_poll_dm_selection_reply_sends_actionable_feedback_for_invalid_selection(
+    tmp_path: Path, message: str, expected_detail: str
+):
+    connection, draft, root = _build_fixture_draft(tmp_path)
+    transport = FakeDiscordTransport()
+    transport.messages_to_poll = [
+        DiscordMessage(id="201", author_id="andrew-user-1", content=message),
+    ]
+
+    result = poll_dm_selection_reply(
+        connection,
+        draft.id,
+        channel_id="dm-channel-123",
+        target_count=3,
+        target_user_id="andrew-user-1",
+        after_message_id="101",
+        transport=transport,
+    )
+
+    assert result.applied is False
+    assert result.reply_message_id == "201"
+    assert "I couldn't apply that selection" in result.confirmation_text
+    assert expected_detail in result.confirmation_text
+    assert "Reply like: select" in result.confirmation_text
+    assert transport.sent_messages[-1][0] == "dm-channel-123"
+    assert "I couldn't apply that selection" in transport.sent_messages[-1][1]
     assert root.as_posix() not in transport.sent_messages[-1][1]
 
 

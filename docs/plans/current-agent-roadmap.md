@@ -512,7 +512,7 @@ Agents must preserve these unless Andrew explicitly changes the product directio
 .venv/bin/python -m pytest -q
 ```
 
-Current local result: `127 passed`.
+Current local result: `129 passed`.
 
 ### Milestone 14: `feat/discord-dm-guided-review`
 
