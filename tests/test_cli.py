@@ -618,6 +618,70 @@ photo_sources:
 
 
 
+def test_cli_controlled_image_publish_execute_refuses_before_scheduled_time(tmp_path: Path):
+    root = tmp_path / "processed"
+    folder = root / "2023" / "kyoto"
+    folder.mkdir(parents=True)
+    (folder / "temple.jpg").write_bytes(b"fake image")
+    config_path = tmp_path / "photo_sources.yaml"
+    config_path.write_text(
+        f"""
+photo_sources:
+  - name: processed
+    root: {root.as_posix()}
+    source_type: processed_folder
+""".strip()
+    )
+    env_file = tmp_path / ".env"
+    env_file.write_text(
+        "\n".join(
+            [
+                "POST_RELAY_USER_ACCESS_TOKEN=fake-token",
+                "POST_RELAY_INSTAGRAM_ACCOUNT_ID=17841400498120050",
+            ]
+        )
+    )
+    db_path = tmp_path / "post_relay.sqlite"
+
+    runner.invoke(app, ["index", "scan", "--config", str(config_path), "--db", str(db_path)])
+    runner.invoke(app, ["candidates", "build", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "create", "--candidate-id", "1", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "edit", "--draft-id", "1", "--caption", "Temple morning.", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "submit", "--draft-id", "1", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "approve", "--draft-id", "1", "--approved-by", "andrew", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "schedule", "--draft-id", "1", "--scheduled-for", "2026-05-05T09:30:00-07:00", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "request-publish-approval", "--draft-id", "1", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "approve-publish", "--draft-id", "1", "--approved-by", "andrew", "--db", str(db_path)])
+
+    result = runner.invoke(
+        app,
+        [
+            "meta",
+            "validate-image-publish",
+            "--draft-id",
+            "1",
+            "--image-url",
+            "https://example.com/test-image.jpg",
+            "--db",
+            str(db_path),
+            "--env-file",
+            str(env_file),
+            "--execute",
+            "--now",
+            "2026-05-05T08:30:00-07:00",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "2026-05-05T09:30:00-07:00" in result.output
+    assert "refusing to publish before the scheduled time" in result.output
+    assert "Current time:" in result.output
+    assert "2026-05-05T08:30:00-07:00" in result.output
+    assert "--publish-now" in result.output
+    assert "fake-token" not in result.output
+
+
+
 def test_cli_draft_discord_preview_payload_dry_run_reports_images(tmp_path: Path):
     root = tmp_path / "processed"
     folder = root / "2023" / "kyoto"
@@ -862,3 +926,74 @@ r2_staging:
     assert "https://peddocks.net/post-relay/staging/drafts/1/media/02-image.jpg?token=<redacted>" in dry_run_result.output
     assert "secret" not in dry_run_result.output
     assert "No Meta publishing endpoints were called." in dry_run_result.output
+
+
+def test_cli_scheduled_publish_preflight_uses_staged_r2_urls_without_meta_calls(tmp_path: Path):
+    root = tmp_path / "processed"
+    folder = root / "2023" / "kyoto"
+    folder.mkdir(parents=True)
+    (folder / "temple.jpg").write_bytes(b"fake image")
+    (folder / "garden.jpg").write_bytes(b"fake image")
+    config_path = tmp_path / "photo_sources.yaml"
+    config_path.write_text(
+        f"""
+photo_sources:
+  - name: processed
+    root: {root.as_posix()}
+    source_type: processed_folder
+r2_staging:
+  enabled: true
+  bucket: post-relay-publish
+  public_base_url: https://peddocks.net
+  prefix: post-relay/staging
+""".strip()
+    )
+    db_path = tmp_path / "post_relay.sqlite"
+
+    runner.invoke(app, ["index", "scan", "--config", str(config_path), "--db", str(db_path)])
+    runner.invoke(app, ["candidates", "build", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "create", "--candidate-id", "1", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "edit", "--draft-id", "1", "--caption", "Kyoto garden sequence.", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "submit", "--draft-id", "1", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "approve", "--draft-id", "1", "--approved-by", "andrew", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "schedule", "--draft-id", "1", "--scheduled-for", "2026-05-05T09:30:00-07:00", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "request-publish-approval", "--draft-id", "1", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "approve-publish", "--draft-id", "1", "--approved-by", "andrew", "--db", str(db_path)])
+    connection = connect_db(db_path)
+    initialize_db(connection)
+    selected_paths = list_candidate_group_photo_paths(connection, 1)
+    for index, source_path in enumerate(selected_paths, start=1):
+        create_r2_staged_object_record(
+            connection,
+            draft_id=1,
+            kind="draft_media",
+            source_path=source_path,
+            bucket="post-relay-publish",
+            object_key=f"post-relay/staging/drafts/1/media/{index:02d}-image.jpg",
+            public_url=f"https://peddocks.net/post-relay/staging/drafts/1/media/{index:02d}-image.jpg?token=secret",
+        )
+    connection.commit()
+
+    result = runner.invoke(
+        app,
+        [
+            "meta",
+            "publish-scheduled",
+            "--draft-id",
+            "1",
+            "--from-staged-r2",
+            "--config",
+            str(config_path),
+            "--db",
+            str(db_path),
+            "--now",
+            "2026-05-05T09:31:00-07:00",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Scheduled publish preflight" in result.output
+    assert "Ready: yes" in result.output
+    assert "https://peddocks.net/post-relay/staging/drafts/1/media/01-image.jpg?token=<redacted>" in result.output
+    assert "secret" not in result.output
+    assert "No Meta publishing endpoints were called." in result.output

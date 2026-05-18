@@ -43,9 +43,10 @@ Post Relay is a local-first Instagram travel content workflow for Andrew's `andr
 - Local guided draft packages can be generated and accepted with `drafts guided-package-plan`/`drafts guided-package-accept`; accepted packages persist caption, hashtags, confirmed location text, local alt text/accessibility notes, and audited rationale without fabricating unconfirmed facts.
 - Local Discord-style X-from-Y photo selection can be modeled without network calls using `drafts discord-selection-plan`/`drafts discord-selection-preview`/`drafts discord-selection-apply`; selection application reuses the same media-selection rules and approval invalidation as `drafts media-edit`.
 - Queue-approved drafts can be scheduled locally and moved through final publish approval without live API calls.
-- Guarded single-image/carousel publish validation can use either explicit public HTTPS `--image-url` values or recorded uploaded R2 staged media via `--from-staged-r2`, preserving dry-run defaults, double approval, and explicit `--execute` publish safeguards.
+- Guarded single-image/carousel publish validation can use either explicit public HTTPS `--image-url` values or recorded uploaded R2 staged media via `--from-staged-r2`, preserving dry-run defaults, double approval, schedule enforcement, and explicit `--execute` publish safeguards.
+- Scheduled publish runner preflight can use `meta publish-scheduled --from-staged-r2` to re-check due time, active draft/publish approvals, selected staged R2 media completeness, caption/post type, and safe Meta-bound URLs without network calls before execute mode.
 - Instagram publish capabilities are explicit: media URLs/carousel children, captions, and hashtags-in-caption are publishable; alt text, rationale, location ideas, collaborators, music, product/story/reel-only metadata stay local/review-only unless a later milestone validates official support.
-- Live Discord delivery should only be added after the local payload harness remains green; next Discord work should be private-DM-first and user-initiated-first. Post Relay now has a no-network `dm intake` harness, live-capable Discord DM selection/guided-review/scheduling loops, a local `opportunities` harness, safe local opportunity trigger checks for agent-initiated suggestion records, and DM intake narrowing guardrails for huge weak candidate matches. Do not run live Instagram publish execution from Discord milestones.
+- Live Discord delivery should only be added after the local payload harness remains green; next Discord work should be private-DM-first and user-initiated-first. Post Relay now has a no-network `dm intake` harness, live-capable Discord DM selection/guided-review/scheduling/double-confirmed publish approval loops, a local `opportunities` harness, safe local opportunity trigger checks for agent-initiated suggestion records, and DM intake narrowing guardrails for huge weak candidate matches. Do not run live Instagram publish execution from Discord milestones.
 
 ## Safety and product constraints
 
@@ -86,6 +87,9 @@ Post Relay is a local-first Instagram travel content workflow for Andrew's `andr
 .venv/bin/post-relay meta validate-readonly --env-file .env --dry-run
 .venv/bin/post-relay meta validate-image-publish --draft-id 1 --from-staged-r2 --config config/photo_sources.yaml --db data/post_relay.sqlite --dry-run
 .venv/bin/post-relay meta validate-carousel-publish --draft-id 1 --from-staged-r2 --config config/photo_sources.yaml --db data/post_relay.sqlite --dry-run
+.venv/bin/post-relay meta publish-scheduled --draft-id 1 --from-staged-r2 --config config/photo_sources.yaml --db data/post_relay.sqlite
+# Execute only when due and explicitly authorized in the active session:
+.venv/bin/post-relay meta publish-scheduled --draft-id 1 --from-staged-r2 --config config/photo_sources.yaml --db data/post_relay.sqlite --env-file .env --execute
 .venv/bin/post-relay candidates build --db data/post_relay.sqlite
 .venv/bin/post-relay candidates list --db data/post_relay.sqlite
 .venv/bin/post-relay drafts create --candidate-id 1 --db data/post_relay.sqlite
@@ -107,6 +111,14 @@ Post Relay is a local-first Instagram travel content workflow for Andrew's `andr
 .venv/bin/post-relay discord dm-guided-review-send --draft-id 1 --mood cinematic --db data/post_relay.sqlite
 .venv/bin/post-relay discord dm-guided-review-poll --draft-id 1 --channel-id <discord-dm-channel-id> --after-message-id <prompt-message-id> --db data/post_relay.sqlite
 .venv/bin/post-relay discord dm-guided-review-apply --draft-id 1 --message "location: Seoul, South Korea; story: night market alleys; mood: cinematic; hook: food and light; caption 1" --discord-channel-id <discord-dm-channel-id> --db data/post_relay.sqlite
+.venv/bin/post-relay discord dm-schedule-send --draft-id 1 --db data/post_relay.sqlite
+.venv/bin/post-relay discord dm-schedule-poll --draft-id 1 --channel-id <discord-dm-channel-id> --after-message-id <prompt-message-id> --db data/post_relay.sqlite
+.venv/bin/post-relay discord dm-schedule-apply --draft-id 1 --message "slot 1" --discord-channel-id <discord-dm-channel-id> --db data/post_relay.sqlite
+.venv/bin/post-relay discord dm-publish-approval-send --draft-id 1 --db data/post_relay.sqlite
+.venv/bin/post-relay discord dm-publish-approval-poll --draft-id 1 --channel-id <discord-dm-channel-id> --after-message-id <prompt-message-id> --db data/post_relay.sqlite
+.venv/bin/post-relay discord dm-publish-approval-poll --draft-id 1 --channel-id <discord-dm-channel-id> --after-message-id <confirmation-prompt-message-id> --db data/post_relay.sqlite
+.venv/bin/post-relay discord dm-publish-approval-apply --draft-id 1 --message "approve publish" --discord-channel-id <discord-dm-channel-id> --db data/post_relay.sqlite
+.venv/bin/post-relay discord dm-publish-approval-apply --draft-id 1 --message "confirm publish approval for draft #1" --discord-channel-id <discord-dm-channel-id> --db data/post_relay.sqlite
 .venv/bin/post-relay drafts r2-stage-plan --draft-id 1 --config config/photo_sources.yaml --db data/post_relay.sqlite
 .venv/bin/post-relay drafts r2-stage-upload --draft-id 1 --config config/photo_sources.yaml --db data/post_relay.sqlite
 .venv/bin/post-relay drafts r2-stage-upload --draft-id 1 --config config/photo_sources.yaml --db data/post_relay.sqlite --execute
@@ -133,4 +145,4 @@ Post Relay is a local-first Instagram travel content workflow for Andrew's `andr
 
 ## Current next milestone
 
-See `docs/plans/current-agent-roadmap.md`. The next planned work is the guarded live carousel publish smoke path. Draft `2` is the current local carousel candidate, but live execution remains deferred until the approval gates, staged public media, dry-run review, and Andrew's explicit active-session Meta `--execute` authorization are all satisfied.
+See `docs/plans/current-agent-roadmap.md`. The first guarded live carousel smoke for draft `2` succeeded, and schedule hardening now blocks early Meta `--execute` plus adds a no-network scheduled-runner preflight with due-time, approval, and staged-media checks. The next planned work is `feat/final-publish-preview-metadata`, followed by `feat/publish-export-profiles`. Do not publish another real post before the approved scheduled time unless Andrew explicitly bypasses the schedule in the active session.

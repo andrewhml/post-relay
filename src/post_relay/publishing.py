@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Optional, Sequence
 from urllib.parse import parse_qsl, urlsplit, urlunsplit
 
@@ -172,8 +173,11 @@ def execute_single_image_publish_validation(
     *,
     image_url: str,
     client: MetaGraphClient,
+    now: Optional[str] = None,
+    publish_now: bool = False,
 ) -> SingleImagePublishValidationResult:
     draft = _validate_single_image_ready_draft(connection, draft_id)
+    _enforce_publish_schedule(draft, now=now, publish_now=publish_now)
     if not client.config.instagram_account_id:
         raise PublishValidationError("POST_RELAY_INSTAGRAM_ACCOUNT_ID is required for publishing")
 
@@ -305,8 +309,11 @@ def execute_carousel_publish_validation(
     *,
     image_urls: Sequence[str],
     client: MetaGraphClient,
+    now: Optional[str] = None,
+    publish_now: bool = False,
 ) -> CarouselPublishValidationResult:
     draft = _validate_carousel_ready_draft(connection, draft_id, image_urls)
+    _enforce_publish_schedule(draft, now=now, publish_now=publish_now)
     if not client.config.instagram_account_id:
         raise PublishValidationError("POST_RELAY_INSTAGRAM_ACCOUNT_ID is required for publishing")
 
@@ -429,6 +436,36 @@ def execute_carousel_publish_validation(
         if isinstance(exc, (MetaGraphRequestError, PublishValidationError)):
             raise PublishValidationError(safe_message) from exc
         raise
+
+
+def _enforce_publish_schedule(draft, *, now: Optional[str], publish_now: bool) -> None:
+    if publish_now or not draft.scheduled_for:
+        return
+    scheduled_at = _parse_publish_timestamp(
+        draft.scheduled_for,
+        label="scheduled_for",
+    )
+    current_time = _parse_publish_timestamp(now, label="current time") if now else datetime.now().astimezone()
+    if current_time < scheduled_at:
+        raise PublishValidationError(
+            f"Draft {draft.id} is scheduled for {draft.scheduled_for}; refusing to publish before the scheduled time. "
+            f"Current time: {_format_timestamp(current_time)}. "
+            "Next safe action: wait until the scheduled time and rerun the command, or use --publish-now only with explicit active-session authorization."
+        )
+
+
+def _parse_publish_timestamp(value: str, *, label: str) -> datetime:
+    try:
+        parsed = datetime.fromisoformat(value)
+    except ValueError as error:
+        raise PublishValidationError(f"Invalid {label} timestamp: {value}") from error
+    if parsed.tzinfo is None:
+        raise PublishValidationError(f"Invalid {label} timestamp: {value}; timezone offset is required")
+    return parsed
+
+
+def _format_timestamp(value: datetime) -> str:
+    return value.isoformat(timespec="seconds")
 
 
 def _validate_single_image_ready_draft(connection, draft_id: int):
