@@ -1,0 +1,182 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import datetime
+from typing import Optional
+from urllib.parse import parse_qsl, urlsplit, urlunsplit
+
+from post_relay.config import R2StagingConfig
+from post_relay.meta_graph import MetaGraphClient
+from post_relay.publishing import (
+    DraftNotFound,
+    DraftNotReadyForImagePublish,
+    PublishValidationError,
+    UnsupportedPublishDraft,
+    execute_carousel_publish_validation,
+    execute_single_image_publish_validation,
+    resolve_staged_r2_publish_image_urls,
+)
+from post_relay.repository import (
+    get_draft,
+    list_active_approvals,
+    list_candidate_group_photo_paths,
+)
+from post_relay.state import ApprovalType, DraftState
+
+
+class ScheduledPublishNotReady(ValueError):
+    """Raised when a scheduled publish runner preflight should refuse/no-op."""
+
+
+@dataclass(frozen=True)
+class ScheduledPublishPreflightResult:
+    draft_id: int
+    ready: bool
+    post_type: str
+    scheduled_for: str
+    image_urls: list[str]
+    caption: str
+
+    def to_text(self) -> str:
+        lines = [
+            "Scheduled publish preflight",
+            f"Draft ID: {self.draft_id}",
+            f"Ready: {'yes' if self.ready else 'no'}",
+            f"Post type: {self.post_type}",
+            f"Scheduled for: {self.scheduled_for}",
+            "Image URLs:",
+        ]
+        lines.extend(f"  - {url}" for url in self.image_urls)
+        lines.extend(
+            [
+                f"Caption: {self.caption}",
+                "No Discord network calls were made.",
+                "No R2 upload or cleanup calls were made.",
+                "No Meta publishing endpoints were called.",
+            ]
+        )
+        return "\n".join(lines)
+
+
+def preflight_due_scheduled_publish(
+    connection,
+    draft_id: int,
+    *,
+    r2_config: R2StagingConfig,
+    now: Optional[str] = None,
+) -> ScheduledPublishPreflightResult:
+    draft = get_draft(connection, draft_id)
+    if draft is None:
+        raise ScheduledPublishNotReady(f"Draft {draft_id} was not found")
+    if draft.status != DraftState.READY_TO_PUBLISH.value:
+        raise ScheduledPublishNotReady(
+            f"Draft {draft_id} must be {DraftState.READY_TO_PUBLISH.value} before scheduled publish execution; current status is {draft.status}"
+        )
+    if not draft.scheduled_for:
+        raise ScheduledPublishNotReady(f"Draft {draft_id} must have scheduled_for before scheduled publish execution")
+
+    scheduled_at = _parse_runner_timestamp(draft.scheduled_for, label="scheduled_for")
+    current_time = _parse_runner_timestamp(now, label="current time") if now else datetime.now().astimezone()
+    if current_time < scheduled_at:
+        raise ScheduledPublishNotReady(
+            f"Draft {draft_id} is scheduled for {draft.scheduled_for}; not due until {_format_timestamp(scheduled_at)}. "
+            f"Current time: {_format_timestamp(current_time)}. No publish attempt was created."
+        )
+
+    _require_active_double_approval(connection, draft_id)
+    image_urls = _resolve_staged_urls(connection, draft_id, r2_config)
+    selected_count = len(list_candidate_group_photo_paths(connection, draft.candidate_group_id))
+    caption = (draft.caption or "").strip()
+    if not caption:
+        raise ScheduledPublishNotReady("Scheduled publish requires a non-empty approved caption")
+    if draft.post_type == "single_image":
+        if selected_count != 1 or len(image_urls) != 1:
+            raise ScheduledPublishNotReady("Scheduled single_image publish requires exactly one staged R2 media URL")
+    elif draft.post_type == "carousel":
+        if selected_count < 2 or len(image_urls) != selected_count:
+            raise ScheduledPublishNotReady("Scheduled carousel publish requires complete staged R2 media for each selected image")
+        if len(image_urls) > 10:
+            raise ScheduledPublishNotReady("Scheduled carousel publish supports at most ten images")
+    else:
+        raise ScheduledPublishNotReady(f"Unsupported scheduled publish post type: {draft.post_type}")
+
+    return ScheduledPublishPreflightResult(
+        draft_id=draft.id,
+        ready=True,
+        post_type=draft.post_type,
+        scheduled_for=draft.scheduled_for,
+        image_urls=[_sanitize_url(url) for url in image_urls],
+        caption=caption,
+    )
+
+
+def execute_due_scheduled_publish(
+    connection,
+    draft_id: int,
+    *,
+    r2_config: R2StagingConfig,
+    client: MetaGraphClient,
+    now: Optional[str] = None,
+):
+    preflight_due_scheduled_publish(connection, draft_id, r2_config=r2_config, now=now)
+    draft = get_draft(connection, draft_id)
+    image_urls = _resolve_staged_urls(connection, draft_id, r2_config)
+    try:
+        if draft.post_type == "single_image":
+            return execute_single_image_publish_validation(
+                connection,
+                draft_id,
+                image_url=image_urls[0],
+                client=client,
+                now=now,
+            )
+        return execute_carousel_publish_validation(
+            connection,
+            draft_id,
+            image_urls=image_urls,
+            client=client,
+            now=now,
+        )
+    except (DraftNotFound, DraftNotReadyForImagePublish, UnsupportedPublishDraft, PublishValidationError) as error:
+        raise ScheduledPublishNotReady(str(error)) from error
+
+
+def _require_active_double_approval(connection, draft_id: int) -> None:
+    approval_types = {approval.approval_type for approval in list_active_approvals(connection, draft_id)}
+    if {ApprovalType.DRAFT.value, ApprovalType.PUBLISH.value} - approval_types:
+        raise ScheduledPublishNotReady(
+            f"Draft {draft_id} requires active draft and publish approvals before scheduled publish execution"
+        )
+
+
+def _resolve_staged_urls(connection, draft_id: int, r2_config: R2StagingConfig) -> list[str]:
+    try:
+        return resolve_staged_r2_publish_image_urls(connection, draft_id, r2_config)
+    except (DraftNotFound, UnsupportedPublishDraft) as error:
+        raise ScheduledPublishNotReady(str(error)) from error
+
+
+def _parse_runner_timestamp(value: str, *, label: str) -> datetime:
+    try:
+        parsed = datetime.fromisoformat(value)
+    except ValueError as error:
+        raise ScheduledPublishNotReady(f"Invalid {label} timestamp: {value}") from error
+    if parsed.tzinfo is None:
+        raise ScheduledPublishNotReady(f"Invalid {label} timestamp: {value}; timezone offset is required")
+    return parsed
+
+
+def _format_timestamp(value: datetime) -> str:
+    return value.isoformat(timespec="seconds")
+
+
+def _sanitize_url(url: str) -> str:
+    parts = urlsplit(url)
+    sanitized_query_pairs = []
+    for key, value in parse_qsl(parts.query, keep_blank_values=True):
+        if any(secretish in key.lower() for secretish in ("token", "secret", "signature", "sig", "key")):
+            sanitized_query_pairs.append((key, "<redacted>"))
+        else:
+            sanitized_query_pairs.append((key, value))
+    sanitized_query = "&".join(f"{key}={value}" if value else key for key, value in sanitized_query_pairs)
+    return urlunsplit((parts.scheme, parts.netloc, parts.path, sanitized_query, parts.fragment))

@@ -64,7 +64,7 @@ def _build_draft_with_artifacts(tmp_path: Path):
     return connection, draft, artifact_config, r2_config, [first, second]
 
 
-def test_upload_r2_staging_dry_run_does_not_upload_or_record_objects(tmp_path: Path):
+def test_upload_r2_staging_dry_run_defaults_to_selected_draft_media_only(tmp_path: Path):
     connection, draft, artifact_config, r2_config, _source_paths = _build_draft_with_artifacts(tmp_path)
     client = FakeR2Client()
 
@@ -79,13 +79,18 @@ def test_upload_r2_staging_dry_run_does_not_upload_or_record_objects(tmp_path: P
 
     assert result.executed is False
     assert result.uploaded_count == 0
-    assert result.planned_count == 5
+    assert result.planned_count == 2
+    assert result.object_keys == [
+        "post-relay/staging/drafts/1/media/01-01-shibuya-crossing.jpg",
+        "post-relay/staging/drafts/1/media/02-02-rooftop.jpg",
+    ]
     assert client.uploads == []
     assert list_r2_staged_objects(connection, draft.id) == []
+    assert "contact-sheet.jpg" not in result.to_text()
     assert "No network calls were made." in result.to_text()
 
 
-def test_upload_r2_staging_execute_uploads_and_records_only_planned_objects(tmp_path: Path):
+def test_upload_r2_staging_execute_records_selected_draft_media_only_by_default(tmp_path: Path):
     connection, draft, artifact_config, r2_config, _source_paths = _build_draft_with_artifacts(tmp_path)
     client = FakeR2Client()
 
@@ -100,14 +105,35 @@ def test_upload_r2_staging_execute_uploads_and_records_only_planned_objects(tmp_
 
     records = list_r2_staged_objects(connection, draft.id)
     assert result.executed is True
-    assert result.uploaded_count == 5
-    assert len(client.uploads) == 5
-    assert [upload[1] for upload in client.uploads] == ["post-relay-publish"] * 5
+    assert result.uploaded_count == 2
+    assert len(client.uploads) == 2
+    assert [upload[1] for upload in client.uploads] == ["post-relay-publish"] * 2
     assert [record.object_key for record in records] == [upload[2] for upload in client.uploads]
-    assert records[0].kind == "draft_media"
-    assert records[-1].kind == "contact_sheet"
+    assert [record.kind for record in records] == ["draft_media", "draft_media"]
     assert all(record.status == "uploaded" for record in records)
     assert all(record.public_url.startswith("https://peddocks.net/post-relay/staging/") for record in records)
+
+
+def test_upload_r2_staging_can_include_review_artifacts_when_requested(tmp_path: Path):
+    connection, draft, artifact_config, r2_config, _source_paths = _build_draft_with_artifacts(tmp_path)
+    client = FakeR2Client()
+
+    result = upload_r2_staging_for_draft(
+        connection,
+        draft.id,
+        r2_config,
+        review_artifact_root=artifact_config.root,
+        include_review_artifacts=True,
+        execute=True,
+        client=client,
+    )
+
+    records = list_r2_staged_objects(connection, draft.id)
+    assert result.executed is True
+    assert result.uploaded_count == 5
+    assert len(client.uploads) == 5
+    assert records[0].kind == "draft_media"
+    assert records[-1].kind == "contact_sheet"
 
 
 def test_upload_r2_staging_execute_blocks_missing_source_before_any_upload(tmp_path: Path):
@@ -152,7 +178,7 @@ def test_cleanup_r2_staged_objects_dry_run_does_not_delete_or_mark_records(tmp_p
 
     assert result.executed is False
     assert result.deleted_count == 0
-    assert result.planned_count == 5
+    assert result.planned_count == 2
     assert client.deletes == []
     assert all(record.status == "uploaded" for record in list_r2_staged_objects(connection, draft.id))
     assert "No objects were deleted." in result.to_text()
@@ -181,8 +207,8 @@ def test_cleanup_r2_staged_objects_execute_deletes_only_recorded_uploaded_object
 
     records = list_r2_staged_objects(connection, draft.id)
     assert result.executed is True
-    assert result.deleted_count == 5
-    assert len(client.deletes) == 5
+    assert result.deleted_count == 2
+    assert len(client.deletes) == 2
     assert [delete[1] for delete in client.deletes] == [record.object_key for record in records]
     assert all(record.status == "deleted" for record in records)
     assert all(record.deleted_at is not None for record in records)

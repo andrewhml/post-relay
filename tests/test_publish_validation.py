@@ -11,6 +11,7 @@ from post_relay.indexer import index_photo_sources
 from post_relay.meta_graph import MetaGraphClient, MetaGraphConfig
 from post_relay.publishing import (
     DraftNotReadyForImagePublish,
+    PublishValidationError,
     UnsupportedPublishDraft,
     execute_carousel_publish_validation,
     execute_single_image_publish_validation,
@@ -133,6 +134,95 @@ def test_prepare_single_image_publish_validation_records_sanitized_dry_run_attem
     assert attempts[0].status == "planned"
     assert attempts[0].image_url == "https://example.com/test-image.jpg?token=<redacted>"
     assert attempts[0].caption == "Temple morning."
+
+
+def test_execute_single_image_publish_validation_refuses_before_scheduled_time_without_network_calls(tmp_path: Path):
+    connection, draft = _build_single_image_ready_draft(tmp_path, caption="Temple morning.")
+    requested = []
+
+    client = MetaGraphClient(
+        MetaGraphConfig(access_token="secret-token", instagram_account_id="17841400498120050"),
+        transport=lambda method, url, params: requested.append((method, url, dict(params))) or {"id": "unexpected"},
+    )
+
+    with pytest.raises(PublishValidationError) as error:
+        execute_single_image_publish_validation(
+            connection,
+            draft.id,
+            image_url="https://example.com/test-image.jpg",
+            client=client,
+            now="2026-05-05T08:30:00-07:00",
+        )
+
+    assert "scheduled for 2026-05-05T09:30:00-07:00" in str(error.value)
+    assert "Current time: 2026-05-05T08:30:00-07:00" in str(error.value)
+    assert "--publish-now" in str(error.value)
+    assert requested == []
+    assert get_draft(connection, draft.id).status == DraftState.READY_TO_PUBLISH.value
+    assert list_publish_attempts(connection, draft.id) == []
+
+
+def test_execute_carousel_publish_validation_allows_explicit_publish_now_before_schedule(tmp_path: Path):
+    connection, draft = _build_carousel_ready_draft(tmp_path, caption="Kyoto garden sequence.")
+    requested = []
+
+    def fake_transport(method, url, params):
+        requested.append((method, url, dict(params)))
+        media_url = "https://graph.facebook.com/v19.0/17841400498120050/media"
+        if url == media_url and params.get("image_url") == "https://example.com/temple.jpg":
+            return {"id": "child-1"}
+        if url == media_url and params.get("image_url") == "https://example.com/garden.jpg":
+            return {"id": "child-2"}
+        if url == media_url and params.get("media_type") == "CAROUSEL":
+            return {"id": "carousel-123"}
+        if url.endswith("/carousel-123"):
+            return {"id": "carousel-123", "status_code": "FINISHED"}
+        if url.endswith("/17841400498120050/media_publish"):
+            return {"id": "media-789"}
+        raise AssertionError(f"unexpected request: {method} {url} {params}")
+
+    client = MetaGraphClient(
+        MetaGraphConfig(access_token="secret-token", instagram_account_id="17841400498120050"),
+        transport=fake_transport,
+    )
+
+    result = execute_carousel_publish_validation(
+        connection,
+        draft.id,
+        image_urls=["https://example.com/temple.jpg", "https://example.com/garden.jpg"],
+        client=client,
+        now="2026-05-05T08:30:00-07:00",
+        publish_now=True,
+    )
+
+    assert result.status == "published"
+    assert get_draft(connection, draft.id).status == DraftState.POSTED.value
+    assert [method for method, _url, _params in requested] == ["POST", "POST", "POST", "GET", "POST"]
+
+
+def test_execute_single_image_publish_validation_rejects_invalid_schedule_timestamp(tmp_path: Path):
+    connection, draft = _build_single_image_ready_draft(tmp_path, caption="Temple morning.")
+    connection.execute(
+        "update drafts set scheduled_for = ? where id = ?",
+        ("not-a-date", draft.id),
+    )
+    requested = []
+    client = MetaGraphClient(
+        MetaGraphConfig(access_token="secret-token", instagram_account_id="17841400498120050"),
+        transport=lambda method, url, params: requested.append((method, url, dict(params))) or {"id": "unexpected"},
+    )
+
+    with pytest.raises(PublishValidationError) as error:
+        execute_single_image_publish_validation(
+            connection,
+            draft.id,
+            image_url="https://example.com/test-image.jpg",
+            client=client,
+            now="2026-05-05T09:30:00-07:00",
+        )
+
+    assert "Invalid scheduled_for timestamp" in str(error.value)
+    assert requested == []
 
 
 def test_execute_single_image_publish_validation_creates_polls_and_publishes_after_approval(tmp_path: Path):

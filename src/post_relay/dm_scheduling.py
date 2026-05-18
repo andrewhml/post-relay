@@ -84,7 +84,8 @@ class DmPublishApprovalGuidanceResult:
             "Post Relay final publish approval request",
             f"Draft #{self.draft_id}",
             f"Scheduled for: {self.scheduled_for}",
-            "Reply with `approve publish` only if the final caption, media order, and schedule are approved.",
+            "Double confirm required: first reply `approve publish`, then reply with the exact confirmation phrase I send back.",
+            f"Final confirmation phrase: `confirm publish approval for draft #{self.draft_id}`.",
             "This only records local publish approval; it does not publish to Instagram.",
         ]
         if no_network:
@@ -101,6 +102,17 @@ class DmPublishApprovalReplyResult:
     thread: Optional[ConversationThreadRecord]
 
     def to_text(self, *, no_network: bool = True) -> str:
+        if not self.approved:
+            lines = [
+                f"Publish approval confirmation requested for draft #{self.draft_id}",
+                f"Draft status: {self.status}",
+                f"Confirm by replying `confirm publish approval for draft #{self.draft_id}`.",
+                "No approval flag was recorded yet.",
+            ]
+            if no_network:
+                lines.append("No Discord or Meta network calls were made.")
+            lines.append("No Meta publishing endpoints were called.")
+            return "\n".join(lines)
         lines = [
             f"Publish approval recorded for draft #{self.draft_id}",
             f"Draft status: {self.status}",
@@ -123,6 +135,26 @@ class DmSchedulePromptResult:
         return "\n".join(
             [
                 "Discord DM schedule prompt sent",
+                f"Draft ID: {self.draft_id}",
+                f"DM channel: {self.channel_id}",
+                f"Discord message: {self.message_id}",
+                f"Conversation thread: #{self.thread.id} ({self.thread.status})",
+                "No Meta publishing endpoints were called.",
+            ]
+        )
+
+
+@dataclass(frozen=True)
+class DmPublishApprovalPromptResult:
+    draft_id: int
+    channel_id: str
+    message_id: str
+    thread: ConversationThreadRecord
+
+    def to_text(self) -> str:
+        return "\n".join(
+            [
+                "Discord DM publish approval prompt sent",
                 f"Draft ID: {self.draft_id}",
                 f"DM channel: {self.channel_id}",
                 f"Discord message: {self.message_id}",
@@ -240,40 +272,68 @@ def handle_dm_publish_approval_reply(
     discord_channel_id: Optional[str] = None,
     approved_by: str = "andrew",
 ) -> DmPublishApprovalReplyResult:
-    build_dm_publish_approval_guidance(connection, draft_id, now=now)
-    if not re.search(r"(?i)\bapprove\s+publish\b", message):
-        raise DmSchedulingError("Reply must include `approve publish` to record final publish approval")
+    draft = get_draft(connection, draft_id)
+    guidance = build_dm_publish_approval_guidance(connection, draft_id, now=now)
+    if re.search(rf"(?i)\bconfirm\s+publish\s+approval\s+for\s+draft\s+#?{draft_id}\b", message):
+        if discord_channel_id and not _has_pending_publish_approval_confirmation(
+            connection,
+            draft_id=draft_id,
+            discord_channel_id=discord_channel_id,
+        ):
+            raise DmSchedulingError(
+                "Reply must include `approve publish` before the final confirmation phrase"
+            )
+        return _record_dm_publish_approval(
+            connection,
+            draft_id,
+            discord_channel_id=discord_channel_id,
+            approved_by=approved_by,
+        )
+    if re.search(r"(?i)\bapprove\s+publish\b", message):
+        thread = _upsert_thread(
+            connection,
+            draft_id=draft_id,
+            discord_channel_id=discord_channel_id,
+            status="waiting_for_user",
+            summary=f"Requested second confirmation for final publish approval for draft #{draft_id}.",
+        )
+        connection.commit()
+        return DmPublishApprovalReplyResult(
+            draft_id=draft_id,
+            approved=False,
+            status=draft.status if draft is not None else guidance.scheduled_for,
+            thread=thread,
+        )
+    raise DmSchedulingError(
+        f"Reply must include `approve publish` first, then `{_publish_confirmation_phrase(draft_id)}` to record final publish approval"
+    )
+
+
+def _record_dm_publish_approval(
+    connection,
+    draft_id: int,
+    *,
+    discord_channel_id: Optional[str],
+    approved_by: str,
+) -> DmPublishApprovalReplyResult:
     try:
         request_publish_approval(connection, draft_id)
-        approval = approve_draft_for_publishing(
+        approve_draft_for_publishing(
             connection,
             draft_id,
             approved_by=approved_by,
             source_message_ref=discord_channel_id,
-            notes="Final publish approval from private DM.",
+            notes="Final publish approval from private DM double confirmation.",
         )
     except (DraftNotFound, DraftNotReadyForPublishApproval) as error:
         raise DmSchedulingError(str(error)) from error
-    thread: Optional[ConversationThreadRecord] = None
-    if discord_channel_id:
-        thread = get_active_conversation_thread_for_channel(connection, discord_channel_id)
-        summary = f"Recorded final publish approval for draft #{draft_id}."
-        if thread is None:
-            thread = create_conversation_thread(
-                connection,
-                draft_id=draft_id,
-                discord_channel_id=discord_channel_id,
-                status="active",
-                last_prompt_summary=summary,
-            )
-        else:
-            thread = update_conversation_thread(
-                connection,
-                thread.id,
-                draft_id=draft_id,
-                status="active",
-                last_prompt_summary=summary,
-            )
+    thread = _upsert_thread(
+        connection,
+        draft_id=draft_id,
+        discord_channel_id=discord_channel_id,
+        status="active",
+        summary=f"Recorded final publish approval for draft #{draft_id}.",
+    )
     connection.commit()
     return DmPublishApprovalReplyResult(
         draft_id=draft_id,
@@ -281,6 +341,10 @@ def handle_dm_publish_approval_reply(
         status=DraftState.READY_TO_PUBLISH.value,
         thread=thread,
     )
+
+
+def _publish_confirmation_phrase(draft_id: int) -> str:
+    return f"confirm publish approval for draft #{draft_id}"
 
 
 def send_dm_schedule_prompt(
@@ -319,6 +383,38 @@ def send_dm_schedule_prompt(
         )
     connection.commit()
     return DmSchedulePromptResult(
+        draft_id=draft_id,
+        channel_id=channel_id,
+        message_id=message_id,
+        thread=thread,
+    )
+
+
+def send_dm_publish_approval_prompt(
+    connection,
+    draft_id: int,
+    *,
+    config: DiscordDmConfig,
+    transport: Optional[DiscordDmTransport] = None,
+    now: Optional[str] = None,
+) -> DmPublishApprovalPromptResult:
+    guidance = build_dm_publish_approval_guidance(connection, draft_id, now=now)
+    selected_transport = transport or DiscordRestTransport(
+        config.bot_token,
+        api_base_url=config.api_base_url,
+    )
+    channel_id = selected_transport.create_dm_channel(config.target_user_id)
+    content = _dm_publish_approval_prompt_text(guidance)
+    message_id = selected_transport.send_message(channel_id, content)
+    thread = _upsert_thread(
+        connection,
+        draft_id=draft_id,
+        discord_channel_id=channel_id,
+        status="waiting_for_user",
+        summary=f"Sent private DM publish approval prompt for draft #{draft_id}.",
+    )
+    connection.commit()
+    return DmPublishApprovalPromptResult(
         draft_id=draft_id,
         channel_id=channel_id,
         message_id=message_id,
@@ -372,6 +468,52 @@ def poll_dm_schedule_reply(
     )
 
 
+def poll_dm_publish_approval_reply(
+    connection,
+    draft_id: int,
+    *,
+    channel_id: str,
+    target_user_id: str,
+    after_message_id: Optional[str],
+    transport: DiscordDmTransport,
+    now: Optional[str] = None,
+) -> DmSchedulePollResult:
+    if not after_message_id:
+        raise DmSchedulingError("after_message_id is required for publish approval polling")
+    messages = transport.list_messages(channel_id, after_message_id=after_message_id, limit=20)
+    for message in sorted(messages, key=lambda item: int(item.id) if item.id.isdigit() else 0):
+        if message.author_id != target_user_id:
+            continue
+        try:
+            result = handle_dm_publish_approval_reply(
+                connection,
+                draft_id,
+                message.content,
+                now=now,
+                discord_channel_id=channel_id,
+            )
+        except DmSchedulingError as error:
+            confirmation = _publish_approval_feedback_text(str(error), draft_id=draft_id)
+            transport.send_message(channel_id, confirmation)
+            return DmSchedulePollResult(
+                applied=False,
+                reply_message_id=message.id,
+                confirmation_text=confirmation,
+            )
+        confirmation = result.to_text(no_network=False)
+        transport.send_message(channel_id, confirmation)
+        return DmSchedulePollResult(
+            applied=result.approved,
+            reply_message_id=message.id,
+            confirmation_text=confirmation,
+        )
+    return DmSchedulePollResult(
+        applied=False,
+        reply_message_id=None,
+        confirmation_text="No publish approval reply found yet.",
+    )
+
+
 def _recommended_slots(connection, *, now: datetime) -> list[str]:
     scheduled_dates = {
         _parse_datetime(draft.scheduled_for).date()
@@ -411,6 +553,10 @@ def _dm_schedule_prompt_text(guidance: DmScheduleGuidanceResult) -> str:
     return guidance.to_text(no_network=False) + "\nThis DM step only schedules the local draft after your reply; it never publishes to Instagram."
 
 
+def _dm_publish_approval_prompt_text(guidance: DmPublishApprovalGuidanceResult) -> str:
+    return guidance.to_text(no_network=False) + "\nThis DM step only records local approval after your double confirmation; it never publishes to Instagram."
+
+
 def _schedule_feedback_text(detail: str) -> str:
     return "\n".join(
         [
@@ -419,6 +565,57 @@ def _schedule_feedback_text(detail: str) -> str:
             "No Meta publishing endpoints were called.",
         ]
     )
+
+
+def _publish_approval_feedback_text(detail: str, *, draft_id: int) -> str:
+    return "\n".join(
+        [
+            f"I couldn't apply that publish approval reply: {detail}.",
+            "Double confirm required: first reply `approve publish`, then reply with "
+            f"`confirm publish approval for draft #{draft_id}`.",
+            "No Meta publishing endpoints were called.",
+        ]
+    )
+
+
+def _upsert_thread(
+    connection,
+    *,
+    draft_id: int,
+    discord_channel_id: Optional[str],
+    status: str,
+    summary: str,
+) -> Optional[ConversationThreadRecord]:
+    if not discord_channel_id:
+        return None
+    thread = get_active_conversation_thread_for_channel(connection, discord_channel_id)
+    if thread is None:
+        return create_conversation_thread(
+            connection,
+            draft_id=draft_id,
+            discord_channel_id=discord_channel_id,
+            status=status,
+            last_prompt_summary=summary,
+        )
+    return update_conversation_thread(
+        connection,
+        thread.id,
+        draft_id=draft_id,
+        status=status,
+        last_prompt_summary=summary,
+    )
+
+
+def _has_pending_publish_approval_confirmation(
+    connection,
+    *,
+    draft_id: int,
+    discord_channel_id: str,
+) -> bool:
+    thread = get_active_conversation_thread_for_channel(connection, discord_channel_id)
+    if thread is None or thread.draft_id != draft_id:
+        return False
+    return "Requested second confirmation for final publish approval" in thread.last_prompt_summary
 
 
 def _parse_now(value: Optional[str]) -> datetime:

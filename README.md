@@ -17,15 +17,15 @@ Early local-first MVP scaffold with:
 - dry-run Discord preview payload CLI with ordered included image paths and missing-file checks
 - schedule and publish-approval CLI without live publishing
 - sanitized read-only Meta Graph validation CLI
-- controlled single-image and carousel Meta publish validation CLIs with dry-run planning, approval guards, optional staged-R2 URL resolution, container creation/status polling/publish execution, and sanitized attempt logging
-- no-network R2 staging plan CLI for draft media and generated review artifacts
+- controlled single-image and carousel Meta publish validation CLIs with dry-run planning, approval guards, staged-R2 URL resolution, schedule enforcement, container creation/status polling/publish execution, and sanitized attempt logging
+- no-network scheduled publish preflight/execute wrapper for due staged-R2 posts that re-validates schedule, approvals, and media completeness before Meta execution
 - guarded R2 staging upload/cleanup CLI with recorded-object-only deletion and explicit `--execute` safeguards
 - explicit Instagram capability matrix separating publishable fields from local/review-only metadata
 - guarded draft workflow state model
 - no-network private DM intake harness for user-initiated post conversations and draft-context updates
 - live-capable private Discord DM selection sender/poller for Discord-only selection smoke tests, guarded by environment-provided bot credentials
 - live-capable private Discord DM guided review sender/poller plus no-network apply fallback for accepting hook/caption/metadata decisions from DM-style replies
-- live-capable private Discord DM scheduling guidance sender/poller plus no-network schedule/final-publish-approval apply fallbacks
+- live-capable private Discord DM scheduling guidance sender/poller plus double-confirmed final-publish-approval sender/poller and no-network apply fallbacks
 - local post opportunity model and safe trigger checks for agent-initiated suggestions with dry-run planning, dedupe, snooze/dismiss respect, manual seeds, and candidate-to-draft conversion, without sending DMs
 - private DM intake narrowing guardrails that ask for more specific cues before suggesting huge weak candidate matches and warn before rendering contact sheets for large matched sets
 - local semantic DM candidate matching using folder/year/filename descriptors, simple aliases, and source-path-safe match rationale
@@ -40,11 +40,12 @@ Early local-first MVP scaffold with:
 - `graph.instagram.com` returned `Invalid platform app` in current setup
 
 ## Immediate goals
-1. Make broad natural DM requests safer and more useful with bounded review artifact plans, better candidate matching, and clear narrowing prompts before giant contact sheets are rendered
-2. Keep improving the private-DM-first, user-initiated workflow for selecting photos, accepting hook-first captions/metadata, scheduling, and recording local approvals
-3. Keep agent-initiated suggestions local-only until the user-initiated flow has enough successful sessions; then add proactive Discord DMs behind explicit safe trigger and opt-out controls
-4. Complete the guarded live carousel publish smoke only after a chosen carousel draft is staged, double-approved, dry-run reviewed, and Andrew explicitly authorizes the Meta `--execute` command in the active session
-5. After feed/carousel publishing is reliable, add analytics/insights collection, recommendation improvements, and later reel/video validation
+1. Harden live publishing before the next real post: schedule enforcement blocks Meta `--execute` before `scheduled_for` unless `--publish-now` is explicitly used; `meta publish-scheduled --from-staged-r2` now provides a no-network due-time/approval/staged-media preflight and execute wrapper for scheduled runs
+2. Add a final publish preview that shows the exact Meta-bound caption, media URLs, publishable metadata, and local/review-only fields; merge hashtags into the caption for v1 publishing and make location handling explicit
+3. Add Instagram-optimized publish export profiles, especially 4:5 portrait carousel assets, mixed-orientation warnings, and preview contact sheets built from the actual exported files
+4. Keep improving the private-DM-first, user-initiated workflow for selecting photos, accepting hook-first captions/metadata, scheduling, and recording local approvals
+5. Keep agent-initiated suggestions local-only until the user-initiated flow has enough successful sessions; then add proactive Discord DMs behind explicit safe trigger and opt-out controls
+6. After feed/carousel publishing is reliable, add analytics/insights collection, recommendation improvements, and later reel/video validation
 
 ## Agent handoff
 Future agents should start with `AGENTS.md`, then `docs/plans/current-agent-roadmap.md`. The durable plan for local/NAS sources, review artifacts, and Cloudflare R2 staging is `docs/plans/content-pipeline-r2-staging-plan.md`. The specialized agent baseline is `docs/plans/postrelay-agent-operating-baseline.md`. The current private-DM conversation plan is `docs/plans/discord-dm-conversation-orchestration.md`, and the Discord-before-live-publish selection/review plan is `docs/plans/discord-photo-selection-before-carousel-smoke.md`.
@@ -61,8 +62,13 @@ Use the project virtualenv when running locally:
 .venv/bin/post-relay meta validate-image-publish --draft-id 1 --image-url "$POST_RELAY_TEST_IMAGE_URL" --db data/post_relay.sqlite --dry-run
 .venv/bin/post-relay meta validate-image-publish --draft-id 1 --from-staged-r2 --config config/photo_sources.yaml --db data/post_relay.sqlite --dry-run
 .venv/bin/post-relay meta validate-image-publish --draft-id 1 --image-url "$POST_RELAY_TEST_IMAGE_URL" --db data/post_relay.sqlite --env-file .env --execute
+# Early live publish override, only with explicit active-session authorization:
+.venv/bin/post-relay meta validate-image-publish --draft-id 1 --from-staged-r2 --config config/photo_sources.yaml --db data/post_relay.sqlite --env-file .env --execute --publish-now
 .venv/bin/post-relay meta validate-carousel-publish --draft-id 2 --image-url "https://example.com/first.jpg" --image-url "https://example.com/second.jpg" --db data/post_relay.sqlite --dry-run
 .venv/bin/post-relay meta validate-carousel-publish --draft-id 2 --from-staged-r2 --config config/photo_sources.yaml --db data/post_relay.sqlite --dry-run
+.venv/bin/post-relay meta publish-scheduled --draft-id 2 --from-staged-r2 --config config/photo_sources.yaml --db data/post_relay.sqlite
+# Execute only when due and explicitly authorized in the active session:
+.venv/bin/post-relay meta publish-scheduled --draft-id 2 --from-staged-r2 --config config/photo_sources.yaml --db data/post_relay.sqlite --env-file .env --execute
 .venv/bin/post-relay candidates build --db data/post_relay.sqlite
 .venv/bin/post-relay candidates list --db data/post_relay.sqlite
 .venv/bin/post-relay drafts create --candidate-id 1 --db data/post_relay.sqlite
@@ -88,7 +94,11 @@ Use the project virtualenv when running locally:
 .venv/bin/post-relay discord dm-schedule-send --draft-id 1 --db data/post_relay.sqlite
 .venv/bin/post-relay discord dm-schedule-poll --draft-id 1 --channel-id <discord-dm-channel-id> --after-message-id <prompt-message-id> --db data/post_relay.sqlite
 .venv/bin/post-relay discord dm-schedule-apply --draft-id 1 --message "slot 1" --discord-channel-id <discord-dm-channel-id> --db data/post_relay.sqlite
+.venv/bin/post-relay discord dm-publish-approval-send --draft-id 1 --db data/post_relay.sqlite
+.venv/bin/post-relay discord dm-publish-approval-poll --draft-id 1 --channel-id <discord-dm-channel-id> --after-message-id <prompt-message-id> --db data/post_relay.sqlite
+.venv/bin/post-relay discord dm-publish-approval-poll --draft-id 1 --channel-id <discord-dm-channel-id> --after-message-id <confirmation-prompt-message-id> --db data/post_relay.sqlite
 .venv/bin/post-relay discord dm-publish-approval-apply --draft-id 1 --message "approve publish" --discord-channel-id <discord-dm-channel-id> --db data/post_relay.sqlite
+.venv/bin/post-relay discord dm-publish-approval-apply --draft-id 1 --message "confirm publish approval for draft #1" --discord-channel-id <discord-dm-channel-id> --db data/post_relay.sqlite
 .venv/bin/post-relay opportunities check --db data/post_relay.sqlite
 .venv/bin/post-relay opportunities check --execute --now "2026-05-17T09:00:00-07:00" --cadence-due-after-days 3 --db data/post_relay.sqlite
 .venv/bin/post-relay opportunities check --execute --manual-trigger-type life_event --manual-trigger-key andrew-kyoto-memory --manual-title "Kyoto memory" --manual-summary "Andrew mentioned a Kyoto memory" --manual-rationale "Manual trip context can become a post" --manual-suggested-next-action "Ask Andrew whether to turn this into a carousel draft" --db data/post_relay.sqlite

@@ -27,7 +27,9 @@ from post_relay.dm_scheduling import (
     DmSchedulingError,
     handle_dm_publish_approval_reply,
     handle_dm_schedule_reply,
+    poll_dm_publish_approval_reply,
     poll_dm_schedule_reply,
+    send_dm_publish_approval_prompt,
     send_dm_schedule_prompt,
 )
 from post_relay.discord_dm import (
@@ -117,6 +119,11 @@ from post_relay.review_artifacts import (
     render_review_artifacts_for_draft,
 )
 from post_relay.review_package import DraftNotFound, build_draft_review_package
+from post_relay.scheduled_publish_runner import (
+    ScheduledPublishNotReady,
+    execute_due_scheduled_publish,
+    preflight_due_scheduled_publish,
+)
 from post_relay.scheduling import (
     DraftNotFound as SchedulingDraftNotFound,
     DraftNotReadyForPublishApproval,
@@ -241,6 +248,8 @@ def meta_validate_image_publish(
     env_file: Optional[Path] = typer.Option(Path(".env"), "--env-file", help="Private .env file path."),
     dry_run: bool = typer.Option(False, "--dry-run", help="Record and print the sanitized plan without calling Meta."),
     execute: bool = typer.Option(False, "--execute", help="Actually create, poll, and publish through Meta Graph."),
+    now: Optional[str] = typer.Option(None, "--now", help="Override current time for deterministic schedule enforcement checks."),
+    publish_now: bool = typer.Option(False, "--publish-now", help="Explicitly bypass scheduled_for and publish immediately; use only with active-session authorization."),
 ) -> None:
     """Validate a controlled single-image publish after explicit publish approval."""
     connection = connect_db(db)
@@ -275,6 +284,8 @@ def meta_validate_image_publish(
             draft_id,
             image_url=resolved_image_url,
             client=MetaGraphClient(config),
+            now=now,
+            publish_now=publish_now,
         )
     except (PublishDraftNotFound, DraftNotReadyForImagePublish, UnsupportedPublishDraft) as error:
         raise typer.BadParameter(str(error), param_hint="--draft-id") from error
@@ -295,6 +306,8 @@ def meta_validate_carousel_publish(
     env_file: Optional[Path] = typer.Option(Path(".env"), "--env-file", help="Private .env file path."),
     dry_run: bool = typer.Option(False, "--dry-run", help="Record and print the sanitized plan without calling Meta."),
     execute: bool = typer.Option(False, "--execute", help="Actually create, poll, and publish through Meta Graph."),
+    now: Optional[str] = typer.Option(None, "--now", help="Override current time for deterministic schedule enforcement checks."),
+    publish_now: bool = typer.Option(False, "--publish-now", help="Explicitly bypass scheduled_for and publish immediately; use only with active-session authorization."),
 ) -> None:
     """Validate a controlled carousel publish after explicit publish approval."""
     connection = connect_db(db)
@@ -329,11 +342,62 @@ def meta_validate_carousel_publish(
             draft_id,
             image_urls=resolved_image_urls,
             client=MetaGraphClient(config),
+            now=now,
+            publish_now=publish_now,
         )
     except (PublishDraftNotFound, DraftNotReadyForImagePublish, UnsupportedPublishDraft) as error:
         raise typer.BadParameter(str(error), param_hint="--draft-id") from error
     except PublishValidationError as error:
         raise typer.BadParameter(str(error), param_hint="--env-file") from error
+    typer.echo(result.to_text())
+
+
+@meta_app.command("publish-scheduled")
+def meta_publish_scheduled(
+    draft_id: int = typer.Option(..., "--draft-id", help="Ready-to-publish scheduled draft id."),
+    from_staged_r2: bool = typer.Option(False, "--from-staged-r2", help="Resolve ordered publish image URLs from uploaded R2 staged media records."),
+    config_path: Path = typer.Option(Path("config/photo_sources.yaml"), "--config", help="Photo source and R2 staging config path."),
+    db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
+    env_file: Optional[Path] = typer.Option(Path(".env"), "--env-file", help="Private .env file path for execute mode."),
+    execute: bool = typer.Option(False, "--execute", help="Actually publish through Meta Graph after due preflight passes."),
+    now: Optional[str] = typer.Option(None, "--now", help="Override current time for deterministic schedule runner checks."),
+) -> None:
+    """Preflight or execute a due scheduled publish using uploaded staged R2 media."""
+    if not from_staged_r2:
+        raise typer.BadParameter("Scheduled publish runner currently requires --from-staged-r2", param_hint="--from-staged-r2")
+    connection = connect_db(db)
+    initialize_db(connection)
+    try:
+        config = load_config(config_path)
+    except R2StagingConfigError as error:
+        raise typer.BadParameter(str(error), param_hint="--config") from error
+    if not execute:
+        try:
+            result = preflight_due_scheduled_publish(
+                connection,
+                draft_id,
+                r2_config=config.r2_staging,
+                now=now,
+            )
+        except ScheduledPublishNotReady as error:
+            raise typer.BadParameter(str(error), param_hint="--draft-id") from error
+        typer.echo(result.to_text())
+        return
+
+    try:
+        meta_config = load_meta_graph_config(env_file=env_file)
+    except MetaGraphConfigError as error:
+        raise typer.BadParameter(str(error), param_hint="--env-file") from error
+    try:
+        result = execute_due_scheduled_publish(
+            connection,
+            draft_id,
+            r2_config=config.r2_staging,
+            client=MetaGraphClient(meta_config),
+            now=now,
+        )
+    except ScheduledPublishNotReady as error:
+        raise typer.BadParameter(str(error), param_hint="--draft-id") from error
     typer.echo(result.to_text())
 
 
@@ -737,6 +801,56 @@ def discord_dm_schedule_apply(
     typer.echo(result.to_text())
 
 
+@discord_app.command("dm-publish-approval-send")
+def discord_dm_publish_approval_send(
+    draft_id: int = typer.Option(..., "--draft-id", help="Scheduled draft id."),
+    now: Optional[str] = typer.Option(None, "--now", help="Override current time for deterministic local testing."),
+    db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
+) -> None:
+    """Send a live private Discord DM final publish approval prompt using env-configured bot credentials."""
+    connection = connect_db(db)
+    initialize_db(connection)
+    try:
+        config = load_discord_dm_config_from_env()
+        result = send_dm_publish_approval_prompt(
+            connection,
+            draft_id,
+            now=now,
+            config=config,
+            transport=DiscordRestTransport(config.bot_token, api_base_url=config.api_base_url),
+        )
+    except (DiscordDmError, DmSchedulingError) as error:
+        raise typer.BadParameter(str(error), param_hint="--draft-id") from error
+    typer.echo(result.to_text())
+
+
+@discord_app.command("dm-publish-approval-poll")
+def discord_dm_publish_approval_poll(
+    draft_id: int = typer.Option(..., "--draft-id", help="Draft id."),
+    channel_id: str = typer.Option(..., "--channel-id", help="Discord DM channel id returned by dm-publish-approval-send."),
+    after_message_id: str = typer.Option(..., "--after-message-id", help="Only inspect Discord replies after this prompt/confirmation message id."),
+    now: Optional[str] = typer.Option(None, "--now", help="Override current time for deterministic local testing."),
+    db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
+) -> None:
+    """Poll a private Discord DM for double-confirmed publish approval and send a confirmation."""
+    connection = connect_db(db)
+    initialize_db(connection)
+    try:
+        config = load_discord_dm_config_from_env()
+        result = poll_dm_publish_approval_reply(
+            connection,
+            draft_id,
+            channel_id=channel_id,
+            target_user_id=config.target_user_id,
+            after_message_id=after_message_id,
+            now=now,
+            transport=DiscordRestTransport(config.bot_token, api_base_url=config.api_base_url),
+        )
+    except (DiscordDmError, DmSchedulingError) as error:
+        raise typer.BadParameter(str(error), param_hint="--channel-id/--draft-id") from error
+    typer.echo(result.confirmation_text)
+
+
 @discord_app.command("dm-publish-approval-apply")
 def discord_dm_publish_approval_apply(
     draft_id: int = typer.Option(..., "--draft-id", help="Scheduled draft id."),
@@ -1113,6 +1227,7 @@ def drafts_r2_stage_upload(
     draft_id: int = typer.Option(..., "--draft-id", help="Draft id."),
     config_path: Path = typer.Option(Path("config/photo_sources.yaml"), "--config", help="Photo source and R2 staging config path."),
     execute: bool = typer.Option(False, "--execute", help="Upload staged objects to R2 and record them."),
+    include_review_artifacts: bool = typer.Option(False, "--include-review-artifacts", help="Also upload generated review thumbnails and contact sheet."),
     db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
 ) -> None:
     """Upload the R2 staging plan only when --execute is provided."""
@@ -1125,6 +1240,7 @@ def drafts_r2_stage_upload(
             draft_id,
             config.r2_staging,
             review_artifact_root=config.review_artifacts.root,
+            include_review_artifacts=include_review_artifacts,
             execute=execute,
         )
     except R2StagingDraftNotFound as error:

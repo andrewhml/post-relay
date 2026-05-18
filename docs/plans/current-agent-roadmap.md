@@ -4,7 +4,7 @@
 
 **Goal:** Make the Post Relay plan discoverable and executable for future agents across sessions.
 
-**Architecture:** Post Relay is a local-first Python CLI and SQLite workflow. The repo now supports processed-folder indexing, candidate/draft creation, numbered media selection, local review artifacts, R2 staging, guarded single-image/carousel publish validation, private Discord DM intake/selection/guided review/scheduling, local opportunity records, safe opportunity trigger checks, DM narrowing guardrails, bounded review artifact planning, and semantic local candidate matching. The next live carousel smoke execution remains blocked until a specific draft is staged, double-approved, dry-run reviewed, and explicitly authorized in the active session.
+**Architecture:** Post Relay is a local-first Python CLI and SQLite workflow. The repo now supports processed-folder indexing, candidate/draft creation, numbered media selection, local review artifacts, R2 staging, guarded single-image/carousel publish validation, private Discord DM intake/selection/guided review/scheduling/double-confirmed final approval, local opportunity records, safe opportunity trigger checks, DM narrowing guardrails, bounded review artifact planning, and semantic local candidate matching. The first live carousel smoke succeeded; the next roadmap focus is publish hardening around schedule enforcement, final metadata preview, and Instagram-optimized export assets.
 
 **Tech Stack:** Python 3.9+, SQLite, Typer, Pydantic, PyYAML, Pillow, pytest, GitHub PR milestone workflow.
 
@@ -230,10 +230,10 @@ Run this before opening or merging any PR:
 .venv/bin/python -m pytest -q
 ```
 
-Expected current result after the semantic candidate matching milestone:
+Expected current result after the publish schedule enforcement milestone:
 
 ```text
-168 passed
+186 passed
 ```
 
 ## Milestone execution rules
@@ -685,15 +685,15 @@ Current local result: `10 passed` focused; `163 passed` full suite.
 
 ## Current project state
 
-As of Milestone 21, the local-first workflow is past the original scaffold phase:
+As of the first live carousel smoke, the local-first workflow is past the original scaffold phase:
 
 - Local processed/NAS folders are still the source of truth; generated artifacts and R2 objects are disposable staging/review layers.
 - Candidate groups, drafts, media selection, context questions, guided packages, scheduling, draft approval, and publish approval all exist as local SQLite/CLI workflows.
-- Private Discord DM flows are live-capable for user-initiated intake, X-from-Y media selection, guided review/copy acceptance, scheduling, and final local publish approval.
+- Private Discord DM flows are live-capable for user-initiated intake, X-from-Y media selection, guided review/copy acceptance, scheduling, and double-confirmed final local publish approval.
 - Agent-initiated suggestions are modeled locally through `post_opportunities` and safe trigger checks, but proactive Discord outreach has not been implemented yet.
 - DM intake now avoids the worst broad-request failure mode by asking for narrowing cues before suggesting huge weak matches, matched large sets point operators to bounded artifact planning, and natural request matching uses local folder/year/filename descriptors with explainable rationale.
 - Oversized full contact-sheet renders are blocked by `drafts artifacts render`; instead, the CLI prints a bounded, DM-safe first-pass plan with narrowing/sample guidance and no source paths.
-- Single-image publish validation has completed one live smoke test; carousel publish support exists but the live carousel smoke is still blocked by intentional draft state, R2 staging, double approval, and active-session `--execute` authorization gates.
+- Single-image publish validation has completed one live smoke test. The first live carousel smoke for draft `2` succeeded through the guarded Meta path, but exposed post-publish hardening gaps: schedule enforcement, final publish caption/metadata composition, and export sizing/aspect-ratio optimization before future live posts.
 
 ## Next planned milestones
 
@@ -737,31 +737,124 @@ Focused local result: `17 passed`.
 
 Focused local result: `12 passed`.
 
-### Milestone 22: `feat/live-carousel-publish-smoke-execution`
+### Milestone 22: `feat/dm-double-confirm-publish-approval` (completed in this branch)
+
+**Goal:** Make Discord DM final publish approval a two-message confirmation flow backed by the existing active `publish` approval flag/table instead of treating approval as only a draft status.
+
+**Delivered behavior in branch:**
+- Publish approval guidance now states the double-confirm sequence: first `approve publish`, then `confirm publish approval for draft #<id>`.
+- The first DM reply records no approval flag and leaves the draft scheduled while updating the conversation thread to wait for the second confirmation.
+- The second confirmation records the active `publish` approval through the existing approvals table, moves the draft through the guarded local publish-approval state machine to `ready_to_publish`, and keeps Meta publish execution separate.
+- A final confirmation phrase without the pending first step is rejected in the Discord DM poll path, preventing a one-message bypass.
+- Added live-capable `discord dm-publish-approval-send` and `discord dm-publish-approval-poll` commands plus no-network apply support for the same two-step local state transition.
+- Updated README/AGENTS command references and the Post Relay content workflow skill so future agents preserve the two-step approval semantics.
+
+**Verification:**
+
+```bash
+.venv/bin/python -m pytest tests/test_dm_scheduling.py -q
+.venv/bin/python -m pytest -q
+```
+
+Current local result: `14 passed` focused; `174 passed` full suite.
+
+### Milestone 23: `feat/live-carousel-publish-smoke-execution`
 
 **Goal:** Complete the guarded live carousel smoke only after the preflight blockers are resolved and Andrew explicitly authorizes the Meta `--execute` command in the active session.
 
-**Current safe preflight refresh:**
-- Branch `feat/live-carousel-publish-smoke-execution` refreshed `docs/publishing/live-carousel-smoke-preflight-2026-05-17.md` after PR #47.
-- Draft `2` remains the current local carousel candidate: `carousel`, 5 included media, caption present, status `drafting`.
-- Safe checks run: full suite, read-only Meta dry-run, draft preview/media plan, R2 stage plan, staged-R2 carousel dry-run gate, and manual-URL carousel dry-run gate.
-- Observed blockers: draft `2` is not `ready_to_publish`, has no active draft or publish approvals, has no uploaded staged R2 media records, needs a passing immediate carousel dry run, and still needs Andrew's explicit active-session `--execute` authorization.
-- No Discord DMs, R2 upload execution, or Meta publishing endpoints were called during this preflight refresh.
+**Observed live smoke result on 2026-05-18:**
+- Draft `2` was packaged, content-approved, scheduled for `2026-05-19T10:00:00-04:00`, double-confirmed for final publish approval, R2 staged, dry-run reviewed, and explicitly authorized for Meta `--execute` in the active session.
+- Read-only Meta validation succeeded for Page `Andrewhml` (`998312870038313`) and linked Instagram account `andrewhml` (`17841400498120050`), with media count `207` before the publish.
+- The first execute attempt failed before publishing because the stored Meta token had expired; the draft moved to `failed`. After a fresh Facebook Graph user token was provided and read-only validation passed, the draft was restored through the allowed `failed -> ready_to_publish` transition and dry-run validation was repeated.
+- The live carousel execute path succeeded for draft `2`: five child containers were created, the parent carousel container reached `FINISHED`, and Meta returned published media id `18103350268949956`. Local draft status moved to `posted`.
+- The execute command published immediately when run; it did **not** wait for or enforce the stored `scheduled_for` time. This is now a required hardening follow-up before the next real post.
+- Hashtags and location were stored in local draft metadata, but hashtags were not appended to the caption sent to Meta and location remains local/review-only in the current capability matrix. This is now a required final-publish-preview/metadata follow-up.
+- Source portrait images used 2:3-ish dimensions (`4672x7008`, ratio `0.667`) rather than an Instagram-optimized 4:5 feed export (`1080x1350` or equivalent). This is now a required publish-export/aspect-ratio follow-up.
 
-**Preconditions before live execution:**
-- Use `docs/publishing/live-carousel-smoke-preflight-2026-05-17.md` as the runbook baseline.
-- A carousel draft is intentionally selected, packaged, and approved for queueing.
-- Final local publish approval is recorded after any media/caption changes.
-- R2 draft media upload has been executed successfully, or explicit public HTTPS image URLs are supplied.
-- `meta validate-carousel-publish --from-staged-r2 --dry-run` is reviewed.
-- Andrew explicitly approves the live `--execute` publish command in the active session.
+**Safety rule:** Treat the first live carousel smoke as successful but not production-complete. Do not publish another real post until the next post-publish hardening milestones below are implemented or explicitly bypassed by Andrew in the active session.
 
-**Safety rule:** If any precondition is missing, update the preflight notes with the blocker and stop before live Meta publish execution.
+### Milestone 24: `feat/publish-schedule-enforcement` (current branch)
+
+**Goal:** Prevent accidental immediate publishing before the approved scheduled time.
+
+**Implemented:**
+- `meta validate-image-publish --execute` and `meta validate-carousel-publish --execute` inspect `draft.scheduled_for` when present.
+- If `now < scheduled_for`, execute mode refuses before creating a publish attempt, before changing draft status to `posting`, and before calling Meta.
+- Both execute commands expose `--now` for deterministic checks/tests and `--publish-now` as the explicit early-publish override. Use `--publish-now` only with Andrew's explicit active-session authorization.
+- Domain tests cover before-schedule refusal without network calls, invalid schedule timestamps, and explicit override execution. CLI tests cover early refusal copy and redaction.
+- `meta publish-scheduled --from-staged-r2` adds a scheduled-runner preflight/execute wrapper for due posts. Default mode performs no network calls and creates no publish attempts.
+- Scheduled-runner preflight re-checks `ready_to_publish`, timezone-aware `scheduled_for`, due time, active draft and publish approvals, complete uploaded staged R2 draft media, caption, post type, and sanitized Meta-bound media URLs.
+- Scheduled-runner execute mode reuses the existing guarded single-image/carousel Meta execute path after preflight; it still requires due time, active approvals, complete staged media, private env credentials, and explicit `--execute`.
+
+**Safety rule:** The runner default is preflight only. Do not run `meta publish-scheduled --execute` until the approved scheduled time and only with Andrew's active-session authorization.
+
+**Next-session start here:**
+1. Finish/merge the existing dirty branch unless Andrew asks to split/rename it: `fix/r2-stage-upload-selected-media` currently contains the R2 dependency fix, Discord double-confirm publish approval, schedule-enforcement changes, and scheduled-runner preflight.
+2. First verify the current baseline: `.venv/bin/python -m pytest -q` should report `186 passed`.
+3. After Milestone 24 is merged, move next to Milestone 25 `feat/final-publish-preview-metadata` to fix hashtags/location/final-caption preview before any future real post.
+4. Keep live-safe defaults: no Discord sends, no R2 `--execute`, and no Meta `--execute` in tests or docs examples unless explicitly labeled as requiring Andrew's active-session authorization.
+
+**Verification:**
+
+```bash
+.venv/bin/python -m pytest tests/test_publish_validation.py tests/test_scheduled_publish_runner.py tests/test_cli.py -q
+.venv/bin/python -m pytest -q
+```
+
+### Milestone 25: `feat/final-publish-preview-metadata`
+
+**Goal:** Show and publish exactly the final metadata that Instagram will receive, avoiding hidden differences between local review metadata and Meta payload fields.
+
+**Required behavior:**
+- Add a final publish preview/planning command that renders the exact Meta-bound caption string, selected media order, staged public URLs, publishable fields, and local/review-only fields.
+- Merge stored hashtags into the final caption for v1 publishing, because the validated Graph path only publishes hashtags when they are embedded in the caption text.
+- Clearly label location as `caption-only`, `local/review-only`, or `Meta API location tag` depending on validated capability. Until capability validation exists, location should either remain local-only or be appended to the caption as plain text only with Andrew's approval.
+- Prevent `--execute` from using a caption different from the final preview that Andrew approved after content edits, hashtag appending, or location-as-caption changes.
+- Add tests that verify hashtags are included in the Meta `caption` payload when approved for publishing, while unsupported/review-only metadata is not silently sent to Meta.
+- Update Discord guided review / publish approval text to distinguish `caption`, `hashtags embedded in caption`, `location text`, and review-only alt text/rationale.
+
+**Verification:**
+
+```bash
+.venv/bin/python -m pytest tests/test_publishing.py tests/test_instagram_capabilities.py tests/test_dm_guided_review.py -q
+.venv/bin/python -m pytest -q
+```
+
+### Milestone 26: `feat/publish-export-profiles`
+
+**Goal:** Generate Instagram-optimized publish assets from immutable source media before R2 staging/Meta publish, especially for portrait carousel posts.
+
+**Required behavior:**
+- Add export profiles for feed publishing, starting with `feed_portrait_4x5` (`1080x1350` or a configurable higher-resolution 4:5 equivalent), `feed_square` (`1080x1080`), and a landscape-in-portrait-carousel treatment.
+- Preserve source media immutability: write exported publish assets under a generated artifact/export root, never over source Lightroom/NAS files.
+- For carousel posts, choose a consistent aspect ratio based on the lead image and warn when included media have mixed orientations/aspect ratios.
+- For portrait images like the Mt. Cook set (`~2:3`, ratio `0.667`), create intentional 4:5 crops or fits instead of leaving crop decisions to Instagram.
+- For landscape images inside a portrait carousel, support a deliberate treatment: smart crop, blurred/extended background, or clean mat/canvas. The selected treatment must be visible in the preview and approved before staging.
+- Add a publish-preview contact sheet using the actual exported images and dimensions, not the original source files.
+- R2 staging for publish should use exported publish assets when present; review artifacts/contact sheets remain separate from publish assets.
+- Add tests for dimensions, aspect ratio decisions, source immutability, mixed-orientation warnings, R2 plan resolution using exported assets, and dry-run output.
+
+**Verification:**
+
+```bash
+.venv/bin/python -m pytest tests/test_review_artifacts.py tests/test_r2_staging.py tests/test_publishing.py -q
+.venv/bin/python -m pytest -q
+```
+
+### Milestone 27: `feat/post-publish-analytics-feedback`
+
+**Goal:** After safer publishing is in place, capture performance feedback so recommendations and export choices improve over time.
+
+**Required behavior:**
+- Record published media ids, final caption, final media/export dimensions, schedule time vs actual publish time, and public metadata decisions in local audit tables.
+- Add a read-only insights collection plan for approved metrics that the current Graph permissions support.
+- Keep insights read-only and separate from publishing.
+- Use metrics later to refine cadence, caption length/style, carousel count/order, and export format recommendations.
 
 ## Later milestones
 
 - Video/reel validation after feed/carousel path is reliable.
-- Analytics/insights collection and follower-growth progress tracking.
+- Analytics/insights collection and follower-growth progress tracking after publish hardening has landed.
 - Recommendation improvements using approval and engagement history.
 - Candidate/media narrowing follow-ups for natural DM requests should now build on the completed local descriptor/alias ranking and bounded artifact guardrails: lightweight metadata search, generated tags, or Immich enrichment only if they stay auditable and local-first.
 - Immich/NAS enrichment once the processed-folder MVP works.
@@ -770,8 +863,8 @@ Focused local result: `12 passed`.
 
 - Whether proactive agent-initiated Discord opportunity DMs should be enabled after more user-initiated DM sessions prove the workflow.
 - How far candidate/media narrowing should go before Immich/NAS enrichment: folder/date/filename tokens only, lightweight local metadata, generated tags, perceptual/semantic embeddings, or Immich metadata once reliable.
-- Exact current Meta permission/token state at the time live carousel publish execution resumes.
-- Whether reel/video validation should happen immediately after carousel smoke or wait until feed/carousel cadence and analytics are stable.
+- Exact current Meta permission/token state before the next live publish or read-only insights collection run.
+- Whether reel/video validation should happen immediately after publish hardening or wait until feed/carousel cadence and analytics are stable.
 
 ## Documentation maintenance rule
 
