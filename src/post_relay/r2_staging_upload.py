@@ -89,6 +89,7 @@ def upload_r2_staging_for_draft(
     config: R2StagingConfig,
     *,
     review_artifact_root: Optional[Path] = None,
+    include_review_artifacts: bool = False,
     execute: bool = False,
     client: Optional[R2StorageClient] = None,
 ) -> R2StagingUploadResult:
@@ -98,8 +99,9 @@ def upload_r2_staging_for_draft(
         config,
         review_artifact_root=review_artifact_root,
     )
-    items = plan.media_items + plan.artifact_items
+    items = plan.media_items + (plan.artifact_items if include_review_artifacts else [])
     object_keys = [item.object_key for item in items]
+    missing_source_paths = [item.source_path for item in items if not item.exists]
     if not execute:
         return R2StagingUploadResult(
             draft_id=draft_id,
@@ -108,10 +110,10 @@ def upload_r2_staging_for_draft(
             uploaded_count=0,
             object_keys=object_keys,
         )
-    if not plan.ready_to_upload:
+    if missing_source_paths:
         raise R2StagingUploadError(
             "Cannot upload R2 staging plan while source files are missing: "
-            + ", ".join(plan.missing_source_paths)
+            + ", ".join(missing_source_paths)
         )
     storage_client = client or build_boto3_r2_client(config)
     uploaded_count = 0

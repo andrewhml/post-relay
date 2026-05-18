@@ -1113,6 +1113,7 @@ def drafts_r2_stage_upload(
     draft_id: int = typer.Option(..., "--draft-id", help="Draft id."),
     config_path: Path = typer.Option(Path("config/photo_sources.yaml"), "--config", help="Photo source and R2 staging config path."),
     execute: bool = typer.Option(False, "--execute", help="Upload staged objects to R2 and record them."),
+    include_review_artifacts: bool = typer.Option(False, "--include-review-artifacts", help="Also upload generated review thumbnails and contact sheet."),
     db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
 ) -> None:
     """Upload the R2 staging plan only when --execute is provided."""
@@ -1125,6 +1126,7 @@ def drafts_r2_stage_upload(
             draft_id,
             config.r2_staging,
             review_artifact_root=config.review_artifacts.root,
+            include_review_artifacts=include_review_artifacts,
             execute=execute,
         )
     except R2StagingDraftNotFound as error:

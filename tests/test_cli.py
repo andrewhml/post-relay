@@ -305,6 +305,20 @@ r2_staging:
         app,
         ["drafts", "r2-stage-upload", "--draft-id", "1", "--config", str(config_path), "--db", str(db_path)],
     )
+    upload_with_artifacts_result = runner.invoke(
+        app,
+        [
+            "drafts",
+            "r2-stage-upload",
+            "--draft-id",
+            "1",
+            "--include-review-artifacts",
+            "--config",
+            str(config_path),
+            "--db",
+            str(db_path),
+        ],
+    )
     cleanup_result = runner.invoke(
         app,
         ["drafts", "r2-cleanup", "--draft-id", "1", "--config", str(config_path), "--db", str(db_path)],
@@ -312,7 +326,12 @@ r2_staging:
 
     assert upload_result.exit_code == 0
     assert "R2 Staging Upload (dry run)" in upload_result.output
+    assert "Planned objects: 1" in upload_result.output
+    assert "review-artifacts" not in upload_result.output
     assert "No network calls were made." in upload_result.output
+    assert upload_with_artifacts_result.exit_code == 0
+    assert "Planned objects: 3" in upload_with_artifacts_result.output
+    assert "review-artifacts" in upload_with_artifacts_result.output
     assert cleanup_result.exit_code == 0
     assert "R2 Staging Cleanup (dry run)" in cleanup_result.output
     assert "No objects were deleted." in cleanup_result.output
