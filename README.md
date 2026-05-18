@@ -17,8 +17,9 @@ Early local-first MVP scaffold with:
 - dry-run Discord preview payload CLI with ordered included image paths and missing-file checks
 - schedule and publish-approval CLI without live publishing
 - sanitized read-only Meta Graph validation CLI
-- controlled single-image and carousel Meta publish validation CLIs with dry-run planning, approval guards, staged-R2 URL resolution, schedule enforcement, container creation/status polling/publish execution, and sanitized attempt logging
+- controlled single-image and carousel Meta publish validation CLIs with dry-run planning, approval guards, staged-R2 URL resolution, schedule enforcement, container creation/status polling/publish execution, hashtags merged into the Meta caption payload, and sanitized attempt logging
 - no-network scheduled publish preflight/execute wrapper for due staged-R2 posts that re-validates schedule, approvals, and media completeness before Meta execution
+- no-network final publish preview that shows the exact Meta-bound caption, selected staged media URLs, publishable fields, and local/review-only metadata before live execution
 - guarded R2 staging upload/cleanup CLI with recorded-object-only deletion and explicit `--execute` safeguards
 - explicit Instagram capability matrix separating publishable fields from local/review-only metadata
 - guarded draft workflow state model
@@ -40,12 +41,10 @@ Early local-first MVP scaffold with:
 - `graph.instagram.com` returned `Invalid platform app` in current setup
 
 ## Immediate goals
-1. Harden live publishing before the next real post: schedule enforcement blocks Meta `--execute` before `scheduled_for` unless `--publish-now` is explicitly used; `meta publish-scheduled --from-staged-r2` now provides a no-network due-time/approval/staged-media preflight and execute wrapper for scheduled runs
-2. Add a final publish preview that shows the exact Meta-bound caption, media URLs, publishable metadata, and local/review-only fields; merge hashtags into the caption for v1 publishing and make location handling explicit
-3. Add Instagram-optimized publish export profiles, especially 4:5 portrait carousel assets, mixed-orientation warnings, and preview contact sheets built from the actual exported files
-4. Keep improving the private-DM-first, user-initiated workflow for selecting photos, accepting hook-first captions/metadata, scheduling, and recording local approvals
-5. Keep agent-initiated suggestions local-only until the user-initiated flow has enough successful sessions; then add proactive Discord DMs behind explicit safe trigger and opt-out controls
-6. After feed/carousel publishing is reliable, add analytics/insights collection, recommendation improvements, and later reel/video validation
+1. Add Instagram-optimized publish export profiles, especially 4:5 portrait carousel assets, mixed-orientation warnings, and preview contact sheets built from the actual exported files
+2. Keep improving the private-DM-first, user-initiated workflow for selecting photos, accepting hook-first captions/metadata, scheduling, and recording local approvals
+3. Keep agent-initiated suggestions local-only until the user-initiated flow has enough successful sessions; then add proactive Discord DMs behind explicit safe trigger and opt-out controls
+4. After feed/carousel publishing is reliable, add analytics/insights collection, recommendation improvements, and later reel/video validation
 
 ## Agent handoff
 Future agents should start with `AGENTS.md`, then `docs/plans/current-agent-roadmap.md`. The durable plan for local/NAS sources, review artifacts, and Cloudflare R2 staging is `docs/plans/content-pipeline-r2-staging-plan.md`. The specialized agent baseline is `docs/plans/postrelay-agent-operating-baseline.md`. The current private-DM conversation plan is `docs/plans/discord-dm-conversation-orchestration.md`, and the Discord-before-live-publish selection/review plan is `docs/plans/discord-photo-selection-before-carousel-smoke.md`.
@@ -66,6 +65,7 @@ Use the project virtualenv when running locally:
 .venv/bin/post-relay meta validate-image-publish --draft-id 1 --from-staged-r2 --config config/photo_sources.yaml --db data/post_relay.sqlite --env-file .env --execute --publish-now
 .venv/bin/post-relay meta validate-carousel-publish --draft-id 2 --image-url "https://example.com/first.jpg" --image-url "https://example.com/second.jpg" --db data/post_relay.sqlite --dry-run
 .venv/bin/post-relay meta validate-carousel-publish --draft-id 2 --from-staged-r2 --config config/photo_sources.yaml --db data/post_relay.sqlite --dry-run
+.venv/bin/post-relay meta final-publish-preview --draft-id 2 --from-staged-r2 --config config/photo_sources.yaml --db data/post_relay.sqlite
 .venv/bin/post-relay meta publish-scheduled --draft-id 2 --from-staged-r2 --config config/photo_sources.yaml --db data/post_relay.sqlite
 # Execute only when due and explicitly authorized in the active session:
 .venv/bin/post-relay meta publish-scheduled --draft-id 2 --from-staged-r2 --config config/photo_sources.yaml --db data/post_relay.sqlite --env-file .env --execute

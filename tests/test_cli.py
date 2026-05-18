@@ -997,3 +997,95 @@ r2_staging:
     assert "https://peddocks.net/post-relay/staging/drafts/1/media/01-image.jpg?token=<redacted>" in result.output
     assert "secret" not in result.output
     assert "No Meta publishing endpoints were called." in result.output
+
+
+def test_cli_final_publish_preview_shows_exact_meta_caption_and_review_only_fields(tmp_path: Path):
+    root = tmp_path / "processed"
+    folder = root / "2023" / "kyoto"
+    folder.mkdir(parents=True)
+    (folder / "temple.jpg").write_bytes(b"fake image")
+    (folder / "garden.jpg").write_bytes(b"fake image")
+    config_path = tmp_path / "photo_sources.yaml"
+    config_path.write_text(
+        f"""
+photo_sources:
+  - name: processed
+    root: {root.as_posix()}
+    source_type: processed_folder
+r2_staging:
+  enabled: true
+  bucket: post-relay-publish
+  public_base_url: https://peddocks.net
+  prefix: post-relay/staging
+""".strip()
+    )
+    db_path = tmp_path / "post_relay.sqlite"
+
+    runner.invoke(app, ["index", "scan", "--config", str(config_path), "--db", str(db_path)])
+    runner.invoke(app, ["candidates", "build", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "create", "--candidate-id", "1", "--db", str(db_path)])
+    runner.invoke(
+        app,
+        [
+            "drafts",
+            "edit",
+            "--draft-id",
+            "1",
+            "--caption",
+            "Kyoto garden sequence.",
+            "--hashtags",
+            "#travelphotography,#Kyoto",
+            "--location",
+            "Kyoto, Japan",
+            "--alt-text",
+            "Review-only accessibility note",
+            "--db",
+            str(db_path),
+        ],
+    )
+    runner.invoke(app, ["drafts", "submit", "--draft-id", "1", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "approve", "--draft-id", "1", "--approved-by", "andrew", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "schedule", "--draft-id", "1", "--scheduled-for", "2026-05-05T09:30:00-07:00", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "request-publish-approval", "--draft-id", "1", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "approve-publish", "--draft-id", "1", "--approved-by", "andrew", "--db", str(db_path)])
+    connection = connect_db(db_path)
+    initialize_db(connection)
+    selected_paths = list_candidate_group_photo_paths(connection, 1)
+    for index, source_path in enumerate(selected_paths, start=1):
+        create_r2_staged_object_record(
+            connection,
+            draft_id=1,
+            kind="draft_media",
+            source_path=source_path,
+            bucket="post-relay-publish",
+            object_key=f"post-relay/staging/drafts/1/media/{index:02d}-image.jpg",
+            public_url=f"https://peddocks.net/post-relay/staging/drafts/1/media/{index:02d}-image.jpg?token=secret",
+        )
+    connection.commit()
+
+    result = runner.invoke(
+        app,
+        [
+            "meta",
+            "final-publish-preview",
+            "--draft-id",
+            "1",
+            "--from-staged-r2",
+            "--config",
+            str(config_path),
+            "--db",
+            str(db_path),
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Final publish preview" in result.output
+    assert "Exact Meta-bound caption:" in result.output
+    assert "Kyoto garden sequence." in result.output
+    assert "#travelphotography #Kyoto" in result.output
+    assert "Location handling: local/review-only" in result.output
+    assert "Review-only fields:" in result.output
+    assert "alt_text: Review-only accessibility note" in result.output
+    assert "https://peddocks.net/post-relay/staging/drafts/1/media/01-image.jpg?token=<redacted>" in result.output
+    assert "secret" not in result.output
+    assert "No Meta publishing endpoints were called." in result.output

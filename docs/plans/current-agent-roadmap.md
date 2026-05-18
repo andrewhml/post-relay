@@ -230,10 +230,10 @@ Run this before opening or merging any PR:
 .venv/bin/python -m pytest -q
 ```
 
-Expected current result after the publish schedule enforcement milestone:
+Expected current result after the final publish preview metadata milestone:
 
 ```text
-186 passed
+192 passed
 ```
 
 ## Milestone execution rules
@@ -693,7 +693,7 @@ As of the first live carousel smoke, the local-first workflow is past the origin
 - Agent-initiated suggestions are modeled locally through `post_opportunities` and safe trigger checks, but proactive Discord outreach has not been implemented yet.
 - DM intake now avoids the worst broad-request failure mode by asking for narrowing cues before suggesting huge weak matches, matched large sets point operators to bounded artifact planning, and natural request matching uses local folder/year/filename descriptors with explainable rationale.
 - Oversized full contact-sheet renders are blocked by `drafts artifacts render`; instead, the CLI prints a bounded, DM-safe first-pass plan with narrowing/sample guidance and no source paths.
-- Single-image publish validation has completed one live smoke test. The first live carousel smoke for draft `2` succeeded through the guarded Meta path, but exposed post-publish hardening gaps: schedule enforcement, final publish caption/metadata composition, and export sizing/aspect-ratio optimization before future live posts.
+- Single-image publish validation has completed one live smoke test. The first live carousel smoke for draft `2` succeeded through the guarded Meta path. Schedule enforcement and final publish caption/metadata preview have now landed; remaining post-publish hardening before the next production cadence is export sizing/aspect-ratio optimization.
 
 ## Next planned milestones
 
@@ -788,11 +788,7 @@ Current local result: `14 passed` focused; `174 passed` full suite.
 
 **Safety rule:** The runner default is preflight only. Do not run `meta publish-scheduled --execute` until the approved scheduled time and only with Andrew's active-session authorization.
 
-**Next-session start here:**
-1. Finish/merge the existing dirty branch unless Andrew asks to split/rename it: `fix/r2-stage-upload-selected-media` currently contains the R2 dependency fix, Discord double-confirm publish approval, schedule-enforcement changes, and scheduled-runner preflight.
-2. First verify the current baseline: `.venv/bin/python -m pytest -q` should report `186 passed`.
-3. After Milestone 24 is merged, move next to Milestone 25 `feat/final-publish-preview-metadata` to fix hashtags/location/final-caption preview before any future real post.
-4. Keep live-safe defaults: no Discord sends, no R2 `--execute`, and no Meta `--execute` in tests or docs examples unless explicitly labeled as requiring Andrew's active-session authorization.
+**Historical next-session note:** After Milestone 24 merged, work moved to Milestone 25 `feat/final-publish-preview-metadata`. That milestone is now completed in this branch; the active next milestone is Milestone 26 `feat/publish-export-profiles`.
 
 **Verification:**
 
@@ -801,22 +797,29 @@ Current local result: `14 passed` focused; `174 passed` full suite.
 .venv/bin/python -m pytest -q
 ```
 
-### Milestone 25: `feat/final-publish-preview-metadata`
+### Milestone 25: `feat/final-publish-preview-metadata` (completed in this branch)
 
 **Goal:** Show and publish exactly the final metadata that Instagram will receive, avoiding hidden differences between local review metadata and Meta payload fields.
 
-**Required behavior:**
-- Add a final publish preview/planning command that renders the exact Meta-bound caption string, selected media order, staged public URLs, publishable fields, and local/review-only fields.
-- Merge stored hashtags into the final caption for v1 publishing, because the validated Graph path only publishes hashtags when they are embedded in the caption text.
-- Clearly label location as `caption-only`, `local/review-only`, or `Meta API location tag` depending on validated capability. Until capability validation exists, location should either remain local-only or be appended to the caption as plain text only with Andrew's approval.
-- Prevent `--execute` from using a caption different from the final preview that Andrew approved after content edits, hashtag appending, or location-as-caption changes.
-- Add tests that verify hashtags are included in the Meta `caption` payload when approved for publishing, while unsupported/review-only metadata is not silently sent to Meta.
-- Update Discord guided review / publish approval text to distinguish `caption`, `hashtags embedded in caption`, `location text`, and review-only alt text/rationale.
+**Delivered behavior in branch:**
+- Added `meta final-publish-preview --from-staged-r2`, a no-network command that renders the exact Meta-bound caption string, selected staged public URLs in publish order, publishable fields, and local/review-only fields.
+- Added a shared final-caption composer so dry-run/execute publish validation and final preview use the same caption string.
+- Stored hashtags are deduped and appended to the Meta `caption` payload for v1 publishing when they are not already present in the caption text.
+- Location text remains explicitly `local/review-only`; it is shown in the final preview and publish approval guidance but is not sent as a Meta location tag.
+- Review-only alt text/rationale remains local and is not silently sent to Meta endpoints.
+- Discord/private-DM final publish approval guidance now distinguishes exact Meta-bound caption, hashtags embedded in caption, location text, and review-only alt text/rationale.
+
+**Safety rule:** Final preview performs no Discord sends, no R2 upload/cleanup, and no Meta publishing calls. It is a human inspection step before any later explicit scheduled `--execute` publish.
+
+**Next-session start here:**
+1. First verify the current baseline: `.venv/bin/python -m pytest -q` should report the full suite passing.
+2. Move next to Milestone 26 `feat/publish-export-profiles` to generate Instagram-optimized publish assets, especially 4:5 portrait carousel exports, before future real posts.
+3. Keep live-safe defaults: no Discord sends, no R2 `--execute`, and no Meta `--execute` in tests or docs examples unless explicitly labeled as requiring Andrew's active-session authorization.
 
 **Verification:**
 
 ```bash
-.venv/bin/python -m pytest tests/test_publishing.py tests/test_instagram_capabilities.py tests/test_dm_guided_review.py -q
+.venv/bin/python -m pytest tests/test_final_publish_preview.py tests/test_publish_validation.py tests/test_dm_scheduling.py tests/test_cli.py -q
 .venv/bin/python -m pytest -q
 ```
 

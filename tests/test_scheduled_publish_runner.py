@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import pytest
@@ -151,6 +152,11 @@ def test_preflight_due_scheduled_publish_requires_complete_uploaded_staged_r2_me
 
 def test_preflight_due_scheduled_publish_reports_due_plan_without_network_or_attempt(tmp_path: Path):
     connection, draft, r2_config = _build_ready_draft(tmp_path)
+    connection.execute(
+        "update drafts set hashtags_json = ? where id = ?",
+        (json.dumps(["#travelphotography", "#Kyoto"]), draft.id),
+    )
+    connection.commit()
 
     result = preflight_due_scheduled_publish(
         connection,
@@ -165,6 +171,7 @@ def test_preflight_due_scheduled_publish_reports_due_plan_without_network_or_att
         "https://peddocks.net/post-relay/staging/drafts/1/media/01-image.jpg?token=<redacted>",
         "https://peddocks.net/post-relay/staging/drafts/1/media/02-image.jpg?token=<redacted>",
     ]
+    assert result.caption == "A scheduled post.\n\n#travelphotography #Kyoto"
     assert "No Meta publishing endpoints were called." in result.to_text()
     assert "secret" not in result.to_text()
     assert list_publish_attempts(connection, draft.id) == []
