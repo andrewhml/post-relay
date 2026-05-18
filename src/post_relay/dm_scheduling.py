@@ -6,6 +6,7 @@ import re
 from typing import Optional
 
 from post_relay.discord_dm import DiscordDmConfig, DiscordDmError, DiscordDmTransport, DiscordRestTransport
+from post_relay.publish_metadata import compose_final_meta_caption, parse_hashtags
 from post_relay.repository import (
     ConversationThreadRecord,
     create_conversation_thread,
@@ -78,16 +79,35 @@ class DmPublishApprovalGuidanceResult:
     draft_id: int
     scheduled_for: str
     hours_until_publish: float
+    meta_caption: str = ""
+    hashtags_embedded_in_caption: tuple[str, ...] = ()
+    location_text: Optional[str] = None
+    alt_text: Optional[str] = None
 
     def to_text(self, *, no_network: bool = True) -> str:
         lines = [
             "Post Relay final publish approval request",
             f"Draft #{self.draft_id}",
             f"Scheduled for: {self.scheduled_for}",
-            "Double confirm required: first reply `approve publish`, then reply with the exact confirmation phrase I send back.",
-            f"Final confirmation phrase: `confirm publish approval for draft #{self.draft_id}`.",
-            "This only records local publish approval; it does not publish to Instagram.",
+            "Exact Meta-bound caption:",
+            self.meta_caption or "<empty>",
+            "Hashtags embedded in caption: " + (" ".join(self.hashtags_embedded_in_caption) or "<none>"),
         ]
+        if self.location_text:
+            lines.append(f"Location text: {self.location_text} (local/review-only; not sent as a Meta location tag)")
+        else:
+            lines.append("Location text: <none>")
+        if self.alt_text:
+            lines.append(f"Review-only alt text/rationale: {self.alt_text}")
+        else:
+            lines.append("Review-only alt text/rationale: <none>")
+        lines.extend(
+            [
+                "Double confirm required: first reply `approve publish`, then reply with the exact confirmation phrase I send back.",
+                f"Final confirmation phrase: `confirm publish approval for draft #{self.draft_id}`.",
+                "This only records local publish approval; it does not publish to Instagram.",
+            ]
+        )
         if no_network:
             lines.append("No Discord or Meta network calls were made.")
         lines.append("No Meta publishing endpoints were called.")
@@ -260,6 +280,10 @@ def build_dm_publish_approval_guidance(
         draft_id=draft_id,
         scheduled_for=draft.scheduled_for,
         hours_until_publish=hours_until,
+        meta_caption=compose_final_meta_caption(draft),
+        hashtags_embedded_in_caption=tuple(parse_hashtags(draft.hashtags_json)),
+        location_text=draft.location_text,
+        alt_text=draft.alt_text,
     )
 
 

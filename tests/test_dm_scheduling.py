@@ -13,7 +13,13 @@ from post_relay.db import connect_db, initialize_db
 from post_relay.discord_dm import DiscordDmConfig, DiscordMessage
 from post_relay.drafts import create_draft_from_candidate
 from post_relay.indexer import index_photo_sources
-from post_relay.repository import get_active_conversation_thread_for_channel, get_draft, list_active_approvals, list_candidate_groups
+from post_relay.repository import (
+    get_active_conversation_thread_for_channel,
+    get_draft,
+    list_active_approvals,
+    list_candidate_groups,
+    update_draft_content,
+)
 from post_relay.state import ApprovalType, DraftState
 from post_relay.dm_scheduling import (
     build_dm_publish_approval_guidance,
@@ -156,6 +162,41 @@ def test_publish_approval_reply_requires_double_confirm_before_recording_flag(tm
     assert "final publish approval" in thread.last_prompt_summary
     assert "Publish approval recorded" in result.to_text()
     assert "No Discord or Meta network calls were made." in result.to_text()
+
+
+def test_publish_approval_guidance_distinguishes_meta_caption_and_review_only_metadata(tmp_path: Path):
+    connection, draft, _root = _build_approved_fixture_draft(tmp_path)
+    update_draft_content(
+        connection,
+        draft.id,
+        caption="Lanterns after dark.",
+        hashtags=["#travelphotography", "#Kyoto"],
+        location_text="Kyoto, Japan",
+        alt_text="Review-only accessibility note",
+    )
+    handle_dm_schedule_reply(
+        connection,
+        draft.id,
+        "slot 1",
+        now="2026-05-16T20:00:00-07:00",
+        discord_channel_id="dm-andrew",
+    )
+
+    guidance = build_dm_publish_approval_guidance(
+        connection,
+        draft.id,
+        now="2026-05-18T12:00:00-07:00",
+    )
+    text = guidance.to_text()
+
+    assert "Exact Meta-bound caption:" in text
+    assert "Lanterns after dark." in text
+    assert "#travelphotography #Kyoto" in text
+    assert "Hashtags embedded in caption: #travelphotography #Kyoto" in text
+    assert "Location text: Kyoto, Japan (local/review-only; not sent as a Meta location tag)" in text
+    assert "Review-only alt text/rationale: Review-only accessibility note" in text
+    assert "This only records local publish approval; it does not publish to Instagram." in text
+
 
 
 def test_send_dm_schedule_prompt_sends_private_dm_and_records_waiting_thread(tmp_path: Path):

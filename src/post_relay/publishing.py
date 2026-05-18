@@ -7,6 +7,7 @@ from urllib.parse import parse_qsl, urlsplit, urlunsplit
 
 from post_relay.config import R2StagingConfig
 from post_relay.meta_graph import MetaGraphClient, MetaGraphRequestError, redact_secrets
+from post_relay.publish_metadata import compose_final_meta_caption
 from post_relay.repository import (
     create_publish_attempt,
     get_draft,
@@ -149,7 +150,7 @@ def prepare_single_image_publish_validation(
 ) -> SingleImagePublishValidationResult:
     draft = _validate_single_image_ready_draft(connection, draft_id)
     sanitized_image_url = _sanitize_url(image_url)
-    caption = (draft.caption or "").strip()
+    caption = compose_final_meta_caption(draft)
     create_publish_attempt(
         connection,
         draft_id=draft.id,
@@ -182,7 +183,7 @@ def execute_single_image_publish_validation(
         raise PublishValidationError("POST_RELAY_INSTAGRAM_ACCOUNT_ID is required for publishing")
 
     sanitized_image_url = _sanitize_url(image_url)
-    caption = (draft.caption or "").strip()
+    caption = compose_final_meta_caption(draft)
     attempt = create_publish_attempt(
         connection,
         draft_id=draft.id,
@@ -282,7 +283,7 @@ def prepare_carousel_publish_validation(
 ) -> CarouselPublishValidationResult:
     draft = _validate_carousel_ready_draft(connection, draft_id, image_urls)
     sanitized_image_urls = [_sanitize_url(image_url) for image_url in image_urls]
-    caption = (draft.caption or "").strip()
+    caption = compose_final_meta_caption(draft)
     create_publish_attempt(
         connection,
         draft_id=draft.id,
@@ -318,7 +319,7 @@ def execute_carousel_publish_validation(
         raise PublishValidationError("POST_RELAY_INSTAGRAM_ACCOUNT_ID is required for publishing")
 
     sanitized_image_urls = [_sanitize_url(image_url) for image_url in image_urls]
-    caption = (draft.caption or "").strip()
+    caption = compose_final_meta_caption(draft)
     attempt = create_publish_attempt(
         connection,
         draft_id=draft.id,

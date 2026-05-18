@@ -225,6 +225,48 @@ def test_execute_single_image_publish_validation_rejects_invalid_schedule_timest
     assert requested == []
 
 
+def test_execute_single_image_publish_validation_sends_hashtags_inside_meta_caption(tmp_path: Path):
+    connection, draft = _build_single_image_ready_draft(tmp_path, caption="Temple morning.")
+    update_draft_content(
+        connection,
+        draft.id,
+        hashtags=["#travelphotography", "#Kyoto"],
+        location_text="Kyoto, Japan",
+        alt_text="Review-only accessibility note",
+    )
+    requested = []
+
+    def fake_transport(method, url, params):
+        requested.append((method, url, dict(params)))
+        if url.endswith("/17841400498120050/media"):
+            return {"id": "creation-123"}
+        if url.endswith("/creation-123"):
+            return {"id": "creation-123", "status_code": "FINISHED"}
+        if url.endswith("/17841400498120050/media_publish"):
+            return {"id": "media-456"}
+        raise AssertionError(f"unexpected URL: {url}")
+
+    client = MetaGraphClient(
+        MetaGraphConfig(access_token="secret-token", instagram_account_id="17841400498120050"),
+        transport=fake_transport,
+    )
+
+    result = execute_single_image_publish_validation(
+        connection,
+        draft.id,
+        image_url="https://example.com/test-image.jpg",
+        client=client,
+    )
+
+    assert result.caption == "Temple morning.\n\n#travelphotography #Kyoto"
+    media_params = requested[0][2]
+    assert media_params["caption"] == "Temple morning.\n\n#travelphotography #Kyoto"
+    assert "location_id" not in media_params
+    assert "alt_text" not in media_params
+    assert list_publish_attempts(connection, draft.id)[0].caption == "Temple morning.\n\n#travelphotography #Kyoto"
+
+
+
 def test_execute_single_image_publish_validation_creates_polls_and_publishes_after_approval(tmp_path: Path):
     connection, draft = _build_single_image_ready_draft(tmp_path, caption="Temple morning.")
     requested = []
@@ -570,3 +612,50 @@ def test_carousel_publish_request_excludes_review_only_metadata(tmp_path: Path):
         assert "location_id" not in params
         assert "collaborators" not in params
     assert media_requests[2]["caption"] == "Kyoto garden sequence."
+
+
+def test_execute_carousel_publish_validation_sends_hashtags_inside_parent_caption_only(tmp_path: Path):
+    connection, draft = _build_carousel_ready_draft(tmp_path, caption="Kyoto garden sequence.")
+    update_draft_content(
+        connection,
+        draft.id,
+        hashtags=["#travelphotography", "#Kyoto"],
+        location_text="Kyoto, Japan",
+        alt_text="Review-only accessibility note",
+    )
+    requested = []
+
+    def fake_transport(method, url, params):
+        requested.append((method, url, dict(params)))
+        media_url = "https://graph.facebook.com/v19.0/17841400498120050/media"
+        if url == media_url and params.get("image_url") == "https://example.com/temple.jpg":
+            return {"id": "child-1"}
+        if url == media_url and params.get("image_url") == "https://example.com/garden.jpg":
+            return {"id": "child-2"}
+        if url == media_url and params.get("media_type") == "CAROUSEL":
+            return {"id": "carousel-123"}
+        if url.endswith("/carousel-123"):
+            return {"id": "carousel-123", "status_code": "FINISHED"}
+        if url.endswith("/17841400498120050/media_publish"):
+            return {"id": "media-789"}
+        raise AssertionError(f"unexpected request: {method} {url} {params}")
+
+    client = MetaGraphClient(
+        MetaGraphConfig(access_token="secret-token", instagram_account_id="17841400498120050"),
+        transport=fake_transport,
+    )
+
+    result = execute_carousel_publish_validation(
+        connection,
+        draft.id,
+        image_urls=["https://example.com/temple.jpg", "https://example.com/garden.jpg"],
+        client=client,
+    )
+
+    assert result.caption == "Kyoto garden sequence.\n\n#travelphotography #Kyoto"
+    media_requests = [params for _method, url, params in requested if url.endswith("/17841400498120050/media")]
+    assert "caption" not in media_requests[0]
+    assert "caption" not in media_requests[1]
+    assert media_requests[2]["caption"] == "Kyoto garden sequence.\n\n#travelphotography #Kyoto"
+    assert "location_id" not in media_requests[2]
+    assert list_publish_attempts(connection, draft.id)[0].caption == "Kyoto garden sequence.\n\n#travelphotography #Kyoto"

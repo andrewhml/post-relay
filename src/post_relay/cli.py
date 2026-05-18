@@ -61,6 +61,7 @@ from post_relay.guided_draft import (
     accept_guided_draft_package,
     build_guided_draft_package,
 )
+from post_relay.final_publish_preview import build_final_publish_preview
 from post_relay.indexer import index_photo_sources
 from post_relay.meta_graph import (
     MetaGraphClient,
@@ -349,6 +350,28 @@ def meta_validate_carousel_publish(
         raise typer.BadParameter(str(error), param_hint="--draft-id") from error
     except PublishValidationError as error:
         raise typer.BadParameter(str(error), param_hint="--env-file") from error
+    typer.echo(result.to_text())
+
+
+@meta_app.command("final-publish-preview")
+def meta_final_publish_preview(
+    draft_id: int = typer.Option(..., "--draft-id", help="Ready-to-publish draft id."),
+    from_staged_r2: bool = typer.Option(False, "--from-staged-r2", help="Resolve ordered publish image URLs from uploaded R2 staged media records."),
+    config_path: Path = typer.Option(Path("config/photo_sources.yaml"), "--config", help="Photo source and R2 staging config path."),
+    db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
+) -> None:
+    """Print the exact Meta-bound caption/media preview plus local-only metadata."""
+    if not from_staged_r2:
+        raise typer.BadParameter("Final publish preview currently requires --from-staged-r2", param_hint="--from-staged-r2")
+    connection = connect_db(db)
+    initialize_db(connection)
+    try:
+        config = load_config(config_path)
+        result = build_final_publish_preview(connection, draft_id, r2_config=config.r2_staging)
+    except R2StagingConfigError as error:
+        raise typer.BadParameter(str(error), param_hint="--config") from error
+    except (PublishDraftNotFound, UnsupportedPublishDraft) as error:
+        raise typer.BadParameter(str(error), param_hint="--draft-id") from error
     typer.echo(result.to_text())
 
 

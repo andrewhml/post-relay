@@ -7,6 +7,7 @@ from urllib.parse import parse_qsl, urlsplit, urlunsplit
 
 from post_relay.config import R2StagingConfig
 from post_relay.meta_graph import MetaGraphClient
+from post_relay.publish_metadata import compose_final_meta_caption
 from post_relay.publishing import (
     DraftNotFound,
     DraftNotReadyForImagePublish,
@@ -86,7 +87,7 @@ def preflight_due_scheduled_publish(
     _require_active_double_approval(connection, draft_id)
     image_urls = _resolve_staged_urls(connection, draft_id, r2_config)
     selected_count = len(list_candidate_group_photo_paths(connection, draft.candidate_group_id))
-    caption = (draft.caption or "").strip()
+    caption = compose_final_meta_caption(draft)
     if not caption:
         raise ScheduledPublishNotReady("Scheduled publish requires a non-empty approved caption")
     if draft.post_type == "single_image":

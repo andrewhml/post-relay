@@ -45,7 +45,8 @@ Post Relay is a local-first Instagram travel content workflow for Andrew's `andr
 - Queue-approved drafts can be scheduled locally and moved through final publish approval without live API calls.
 - Guarded single-image/carousel publish validation can use either explicit public HTTPS `--image-url` values or recorded uploaded R2 staged media via `--from-staged-r2`, preserving dry-run defaults, double approval, schedule enforcement, and explicit `--execute` publish safeguards.
 - Scheduled publish runner preflight can use `meta publish-scheduled --from-staged-r2` to re-check due time, active draft/publish approvals, selected staged R2 media completeness, caption/post type, and safe Meta-bound URLs without network calls before execute mode.
-- Instagram publish capabilities are explicit: media URLs/carousel children, captions, and hashtags-in-caption are publishable; alt text, rationale, location ideas, collaborators, music, product/story/reel-only metadata stay local/review-only unless a later milestone validates official support.
+- Final publish preview can use `meta final-publish-preview --from-staged-r2` to render the exact Meta-bound caption, selected staged media URLs, publishable fields, and local/review-only metadata without network calls.
+- Instagram publish capabilities are explicit: media URLs/carousel children, captions, and hashtags-in-caption are publishable; stored hashtags are merged into the caption sent to Meta; alt text, rationale, location ideas, collaborators, music, product/story/reel-only metadata stay local/review-only unless a later milestone validates official support.
 - Live Discord delivery should only be added after the local payload harness remains green; next Discord work should be private-DM-first and user-initiated-first. Post Relay now has a no-network `dm intake` harness, live-capable Discord DM selection/guided-review/scheduling/double-confirmed publish approval loops, a local `opportunities` harness, safe local opportunity trigger checks for agent-initiated suggestion records, and DM intake narrowing guardrails for huge weak candidate matches. Do not run live Instagram publish execution from Discord milestones.
 
 ## Safety and product constraints
@@ -87,6 +88,7 @@ Post Relay is a local-first Instagram travel content workflow for Andrew's `andr
 .venv/bin/post-relay meta validate-readonly --env-file .env --dry-run
 .venv/bin/post-relay meta validate-image-publish --draft-id 1 --from-staged-r2 --config config/photo_sources.yaml --db data/post_relay.sqlite --dry-run
 .venv/bin/post-relay meta validate-carousel-publish --draft-id 1 --from-staged-r2 --config config/photo_sources.yaml --db data/post_relay.sqlite --dry-run
+.venv/bin/post-relay meta final-publish-preview --draft-id 1 --from-staged-r2 --config config/photo_sources.yaml --db data/post_relay.sqlite
 .venv/bin/post-relay meta publish-scheduled --draft-id 1 --from-staged-r2 --config config/photo_sources.yaml --db data/post_relay.sqlite
 # Execute only when due and explicitly authorized in the active session:
 .venv/bin/post-relay meta publish-scheduled --draft-id 1 --from-staged-r2 --config config/photo_sources.yaml --db data/post_relay.sqlite --env-file .env --execute
@@ -145,4 +147,4 @@ Post Relay is a local-first Instagram travel content workflow for Andrew's `andr
 
 ## Current next milestone
 
-See `docs/plans/current-agent-roadmap.md`. The first guarded live carousel smoke for draft `2` succeeded, and schedule hardening now blocks early Meta `--execute` plus adds a no-network scheduled-runner preflight with due-time, approval, and staged-media checks. The next planned work is `feat/final-publish-preview-metadata`, followed by `feat/publish-export-profiles`. Do not publish another real post before the approved scheduled time unless Andrew explicitly bypasses the schedule in the active session.
+See `docs/plans/current-agent-roadmap.md`. The first guarded live carousel smoke for draft `2` succeeded; schedule hardening now blocks early Meta `--execute`; and final publish preview/metadata hardening now shows exact Meta-bound captions, merges stored hashtags into the caption payload, and labels local-only metadata. The next planned work is `feat/publish-export-profiles`, followed by `feat/post-publish-analytics-feedback`. Do not publish another real post before the approved scheduled time unless Andrew explicitly bypasses the schedule in the active session.
