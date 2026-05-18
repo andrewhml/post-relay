@@ -788,7 +788,7 @@ Current local result: `14 passed` focused; `174 passed` full suite.
 
 **Safety rule:** The runner default is preflight only. Do not run `meta publish-scheduled --execute` until the approved scheduled time and only with Andrew's active-session authorization.
 
-**Historical next-session note:** After Milestone 24 merged, work moved to Milestone 25 `feat/final-publish-preview-metadata`. That milestone is now completed in this branch; the active next milestone is Milestone 26 `feat/publish-export-profiles`.
+**Historical next-session note:** After Milestone 24 merged, work moved to Milestone 25 `feat/final-publish-preview-metadata`. That milestone is now completed in PR #50; the active next milestone is Milestone 26 `feat/publish-export-profiles`.
 
 **Verification:**
 
@@ -797,7 +797,7 @@ Current local result: `14 passed` focused; `174 passed` full suite.
 .venv/bin/python -m pytest -q
 ```
 
-### Milestone 25: `feat/final-publish-preview-metadata` (completed in this branch)
+### Milestone 25: `feat/final-publish-preview-metadata` (completed in PR #50)
 
 **Goal:** Show and publish exactly the final metadata that Instagram will receive, avoiding hidden differences between local review metadata and Meta payload fields.
 
