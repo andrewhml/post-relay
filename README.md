@@ -52,10 +52,10 @@ Early local-first MVP scaffold with:
 
 ## Immediate goals
 1. Use recommendation feedback summaries and follower-growth snapshots as local advisory baselines for the next reviewed travel post; keep improving deterministic suggestions as more real posts collect data
-2. Integrate the new `assets/contact sheet/` warm-dark contact sheet and carousel preview designs into local Pillow-rendered chat artifacts before changing live Discord send behavior
-3. Keep improving the private-DM-first, user-initiated workflow for selecting photos, accepting hook-first captions/metadata, scheduling, and recording local approvals
+2. Practice the private-DM-first, user-initiated operating loop with the refreshed warm-dark review/final-preview artifacts before changing live Discord send behavior
+3. Keep improving the private-DM workflow for selecting photos, accepting hook-first captions/metadata, scheduling, and recording local approvals
 4. Keep agent-initiated suggestions local-only until the user-initiated flow has enough successful sessions; then add proactive Discord DMs behind explicit safe trigger and opt-out controls
-5. After feed/carousel publishing is reliable and follower tracking has baseline snapshots, add private-DM operating-loop improvements or reel/video validation
+5. Choose the next rollback-safe engineering milestone from private-DM operating-loop hardening, proactive opportunity DM controls, video/reel validation, or deeper local media discovery/enrichment
 
 ## Agent handoff
 Future agents should start with `AGENTS.md`, then `docs/plans/current-agent-roadmap.md`. The durable plan for local/NAS sources, review artifacts, and Cloudflare R2 staging is `docs/plans/content-pipeline-r2-staging-plan.md`. The specialized agent baseline is `docs/plans/postrelay-agent-operating-baseline.md`. The current private-DM conversation plan is `docs/plans/discord-dm-conversation-orchestration.md`, and the Discord-before-live-publish selection/review plan is `docs/plans/discord-photo-selection-before-carousel-smoke.md`.
