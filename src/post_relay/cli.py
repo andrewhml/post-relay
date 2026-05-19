@@ -158,6 +158,7 @@ from post_relay.review_artifacts import (
 from post_relay.review_package import DraftNotFound, build_draft_review_package
 from post_relay.scheduled_publish_runner import (
     ScheduledPublishNotReady,
+    build_scriptless_scheduled_publish_plan,
     execute_due_scheduled_publish,
     preflight_due_scheduled_publish,
 )
@@ -653,6 +654,36 @@ def meta_publish_scheduled(
             client=MetaGraphClient(meta_config),
             now=now,
         )
+    except ScheduledPublishNotReady as error:
+        raise typer.BadParameter(str(error), param_hint="--draft-id") from error
+    typer.echo(result.to_text())
+
+
+@meta_app.command("unattended-publish-plan")
+def meta_unattended_publish_plan(
+    draft_id: int = typer.Option(..., "--draft-id", help="Ready-to-publish scheduled post id (existing --draft-id option)."),
+    from_staged_r2: bool = typer.Option(False, "--from-staged-r2", help="Resolve ordered publish image URLs from uploaded R2 staged media records."),
+    config_path: Path = typer.Option(Path("config/photo_sources.yaml"), "--config", help="Photo source and R2 staging config path."),
+    db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
+    env_file: Path = typer.Option(Path(".env"), "--env-file", help="Private .env file path for scheduled execute mode."),
+) -> None:
+    """Verify a scheduled post is ready for unattended publish and print a scriptless scheduled-job command."""
+    if not from_staged_r2:
+        raise typer.BadParameter("Unattended publish planning currently requires --from-staged-r2", param_hint="--from-staged-r2")
+    connection = connect_db(db)
+    initialize_db(connection)
+    try:
+        config = load_config(config_path)
+        result = build_scriptless_scheduled_publish_plan(
+            connection,
+            draft_id,
+            r2_config=config.r2_staging,
+            config_path=config_path,
+            db_path=db,
+            env_file=env_file,
+        )
+    except R2StagingConfigError as error:
+        raise typer.BadParameter(str(error), param_hint="--config") from error
     except ScheduledPublishNotReady as error:
         raise typer.BadParameter(str(error), param_hint="--draft-id") from error
     typer.echo(result.to_text())

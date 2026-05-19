@@ -20,6 +20,7 @@ from post_relay.repository import (
 )
 from post_relay.scheduled_publish_runner import (
     ScheduledPublishNotReady,
+    build_scriptless_scheduled_publish_plan,
     execute_due_scheduled_publish,
     preflight_due_scheduled_publish,
 )
@@ -254,3 +255,40 @@ def test_execute_due_scheduled_publish_refuses_before_schedule_without_network(t
     assert requested == []
     assert get_draft(connection, draft.id).status == DraftState.READY_TO_PUBLISH.value
     assert list_publish_attempts(connection, draft.id) == []
+
+
+def test_scriptless_scheduled_publish_plan_verifies_ready_state_without_due_time(tmp_path: Path):
+    connection, draft, r2_config = _build_ready_draft(tmp_path)
+
+    plan = build_scriptless_scheduled_publish_plan(
+        connection,
+        draft.id,
+        r2_config=r2_config,
+        config_path=Path("config/photo_sources.yaml"),
+        db_path=Path("data/post_relay.sqlite"),
+        env_file=Path(".env"),
+    )
+
+    assert plan.ready is True
+    assert plan.scheduled_for == "2026-05-05T09:30:00-07:00"
+    assert "meta publish-scheduled" in plan.publish_command
+    assert "--execute" in plan.publish_command
+    assert "post_relay_publish_draft" not in plan.to_text()
+    assert "No per-post script is required." in plan.to_text()
+    assert "secret" not in plan.to_text()
+
+
+def test_scriptless_scheduled_publish_plan_refuses_missing_staged_media(tmp_path: Path):
+    connection, draft, r2_config = _build_ready_draft(tmp_path)
+    connection.execute("delete from r2_staged_objects")
+    connection.commit()
+
+    with pytest.raises(ScheduledPublishNotReady, match="staged R2 media"):
+        build_scriptless_scheduled_publish_plan(
+            connection,
+            draft.id,
+            r2_config=r2_config,
+            config_path=Path("config/photo_sources.yaml"),
+            db_path=Path("data/post_relay.sqlite"),
+            env_file=Path(".env"),
+        )

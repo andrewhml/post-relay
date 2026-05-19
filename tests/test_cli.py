@@ -1092,3 +1092,74 @@ r2_staging:
     assert "https://peddocks.net/post-relay/staging/drafts/1/media/01-image.jpg?token=<redacted>" in result.output
     assert "secret" not in result.output
     assert "No Meta publishing endpoints were called." in result.output
+
+
+def test_cli_unattended_publish_plan_outputs_scriptless_cron_prompt(tmp_path: Path):
+    root = tmp_path / "processed"
+    folder = root / "2023" / "kyoto"
+    folder.mkdir(parents=True)
+    (folder / "temple.jpg").write_bytes(b"fake image")
+    config_path = tmp_path / "photo_sources.yaml"
+    config_path.write_text(
+        f"""
+photo_sources:
+  - name: processed
+    root: {root.as_posix()}
+    source_type: processed_folder
+r2_staging:
+  enabled: true
+  bucket: post-relay-publish
+  public_base_url: https://peddocks.net
+  prefix: post-relay/staging
+""".strip()
+    )
+    db_path = tmp_path / "post_relay.sqlite"
+
+    runner.invoke(app, ["index", "scan", "--config", str(config_path), "--db", str(db_path)])
+    runner.invoke(app, ["candidates", "build", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "create", "--candidate-id", "1", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "edit", "--draft-id", "1", "--caption", "Ready caption.", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "submit", "--draft-id", "1", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "approve", "--draft-id", "1", "--approved-by", "andrew", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "schedule", "--draft-id", "1", "--scheduled-for", "2026-05-05T09:30:00-07:00", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "request-publish-approval", "--draft-id", "1", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "approve-publish", "--draft-id", "1", "--approved-by", "andrew", "--db", str(db_path)])
+    connection = connect_db(db_path)
+    initialize_db(connection)
+    source_path = list_candidate_group_photo_paths(connection, 1)[0]
+    create_r2_staged_object_record(
+        connection,
+        draft_id=1,
+        kind="draft_media",
+        source_path=source_path,
+        bucket="post-relay-publish",
+        object_key="post-relay/staging/drafts/1/media/01-image.jpg",
+        public_url="https://peddocks.net/post-relay/staging/drafts/1/media/01-image.jpg?token=secret",
+    )
+    connection.commit()
+
+    result = runner.invoke(
+        app,
+        [
+            "meta",
+            "unattended-publish-plan",
+            "--draft-id",
+            "1",
+            "--from-staged-r2",
+            "--config",
+            str(config_path),
+            "--db",
+            str(db_path),
+            "--env-file",
+            ".env",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Unattended scheduled publish plan" in result.output
+    assert "No per-post script is required." in result.output
+    assert "meta publish-scheduled" in result.output
+    assert "--execute" in result.output
+    assert "Hermes cron prompt" in result.output
+    assert "post_relay_publish_draft" not in result.output
+    assert "secret" not in result.output

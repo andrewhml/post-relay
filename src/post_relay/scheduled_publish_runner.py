@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
+from pathlib import Path
+from shlex import quote
 from typing import Optional
 from urllib.parse import parse_qsl, urlsplit, urlunsplit
 
@@ -59,6 +61,41 @@ class ScheduledPublishPreflightResult:
         return "\n".join(lines)
 
 
+@dataclass(frozen=True)
+class ScriptlessScheduledPublishPlan:
+    draft_id: int
+    ready: bool
+    post_type: str
+    scheduled_for: str
+    image_urls: list[str]
+    publish_command: str
+    hermes_cron_prompt: str
+
+    def to_text(self) -> str:
+        lines = [
+            "Unattended scheduled publish plan",
+            f"Post ID: {self.draft_id}",
+            f"Ready: {'yes' if self.ready else 'no'}",
+            f"Post type: {self.post_type}",
+            f"Scheduled for: {self.scheduled_for}",
+            "Staged media URLs in Meta order:",
+        ]
+        lines.extend(f"  - {url}" for url in self.image_urls)
+        lines.extend(
+            [
+                "Publish command for the scheduled job:",
+                self.publish_command,
+                "Hermes cron prompt:",
+                self.hermes_cron_prompt,
+                "No per-post script is required.",
+                "No Discord network calls were made.",
+                "No R2 upload or cleanup calls were made.",
+                "No Meta publishing endpoints were called.",
+            ]
+        )
+        return "\n".join(lines)
+
+
 def preflight_due_scheduled_publish(
     connection,
     draft_id: int,
@@ -66,6 +103,67 @@ def preflight_due_scheduled_publish(
     r2_config: R2StagingConfig,
     now: Optional[str] = None,
 ) -> ScheduledPublishPreflightResult:
+    draft, image_urls, caption = _validate_scheduled_publish_readiness(
+        connection,
+        draft_id,
+        r2_config=r2_config,
+        now=now,
+        require_due=True,
+    )
+    return ScheduledPublishPreflightResult(
+        draft_id=draft.id,
+        ready=True,
+        post_type=draft.post_type,
+        scheduled_for=draft.scheduled_for or "",
+        image_urls=[_sanitize_url(url) for url in image_urls],
+        caption=caption,
+    )
+
+
+def build_scriptless_scheduled_publish_plan(
+    connection,
+    draft_id: int,
+    *,
+    r2_config: R2StagingConfig,
+    config_path: Path,
+    db_path: Path,
+    env_file: Path,
+) -> ScriptlessScheduledPublishPlan:
+    draft, image_urls, _caption = _validate_scheduled_publish_readiness(
+        connection,
+        draft_id,
+        r2_config=r2_config,
+        require_due=False,
+    )
+    publish_command = _build_publish_command(
+        draft.id,
+        config_path=config_path,
+        db_path=db_path,
+        env_file=env_file,
+    )
+    hermes_cron_prompt = (
+        "At the scheduled time, run this exact Post Relay command from the repo and report the result: "
+        f"{publish_command}"
+    )
+    return ScriptlessScheduledPublishPlan(
+        draft_id=draft.id,
+        ready=True,
+        post_type=draft.post_type,
+        scheduled_for=draft.scheduled_for or "",
+        image_urls=[_sanitize_url(url) for url in image_urls],
+        publish_command=publish_command,
+        hermes_cron_prompt=hermes_cron_prompt,
+    )
+
+
+def _validate_scheduled_publish_readiness(
+    connection,
+    draft_id: int,
+    *,
+    r2_config: R2StagingConfig,
+    now: Optional[str] = None,
+    require_due: bool,
+):
     draft = get_draft(connection, draft_id)
     if draft is None:
         raise ScheduledPublishNotReady(f"Post {draft_id} was not found")
@@ -75,14 +173,16 @@ def preflight_due_scheduled_publish(
         )
     if not draft.scheduled_for:
         raise ScheduledPublishNotReady(f"Post {draft_id} must have scheduled_for before scheduled publish execution")
+    scheduled_for = draft.scheduled_for
 
-    scheduled_at = _parse_runner_timestamp(draft.scheduled_for, label="scheduled_for")
-    current_time = _parse_runner_timestamp(now, label="current time") if now else datetime.now().astimezone()
-    if current_time < scheduled_at:
-        raise ScheduledPublishNotReady(
-            f"Post {draft_id} is scheduled for {draft.scheduled_for}; not due until {_format_timestamp(scheduled_at)}. "
-            f"Current time: {_format_timestamp(current_time)}. No publish attempt was created."
-        )
+    scheduled_at = _parse_runner_timestamp(scheduled_for, label="scheduled_for")
+    if require_due:
+        current_time = _parse_runner_timestamp(now, label="current time") if now else datetime.now().astimezone()
+        if current_time < scheduled_at:
+            raise ScheduledPublishNotReady(
+                f"Post {draft_id} is scheduled for {draft.scheduled_for}; not due until {_format_timestamp(scheduled_at)}. "
+                f"Current time: {_format_timestamp(current_time)}. No publish attempt was created."
+            )
 
     _require_active_double_approval(connection, draft_id)
     image_urls = _resolve_staged_urls(connection, draft_id, r2_config)
@@ -100,15 +200,7 @@ def preflight_due_scheduled_publish(
             raise ScheduledPublishNotReady("Scheduled carousel publish supports at most ten images")
     else:
         raise ScheduledPublishNotReady(f"Unsupported scheduled publish post type: {draft.post_type}")
-
-    return ScheduledPublishPreflightResult(
-        draft_id=draft.id,
-        ready=True,
-        post_type=draft.post_type,
-        scheduled_for=draft.scheduled_for,
-        image_urls=[_sanitize_url(url) for url in image_urls],
-        caption=caption,
-    )
+    return draft, image_urls, caption
 
 
 def execute_due_scheduled_publish(
@@ -155,6 +247,32 @@ def _resolve_staged_urls(connection, draft_id: int, r2_config: R2StagingConfig) 
         return resolve_staged_r2_publish_image_urls(connection, draft_id, r2_config)
     except (DraftNotFound, UnsupportedPublishDraft) as error:
         raise ScheduledPublishNotReady(str(error)) from error
+
+
+def _build_publish_command(
+    draft_id: int,
+    *,
+    config_path: Path,
+    db_path: Path,
+    env_file: Path,
+) -> str:
+    return " ".join(
+        [
+            ".venv/bin/post-relay",
+            "meta",
+            "publish-scheduled",
+            "--draft-id",
+            str(draft_id),
+            "--from-staged-r2",
+            "--config",
+            quote(config_path.as_posix()),
+            "--db",
+            quote(db_path.as_posix()),
+            "--env-file",
+            quote(env_file.as_posix()),
+            "--execute",
+        ]
+    )
 
 
 def _parse_runner_timestamp(value: str, *, label: str) -> datetime:

@@ -4,7 +4,7 @@
 
 **Goal:** Make the Post Relay plan discoverable and executable for future agents across sessions.
 
-**Architecture:** Post Relay is a local-first Python CLI and SQLite workflow. The repo now supports processed-folder indexing, candidate/draft creation, numbered media selection, crop/center feedback, warm-dark local review artifacts, final post preview artifacts, R2 staging, guarded single-image/carousel publish validation, private Discord DM intake/selection/guided review/scheduling/double-confirmed final approval, local opportunity records, safe opportunity trigger checks, DM narrowing guardrails, bounded review artifact planning, semantic local candidate matching, Instagram-optimized export assets, and resolved Meta location tags. The first live carousel smoke succeeded; schedule enforcement, final Meta-bound caption/metadata preview, export profiles, guarded `location_id` support, advisory analytics/follower summaries, and contact-sheet chat artifact refresh are now in place.
+**Architecture:** Post Relay is a local-first Python CLI and SQLite workflow. The repo now supports processed-folder indexing, candidate/draft creation, numbered media selection, crop/center feedback, warm-dark local review artifacts, final post preview artifacts, R2 staging, guarded single-image/carousel publish validation, private Discord DM intake/selection/guided review/scheduling/double-confirmed final approval, local opportunity records, safe opportunity trigger checks, DM narrowing guardrails, bounded review artifact planning, semantic local candidate matching, Instagram-optimized export assets, resolved Meta location tags, and scriptless unattended scheduled-publish planning. The first live carousel smoke succeeded; schedule enforcement, final Meta-bound caption/metadata preview, export profiles, guarded `location_id` support, advisory analytics/follower summaries, and contact-sheet chat artifact refresh are now in place.
 
 **Tech Stack:** Python 3.9+, SQLite, Typer, Pydantic, PyYAML, Pillow, pytest, GitHub PR milestone workflow.
 
@@ -799,6 +799,8 @@ Current local result: `14 passed` focused; `174 passed` full suite.
 
 **Safety rule:** The runner default is preflight only. Do not run `meta publish-scheduled --execute` until the approved scheduled time and only with Andrew's active-session authorization.
 
+**2026-05 follow-up:** `meta unattended-publish-plan --from-staged-r2` now verifies the same ready-to-publish state that can be checked before the due time — ready status, timezone-aware schedule, active content and publish approvals, complete uploaded staged R2 media, caption, and supported post type — then prints the exact guarded `meta publish-scheduled --execute` command and a Hermes cron prompt. Agents should schedule that command directly in a Hermes cron job instead of creating per-post shell scripts such as `post_relay_publish_draft_3.sh`.
+
 **Historical next-session note:** After Milestone 24 merged, work moved to Milestone 25 `feat/final-publish-preview-metadata`. That milestone is now completed in PR #50; the active next milestone is Milestone 26 `feat/publish-export-profiles`.
 
 **Verification:**
@@ -1212,6 +1214,25 @@ Current branch result: `59 passed` focused; `248 passed` full suite.
 
 ```bash
 .venv/bin/python -m pytest tests/test_config_and_scanner.py tests/test_media_enrichment.py tests/test_cli.py::test_cli_index_scan_and_library_stats -q
+.venv/bin/python -m pytest -q
+```
+
+### Milestone 41: `feat/scriptless-unattended-publish` (current branch)
+
+**Goal:** Let the operator/agent finish publish setup after final approval without creating one-off per-post helper scripts.
+
+**Delivered behavior in branch so far:**
+- Added `meta unattended-publish-plan --from-staged-r2`, a no-network command for ready-to-publish scheduled posts that can run before the scheduled time.
+- The command verifies active content and publish approvals, timezone-aware schedule presence, complete uploaded staged R2 media in Meta order, supported post type, and a non-empty Meta-bound caption without calling Discord, R2, or Meta.
+- Output includes the exact guarded `.venv/bin/post-relay meta publish-scheduled --from-staged-r2 --execute ...` command and a self-contained Hermes cron prompt, so agents can create a scheduled cron job directly instead of writing `~/.hermes/scripts/post_relay_publish_draft_*.sh`.
+- `meta publish-scheduled` remains the only command that performs the due-time guarded Meta execute path; the new planner does not bypass schedule enforcement or approval invalidation.
+
+**Safety rule:** `unattended-publish-plan` is no-network and scriptless. It does not stage media, create cron jobs, or publish. After Andrew explicitly authorizes unattended setup, agents may stage R2 publish assets with `drafts r2-stage-upload --execute`, run this planner, and create a Hermes cron job whose prompt runs the emitted guarded publish command at the approved scheduled time.
+
+**Verification:**
+
+```bash
+.venv/bin/python -m pytest tests/test_scheduled_publish_runner.py tests/test_cli.py::test_cli_unattended_publish_plan_outputs_scriptless_cron_prompt -q
 .venv/bin/python -m pytest -q
 ```
 
