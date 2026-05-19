@@ -43,7 +43,7 @@ class R2StagingUploadResult:
         mode = "executed" if self.executed else "dry run"
         lines = [
             f"R2 Staging Upload ({mode})",
-            f"Draft ID: {self.draft_id}",
+            f"Post ID: {self.draft_id}",
             f"Planned objects: {self.planned_count}",
             f"Uploaded objects: {self.uploaded_count}",
             "Object keys:",
@@ -69,7 +69,7 @@ class R2StagingCleanupResult:
         mode = "executed" if self.executed else "dry run"
         lines = [
             f"R2 Staging Cleanup ({mode})",
-            f"Draft ID: {self.draft_id}",
+            f"Post ID: {self.draft_id}",
             f"Recorded uploaded objects: {self.planned_count}",
             f"Deleted objects: {self.deleted_count}",
             "Object keys:",

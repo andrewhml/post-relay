@@ -43,7 +43,7 @@ def test_build_discord_preview_payload_includes_ordered_existing_image_paths(tmp
         (folder / "temple.jpg").as_posix(),
     ]
     assert payload.missing_image_paths == []
-    assert "Draft Review Package" in payload.message_text
+    assert "Post Review Package" in payload.message_text
     assert "Candidate: 2023 / kyoto" in payload.message_text
 
 
@@ -68,7 +68,7 @@ def test_discord_preview_payload_renders_stable_dry_run_text(tmp_path: Path):
     assert payload.to_text() == "\n".join(
         [
             "Discord Preview Payload (dry run)",
-            f"Draft ID: {draft.id}",
+            f"Post ID: {draft.id}",
             "Ready to send: yes",
             "Image attachments:",
             f"  1. {(folder / 'garden.jpg').as_posix()}",

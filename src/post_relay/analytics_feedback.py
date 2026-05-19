@@ -42,7 +42,7 @@ class InsightsCollectionPlan:
         return "\n".join(
             [
                 "Read-only Instagram insights collection plan",
-                f"Draft ID: {self.draft_id}",
+                f"Post ID: {self.draft_id}",
                 f"Published media ID: {self.published_media_id}",
                 f"Endpoint: GET {self.endpoint}",
                 "Candidate metrics:",
@@ -81,16 +81,16 @@ def record_published_post_snapshot(
 ) -> PublishedPostSnapshotRecord:
     draft = get_draft(connection, draft_id)
     if draft is None:
-        raise PublishedPostSnapshotNotReady(f"Draft {draft_id} was not found")
+        raise PublishedPostSnapshotNotReady(f"Post {draft_id} was not found")
     attempt = get_latest_published_attempt(connection, draft_id)
     if attempt is None:
         raise PublishedPostSnapshotNotReady(
-            f"Draft {draft_id} does not have a successful published attempt to snapshot"
+            f"Post {draft_id} does not have a successful published attempt to snapshot"
         )
     media_urls = attempt.image_urls or ([attempt.image_url] if attempt.image_url else [])
     if not media_urls:
         raise PublishedPostSnapshotNotReady(
-            f"Draft {draft_id} published attempt has no media URLs to snapshot"
+            f"Post {draft_id} published attempt has no media URLs to snapshot"
         )
     dimensions = _resolve_media_dimensions(connection, draft_id, media_urls)
     location_tag = get_draft_location_tag(connection, draft_id)
@@ -154,7 +154,7 @@ def collect_and_store_media_insights(
 def render_media_insight_snapshot(record: MediaInsightSnapshotRecord) -> str:
     lines = [
         "Read-only Instagram insights fetched",
-        f"Draft ID: {record.draft_id}",
+        f"Post ID: {record.draft_id}",
         f"Published media ID: {record.published_media_id}",
         f"Collected at: {record.collected_at}",
         "Metrics:",
@@ -162,7 +162,7 @@ def render_media_insight_snapshot(record: MediaInsightSnapshotRecord) -> str:
     for name in sorted(record.metrics):
         lines.append(f"  {name}: {record.metrics[name]}")
     lines.append("Publishing endpoints called: no")
-    lines.append("Safety: Read-only insights were stored locally and did not mutate draft or publish state.")
+    lines.append("Safety: Read-only insights were stored locally and did not mutate post lifecycle or publish state.")
     return "\n".join(lines)
 
 
@@ -193,7 +193,7 @@ def render_feedback_summary(summary: FeedbackSummary) -> str:
                 "Observed signals: <none>",
                 "Next-post suggestions:",
                 "  - Publish and snapshot at least one reviewed post before drawing feedback.",
-                "Safety: No Discord, R2, or Meta calls were made. No draft state was changed.",
+                "Safety: No Discord, R2, or Meta calls were made. No post lifecycle state was changed.",
             ]
         )
         return "\n".join(lines)
@@ -202,7 +202,7 @@ def render_feedback_summary(summary: FeedbackSummary) -> str:
         lines.extend(
             [
                 "",
-                f"Draft {entry.draft_id} / media {entry.published_media_id}",
+                f"Post {entry.draft_id} / media {entry.published_media_id}",
                 "Observed signals:",
                 f"  - Post type: {entry.post_type}",
                 f"  - Media count: {entry.media_count}",
@@ -230,14 +230,14 @@ def render_feedback_summary(summary: FeedbackSummary) -> str:
                 *_suggestions_for_entry(entry),
             ]
         )
-    lines.append("Safety: No Discord, R2, or Meta calls were made. No drafts, approvals, schedules, or publish records were changed.")
+    lines.append("Safety: No Discord, R2, or Meta calls were made. No posts, approvals, schedules, or publish records were changed.")
     return "\n".join(lines)
 
 
 def render_insights_fetch_dry_run(plan: InsightsCollectionPlan) -> str:
     lines = [
         "Dry run only: read-only Instagram insights fetch",
-        f"Draft ID: {plan.draft_id}",
+        f"Post ID: {plan.draft_id}",
         f"Published media ID: {plan.published_media_id}",
         f"Endpoint: GET {plan.endpoint}",
         "Metrics:",
@@ -258,7 +258,7 @@ def render_insights_fetch_error(error: Exception, *, token: Optional[str] = None
 def render_published_post_snapshot(snapshot: PublishedPostSnapshotRecord) -> str:
     lines = [
         "Post-publish analytics snapshot",
-        f"Draft ID: {snapshot.draft_id}",
+        f"Post ID: {snapshot.draft_id}",
         f"Published media ID: {snapshot.published_media_id}",
         f"Post type: {snapshot.post_type}",
         f"Scheduled for: {snapshot.scheduled_for or '<not scheduled>'}",
@@ -353,7 +353,7 @@ def _suggestions_for_entry(entry: FeedbackSummaryEntry) -> list[str]:
     if entry.aspect_ratio_class != "portrait_4x5":
         suggestions.append("  - Consider a 4:5 feed export when the source crop supports it, then compare retention/reach later.")
     if not entry.has_location_tag:
-        suggestions.append("  - If there is a real place tag, test a reviewed Meta location_id on a future approved draft.")
+        suggestions.append("  - If there is a real place tag, test a reviewed Meta location_id on a future approved post.")
     if not entry.insight_metrics:
         suggestions.append("  - Collect read-only insights after Meta has populated them before changing recommendations.")
     return suggestions

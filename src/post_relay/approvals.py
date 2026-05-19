@@ -44,7 +44,7 @@ def approve_draft_content(
     draft = _require_draft(connection, draft_id)
     if draft.status != DraftState.AWAITING_REVIEW.value:
         raise DraftNotReadyForApproval(
-            f"Draft #{draft_id} must be awaiting_review before draft approval; current status is {draft.status}"
+            f"Post #{draft_id} must be awaiting_review before content approval; current status is {draft.status}"
         )
 
     transition_draft_state(DraftState(draft.status), DraftState.APPROVED_FOR_QUEUE)
@@ -85,7 +85,7 @@ def edit_draft_content(
         invalidate_active_approvals(
             connection,
             draft.id,
-            reason="material draft content edit",
+            reason="material post content edit",
         )
 
     updated = persist_draft_content(
@@ -104,7 +104,7 @@ def edit_draft_content(
 def _require_draft(connection, draft_id: int) -> DraftRecord:
     draft = get_draft(connection, draft_id)
     if draft is None:
-        raise DraftNotFound(f"Draft #{draft_id} was not found")
+        raise DraftNotFound(f"Post #{draft_id} was not found")
     return draft
 
 

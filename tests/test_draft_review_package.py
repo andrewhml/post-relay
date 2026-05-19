@@ -58,7 +58,7 @@ def test_build_draft_review_package_includes_candidate_context_and_ordered_photo
         "add caption/context",
         "answer unresolved context notes",
         "request edits",
-        "approve draft",
+        "approve post content",
     ]
 
 
@@ -69,8 +69,8 @@ def test_build_draft_review_package_formats_stable_local_preview_text(tmp_path: 
 
     assert package.to_text() == "\n".join(
         [
-            "Draft Review Package",
-            f"Draft ID: {draft.id}",
+            "Post Review Package",
+            f"Post ID: {draft.id}",
             "Status: drafting",
             "Candidate: 2023 / kyoto",
             "Post type: carousel",
@@ -92,7 +92,7 @@ def test_build_draft_review_package_formats_stable_local_preview_text(tmp_path: 
             "  - add caption/context",
             "  - answer unresolved context notes",
             "  - request edits",
-            "  - approve draft",
+            "  - approve post content",
         ]
     )
 

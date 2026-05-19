@@ -49,4 +49,4 @@ def transition_draft_state(current: DraftState, target: DraftState) -> DraftStat
     """Return target if the state transition is allowed, otherwise raise."""
     if target in _ALLOWED_DRAFT_TRANSITIONS[current]:
         return target
-    raise InvalidStateTransition(f"Cannot transition draft from {current.value} to {target.value}")
+    raise InvalidStateTransition(f"Cannot transition post from {current.value} to {target.value}")

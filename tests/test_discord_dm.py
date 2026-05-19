@@ -142,7 +142,7 @@ def test_handle_dm_selection_reply_applies_selection_and_returns_dm_confirmation
     ]
     assert get_draft(connection, draft.id).status == DraftState.DRAFTING.value
     text = result.to_text()
-    assert "Selection applied for draft #" in text
+    assert "Selection applied for post #" in text
     assert "Lead/cover: 03-hero.jpg" in text
     assert "Included order:" in text
     assert "No Meta publishing endpoints were called." in text
@@ -169,7 +169,7 @@ def test_poll_dm_selection_reply_applies_first_parseable_user_reply_and_sends_co
 
     assert result.applied is True
     assert result.reply_message_id == "201"
-    assert "Selection applied for draft #" in result.confirmation_text
+    assert "Selection applied for post #" in result.confirmation_text
     assert "No Discord or Meta network calls were made." not in result.confirmation_text
     assert transport.sent_messages[-1][0] == "dm-channel-123"
     assert "Lead/cover: 03-hero.jpg" in transport.sent_messages[-1][1]
@@ -287,7 +287,7 @@ photo_sources:
     )
 
     assert result.exit_code == 0
-    assert "Selection applied for draft #1" in result.output
+    assert "Selection applied for post #1" in result.output
     assert "Lead/cover: 03-hero.jpg" in result.output
     assert "No Discord or Meta network calls were made." in result.output
     assert root.as_posix() not in result.output

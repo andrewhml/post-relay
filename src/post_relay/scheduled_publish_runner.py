@@ -41,7 +41,7 @@ class ScheduledPublishPreflightResult:
     def to_text(self) -> str:
         lines = [
             "Scheduled publish preflight",
-            f"Draft ID: {self.draft_id}",
+            f"Post ID: {self.draft_id}",
             f"Ready: {'yes' if self.ready else 'no'}",
             f"Post type: {self.post_type}",
             f"Scheduled for: {self.scheduled_for}",
@@ -68,19 +68,19 @@ def preflight_due_scheduled_publish(
 ) -> ScheduledPublishPreflightResult:
     draft = get_draft(connection, draft_id)
     if draft is None:
-        raise ScheduledPublishNotReady(f"Draft {draft_id} was not found")
+        raise ScheduledPublishNotReady(f"Post {draft_id} was not found")
     if draft.status != DraftState.READY_TO_PUBLISH.value:
         raise ScheduledPublishNotReady(
-            f"Draft {draft_id} must be {DraftState.READY_TO_PUBLISH.value} before scheduled publish execution; current status is {draft.status}"
+            f"Post {draft_id} must be {DraftState.READY_TO_PUBLISH.value} before scheduled publish execution; current status is {draft.status}"
         )
     if not draft.scheduled_for:
-        raise ScheduledPublishNotReady(f"Draft {draft_id} must have scheduled_for before scheduled publish execution")
+        raise ScheduledPublishNotReady(f"Post {draft_id} must have scheduled_for before scheduled publish execution")
 
     scheduled_at = _parse_runner_timestamp(draft.scheduled_for, label="scheduled_for")
     current_time = _parse_runner_timestamp(now, label="current time") if now else datetime.now().astimezone()
     if current_time < scheduled_at:
         raise ScheduledPublishNotReady(
-            f"Draft {draft_id} is scheduled for {draft.scheduled_for}; not due until {_format_timestamp(scheduled_at)}. "
+            f"Post {draft_id} is scheduled for {draft.scheduled_for}; not due until {_format_timestamp(scheduled_at)}. "
             f"Current time: {_format_timestamp(current_time)}. No publish attempt was created."
         )
 
@@ -146,7 +146,7 @@ def _require_active_double_approval(connection, draft_id: int) -> None:
     approval_types = {approval.approval_type for approval in list_active_approvals(connection, draft_id)}
     if {ApprovalType.DRAFT.value, ApprovalType.PUBLISH.value} - approval_types:
         raise ScheduledPublishNotReady(
-            f"Draft {draft_id} requires active draft and publish approvals before scheduled publish execution"
+            f"Post {draft_id} requires active content and publish approvals before scheduled publish execution"
         )
 
 

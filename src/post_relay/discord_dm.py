@@ -52,7 +52,7 @@ class DmSelectionPromptResult:
         return "\n".join(
             [
                 "Discord DM selection prompt sent",
-                f"Draft ID: {self.draft_id}",
+                f"Post ID: {self.draft_id}",
                 f"DM channel: {self.channel_id}",
                 f"Discord message: {self.message_id}",
                 f"Conversation thread: #{self.thread.id} ({self.thread.status})",
@@ -72,7 +72,7 @@ class DmGuidedReviewPromptResult:
         return "\n".join(
             [
                 "Discord DM guided review prompt sent",
-                f"Draft ID: {self.draft_id}",
+                f"Post ID: {self.draft_id}",
                 f"DM channel: {self.channel_id}",
                 f"Discord message: {self.message_id}",
                 f"Conversation thread: #{self.thread.id} ({self.thread.status})",
@@ -127,7 +127,7 @@ class DmSelectionReplyResult:
         excluded_names = [_display_name(item.local_file_path) for item in self.selection_result.excluded_items]
         lead_name = included_names[0] if included_names else "<none>"
         lines = [
-            f"Selection applied for draft #{self.draft_id}",
+            f"Selection applied for post #{self.draft_id}",
             f"Lead/cover: {lead_name}",
             "Included order:",
         ]
@@ -268,7 +268,7 @@ def send_dm_selection_prompt(
     content = _dm_selection_prompt_text(selection_request)
     message_id = selected_transport.send_message(channel_id, content)
     thread = get_active_conversation_thread_for_channel(connection, channel_id)
-    summary = f"Sent private DM selection prompt for draft #{draft_id}; select {target_count} of {selection_request.suggested_count}."
+    summary = f"Sent private DM selection prompt for post #{draft_id}; select {target_count} of {selection_request.suggested_count}."
     if thread is None:
         thread = create_conversation_thread(
             connection,
@@ -328,7 +328,7 @@ def send_dm_guided_review_prompt(
     content = _dm_guided_review_prompt_text(package)
     message_id = selected_transport.send_message(channel_id, content)
     thread = get_active_conversation_thread_for_channel(connection, channel_id)
-    summary = f"Sent private DM guided review prompt for draft #{draft_id}."
+    summary = f"Sent private DM guided review prompt for post #{draft_id}."
     if thread is None:
         thread = create_conversation_thread(
             connection,
@@ -383,7 +383,7 @@ def handle_dm_selection_reply(
                 thread.id,
                 draft_id=draft_id,
                 status="active",
-                last_prompt_summary=f"Applied private DM selection for draft #{draft_id}.",
+                last_prompt_summary=f"Applied private DM selection for post #{draft_id}.",
             )
     return DmSelectionReplyResult(
         draft_id=draft_id,
@@ -561,7 +561,7 @@ def parse_selection_reply(message: str) -> ParsedSelectionReply:
 def _dm_guided_review_prompt_text(package) -> str:
     lines = [
         "Post Relay guided review",
-        f"Draft #{package.draft_id}",
+        f"Post #{package.draft_id}",
         f"Recommendation: {package.post_type_recommendation}",
         f"Why: {package.post_type_rationale}",
         "Caption options:",
@@ -581,7 +581,7 @@ def _dm_guided_review_prompt_text(package) -> str:
             "Publishable through Meta v1: media, caption text, hashtags in caption.",
             "Review-only/local: alt text, growth rationale, unvalidated location ideas, collaborators, music, reels/story metadata.",
             "Reply with location, story, mood, hook, include/avoid notes, and `caption 1`, `caption 2`, or `caption 3` when ready.",
-            "This DM step only updates the local draft after your reply; it never publishes to Instagram.",
+            "This DM step only updates the local post after your reply; it never publishes to Instagram.",
         ]
     )
     return "\n".join(lines)
@@ -590,7 +590,7 @@ def _dm_guided_review_prompt_text(package) -> str:
 def _dm_selection_prompt_text(selection_request) -> str:
     lines = [
         "Post Relay photo selection",
-        f"Draft #{selection_request.draft_id} · {selection_request.post_type}",
+        f"Post #{selection_request.draft_id} · {selection_request.post_type}",
         f"Select {selection_request.target_count} of {selection_request.suggested_count} suggested photos.",
         "Suggested media:",
     ]

@@ -59,7 +59,7 @@ class PublishExportsPackage:
     def to_text(self) -> str:
         lines = [
             "Publish Exports",
-            f"Draft ID: {self.draft_id}",
+            f"Post ID: {self.draft_id}",
             f"Candidate: {self.candidate_title}",
             f"Profile: {self.profile_name} ({self.width}x{self.height})",
             f"Export root: {self.export_root.as_posix()}",
@@ -107,7 +107,7 @@ def render_publish_exports_for_draft(
 
     draft = get_draft(connection, draft_id)
     if draft is None:
-        raise DraftNotFound(f"Draft {draft_id} was not found.")
+        raise DraftNotFound(f"Post {draft_id} was not found.")
     candidate = get_candidate_group(connection, draft.candidate_group_id)
     candidate_title = candidate.title if candidate is not None else f"candidate #{draft.candidate_group_id}"
     source_paths = list_candidate_group_photo_paths(connection, draft.candidate_group_id)
@@ -154,7 +154,7 @@ def render_publish_exports_for_draft(
     _save_contact_sheet(
         preview_images,
         contact_sheet_path,
-        title=f"Draft {draft.id}: {candidate_title} publish exports",
+        title=f"Post {draft.id}: {candidate_title} publish exports",
         max_px=config.contact_sheet_thumbnail_max_px,
         columns=config.contact_sheet_columns,
     )

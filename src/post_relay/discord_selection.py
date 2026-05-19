@@ -29,7 +29,7 @@ class DiscordSelectionRequest:
     def to_text(self) -> str:
         lines = [
             "Discord Photo Selection Request",
-            f"Draft ID: {self.draft_id}",
+            f"Post ID: {self.draft_id}",
             f"Post type: {self.post_type}",
             f"Select {self.target_count} of {self.suggested_count} suggested photos.",
             "Lead/cover: choose the strongest attention-grabbing opener.",

@@ -103,7 +103,7 @@ photo_sources:
     list_result = runner.invoke(app, ["drafts", "list", "--db", str(db_path)])
 
     assert create_result.exit_code == 0
-    assert "Created draft #1 from candidate #1" in create_result.output
+    assert "Created post #1 from candidate #1" in create_result.output
     assert list_result.exit_code == 0
     assert "#1 candidate #1" in list_result.output
     assert "carousel" in list_result.output
@@ -133,8 +133,8 @@ photo_sources:
     preview_result = runner.invoke(app, ["drafts", "preview", "--draft-id", "1", "--db", str(db_path)])
 
     assert preview_result.exit_code == 0
-    assert "Draft Review Package" in preview_result.output
-    assert "Draft ID: 1" in preview_result.output
+    assert "Post Review Package" in preview_result.output
+    assert "Post ID: 1" in preview_result.output
     assert "Status: drafting" in preview_result.output
     assert "Candidate: 2023 / kyoto" in preview_result.output
     assert "Post type: carousel" in preview_result.output
@@ -188,7 +188,7 @@ review_artifacts:
 
     assert result.exit_code == 0
     assert "Review Artifacts" in result.output
-    assert "Draft ID: 1" in result.output
+    assert "Post ID: 1" in result.output
     assert "Thumbnails:" in result.output
     assert "Contact sheet:" in result.output
     assert (artifact_root / "draft-1" / "contact-sheet.jpg").is_file()
@@ -257,7 +257,7 @@ r2_staging:
 
     assert result.exit_code == 0
     assert "R2 Staging Plan (dry run)" in result.output
-    assert "Draft ID: 1" in result.output
+    assert "Post ID: 1" in result.output
     assert "Ready to upload: yes" in result.output
     assert "https://peddocks.net/post-relay/staging/drafts/1/media/" in result.output
     assert "contact-sheet.jpg" in result.output
@@ -378,11 +378,11 @@ photo_sources:
     preview_result = runner.invoke(app, ["drafts", "preview", "--draft-id", "1", "--db", str(db_path)])
 
     assert plan_result.exit_code == 0
-    assert "Draft Media Plan" in plan_result.output
+    assert "Post Media Plan" in plan_result.output
     assert "1. [primary] included" in plan_result.output
     assert "3. [support] included" in plan_result.output
     assert edit_result.exit_code == 0
-    assert "Updated media selection for draft #1" in edit_result.output
+    assert "Updated media selection for post #1" in edit_result.output
     assert "Lead: 03-hero.jpg" in edit_result.output
     assert "Excluded:" in edit_result.output
     assert "02-detail.jpg" in edit_result.output
@@ -443,11 +443,11 @@ photo_sources:
     list_result = runner.invoke(app, ["drafts", "list", "--db", str(db_path)])
 
     assert submit_result.exit_code == 0
-    assert "Submitted draft #1 for review" in submit_result.output
+    assert "Submitted post #1 for content review" in submit_result.output
     assert approve_result.exit_code == 0
-    assert "Approved draft #1 for queue" in approve_result.output
+    assert "Approved post #1 for queue" in approve_result.output
     assert edit_result.exit_code == 0
-    assert "Updated draft #1" in edit_result.output
+    assert "Updated post #1" in edit_result.output
     assert "invalidated active approvals" in edit_result.output
     assert list_result.exit_code == 0
     assert "needs_edits" in list_result.output
@@ -512,11 +512,11 @@ photo_sources:
     list_result = runner.invoke(app, ["drafts", "list", "--db", str(db_path)])
 
     assert schedule_result.exit_code == 0
-    assert "Scheduled draft #1 for 2026-05-05T09:30:00-07:00" in schedule_result.output
+    assert "Scheduled post #1 for 2026-05-05T09:30:00-07:00" in schedule_result.output
     assert request_result.exit_code == 0
-    assert "Requested publish approval for draft #1" in request_result.output
+    assert "Requested publish approval for post #1" in request_result.output
     assert approve_publish_result.exit_code == 0
-    assert "Approved draft #1 for publishing" in approve_publish_result.output
+    assert "Approved post #1 for publishing" in approve_publish_result.output
     assert list_result.exit_code == 0
     assert "ready_to_publish" in list_result.output
 
@@ -714,7 +714,7 @@ photo_sources:
     assert (folder / "temple.jpg").as_posix() in payload_result.output
     assert "Missing image files:" in payload_result.output
     assert "  - <none>" in payload_result.output
-    assert "Draft Review Package" in payload_result.output
+    assert "Post Review Package" in payload_result.output
 
 
 
@@ -773,7 +773,7 @@ photo_sources:
     )
 
     assert generate_result.exit_code == 0
-    assert "Generated 5 unresolved context questions for draft #1" in generate_result.output
+    assert "Generated 5 unresolved context questions for post #1" in generate_result.output
     assert list_result.exit_code == 0
     assert "[place] Where exactly was this photo set taken?" in list_result.output
     assert "[trip_name] What trip or collection should this post be associated with?" in list_result.output

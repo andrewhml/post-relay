@@ -42,8 +42,8 @@ class DraftMediaPlan:
 
     def to_text(self) -> str:
         lines = [
-            "Draft Media Plan",
-            f"Draft ID: {self.draft_id}",
+            "Post Media Plan",
+            f"Post ID: {self.draft_id}",
             f"Post type: {self.post_type}",
             "Media:",
         ]
@@ -74,7 +74,7 @@ class DraftMediaSelectionResult:
 
     def to_text(self) -> str:
         lines = [
-            f"Updated media selection for draft #{self.draft_id}.",
+            f"Updated media selection for post #{self.draft_id}.",
             f"Post type: {self.post_type}",
             f"Lead: {_display_name(self.included_items[0].local_file_path) if self.included_items else '<none>'}",
             "Included:",
@@ -110,7 +110,7 @@ def apply_draft_media_selection(
     original_items = list_candidate_group_photo_items(connection, draft.candidate_group_id)
     numbered_original = _number_items(original_items)
     if not numbered_original:
-        raise InvalidMediaSelection(f"Draft #{draft_id} has no candidate media to select")
+        raise InvalidMediaSelection(f"Post #{draft_id} has no candidate media to select")
 
     by_number = {item.review_number: item for item in numbered_original}
     _validate_positions([lead], by_number)
@@ -157,12 +157,12 @@ def apply_draft_media_selection(
         invalidated_count = invalidate_active_approvals(
             connection,
             draft.id,
-            reason="material draft media selection edit",
+            reason="material post media selection edit",
         )
 
     updated_draft = update_draft_content(connection, draft.id, status=status)
     if updated_draft is None:
-        raise DraftNotFound(f"Draft #{draft_id} was not found")
+        raise DraftNotFound(f"Post #{draft_id} was not found")
     if final_post_type != draft.post_type:
         connection.execute(
             "update drafts set post_type = ?, updated_at = current_timestamp where id = ?",
@@ -183,7 +183,7 @@ def apply_draft_media_selection(
 def _require_draft(connection, draft_id: int) -> DraftRecord:
     draft = get_draft(connection, draft_id)
     if draft is None:
-        raise DraftNotFound(f"Draft #{draft_id} was not found")
+        raise DraftNotFound(f"Post #{draft_id} was not found")
     return draft
 
 

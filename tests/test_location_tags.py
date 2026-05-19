@@ -114,7 +114,7 @@ def test_location_candidate_review_searches_and_ranks_user_confirmed_query(tmp_p
     assert review.query == "Gwangjang Market Seoul"
     assert review.candidates[0].name == "Gwangjang Market"
     rendered = review.to_text()
-    assert "Possible Meta location tags for draft" in rendered
+    assert "Possible Meta location tags for post" in rendered
     assert "1. Gwangjang Market (222)" in rendered
     assert "Reply with `use 1`" in rendered
     assert "No location tag was set." in rendered
@@ -230,7 +230,7 @@ def test_drafts_location_tag_set_cli_persists_resolved_page_and_warns_reapproval
     )
 
     assert result.exit_code == 0
-    assert "Resolved Meta location tag for draft" in result.output
+    assert "Resolved Meta location tag for post" in result.output
     assert "location_id=110506962309835" in result.output
     assert "Prior approvals were invalidated" in result.output
     reopened = connect_db(db_path)

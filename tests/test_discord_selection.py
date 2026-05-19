@@ -213,7 +213,7 @@ photo_sources:
     assert "Select 3 of 4 suggested photos" in plan_result.output
     assert "1. 01-wide.jpg" in plan_result.output
     assert apply_result.exit_code == 0
-    assert "Updated media selection for draft #1" in apply_result.output
+    assert "Updated media selection for post #1" in apply_result.output
     assert "Lead: 03-hero.jpg" in apply_result.output
     assert preview_result.output.index("03-hero.jpg") < preview_result.output.index("01-wide.jpg")
     assert "02-detail.jpg" not in preview_result.output

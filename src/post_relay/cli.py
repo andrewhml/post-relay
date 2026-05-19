@@ -163,14 +163,14 @@ index_app = typer.Typer(help="Media indexing commands.")
 library_app = typer.Typer(help="Library inspection commands.")
 meta_app = typer.Typer(help="Meta Graph validation commands.")
 candidates_app = typer.Typer(help="Candidate post group commands.")
-drafts_app = typer.Typer(help="Draft record commands.")
+drafts_app = typer.Typer(help="Post lifecycle commands; records still use the existing drafts CLI namespace.")
 dm_app = typer.Typer(help="Private DM simulation commands.")
 discord_app = typer.Typer(help="Discord DM integration commands.")
 opportunities_app = typer.Typer(help="Local post opportunity commands.")
 analytics_app = typer.Typer(help="Post-publish analytics and feedback commands.")
-draft_questions_app = typer.Typer(help="Draft context question commands.")
-draft_artifacts_app = typer.Typer(help="Draft review artifact commands.")
-draft_publish_exports_app = typer.Typer(help="Draft publish export commands.")
+draft_questions_app = typer.Typer(help="Post context question commands.")
+draft_artifacts_app = typer.Typer(help="Post review artifact commands.")
+draft_publish_exports_app = typer.Typer(help="Post publish export commands.")
 app.add_typer(db_app, name="db")
 app.add_typer(index_app, name="index")
 app.add_typer(library_app, name="library")
@@ -240,7 +240,7 @@ def library_stats(
 
 @analytics_app.command("snapshot")
 def analytics_snapshot(
-    draft_id: int = typer.Option(..., "--draft-id", help="Draft id."),
+    draft_id: int = typer.Option(..., "--draft-id", help="Post id (existing --draft-id option)."),
     actual_published_at: Optional[str] = typer.Option(
         None,
         "--actual-published-at",
@@ -265,7 +265,7 @@ def analytics_snapshot(
 
 @analytics_app.command("insights-plan")
 def analytics_insights_plan(
-    draft_id: int = typer.Option(..., "--draft-id", help="Draft id."),
+    draft_id: int = typer.Option(..., "--draft-id", help="Post id (existing --draft-id option)."),
     db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
 ) -> None:
     """Render a read-only Meta insights collection plan without network calls."""
@@ -281,7 +281,7 @@ def analytics_insights_plan(
 
 @analytics_app.command("feedback-summary")
 def analytics_feedback_summary(
-    draft_id: Optional[int] = typer.Option(None, "--draft-id", help="Optional draft id to summarize."),
+    draft_id: Optional[int] = typer.Option(None, "--draft-id", help="Optional post id to summarize (existing --draft-id option)."),
     limit: int = typer.Option(10, "--limit", help="Recent published snapshots to summarize when --draft-id is omitted."),
     db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
 ) -> None:
@@ -294,7 +294,7 @@ def analytics_feedback_summary(
 
 @analytics_app.command("insights-fetch")
 def analytics_insights_fetch(
-    draft_id: int = typer.Option(..., "--draft-id", help="Draft id."),
+    draft_id: int = typer.Option(..., "--draft-id", help="Post id (existing --draft-id option)."),
     metric: list[str] = typer.Option(None, "--metric", help="Insight metric to collect; repeat for multiple metrics."),
     collected_at: Optional[str] = typer.Option(None, "--collected-at", help="Collection timestamp to persist; defaults to current local time."),
     execute: bool = typer.Option(False, "--execute", help="Actually call the read-only Meta insights endpoint and store results."),
@@ -360,7 +360,7 @@ def meta_validate_readonly(
 
 @meta_app.command("validate-image-publish")
 def meta_validate_image_publish(
-    draft_id: int = typer.Option(..., "--draft-id", help="Ready-to-publish single-image draft id."),
+    draft_id: int = typer.Option(..., "--draft-id", help="Ready-to-publish single-image post id (existing --draft-id option)."),
     image_url: Optional[str] = typer.Option(None, "--image-url", help="Public HTTPS image URL for Meta container creation."),
     from_staged_r2: bool = typer.Option(False, "--from-staged-r2", help="Resolve the publish image URL from uploaded R2 staged media records."),
     config_path: Path = typer.Option(Path("config/photo_sources.yaml"), "--config", help="Photo source and R2 staging config path."),
@@ -416,9 +416,9 @@ def meta_validate_image_publish(
 
 @meta_app.command("validate-carousel-publish")
 def meta_validate_carousel_publish(
-    draft_id: int = typer.Option(..., "--draft-id", help="Ready-to-publish carousel draft id."),
+    draft_id: int = typer.Option(..., "--draft-id", help="Ready-to-publish carousel post id (existing --draft-id option)."),
     image_urls: Optional[list[str]] = typer.Option(
-        None, "--image-url", help="Public HTTPS image URL for each carousel image, in draft order."
+        None, "--image-url", help="Public HTTPS image URL for each carousel image, in post order."
     ),
     from_staged_r2: bool = typer.Option(False, "--from-staged-r2", help="Resolve ordered publish image URLs from uploaded R2 staged media records."),
     config_path: Path = typer.Option(Path("config/photo_sources.yaml"), "--config", help="Photo source and R2 staging config path."),
@@ -474,7 +474,7 @@ def meta_validate_carousel_publish(
 
 @meta_app.command("final-publish-preview")
 def meta_final_publish_preview(
-    draft_id: int = typer.Option(..., "--draft-id", help="Ready-to-publish draft id."),
+    draft_id: int = typer.Option(..., "--draft-id", help="Ready-to-publish post id (existing --draft-id option)."),
     from_staged_r2: bool = typer.Option(False, "--from-staged-r2", help="Resolve ordered publish image URLs from uploaded R2 staged media records."),
     config_path: Path = typer.Option(Path("config/photo_sources.yaml"), "--config", help="Photo source and R2 staging config path."),
     db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
@@ -496,7 +496,7 @@ def meta_final_publish_preview(
 
 @meta_app.command("publish-scheduled")
 def meta_publish_scheduled(
-    draft_id: int = typer.Option(..., "--draft-id", help="Ready-to-publish scheduled draft id."),
+    draft_id: int = typer.Option(..., "--draft-id", help="Ready-to-publish scheduled post id (existing --draft-id option)."),
     from_staged_r2: bool = typer.Option(False, "--from-staged-r2", help="Resolve ordered publish image URLs from uploaded R2 staged media records."),
     config_path: Path = typer.Option(Path("config/photo_sources.yaml"), "--config", help="Photo source and R2 staging config path."),
     db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
@@ -680,7 +680,7 @@ def opportunities_list(
         return
     for opportunity in opportunities:
         candidate = f", candidate #{opportunity.candidate_group_id}" if opportunity.candidate_group_id else ""
-        draft = f", draft #{opportunity.draft_id}" if opportunity.draft_id else ""
+        draft = f", post #{opportunity.draft_id}" if opportunity.draft_id else ""
         typer.echo(
             f"#{opportunity.id} {opportunity.title} — {opportunity.trigger_type}, {opportunity.status}{candidate}{draft}"
         )
@@ -737,7 +737,7 @@ def opportunities_convert_to_draft(
         raise typer.BadParameter(str(error), param_hint="--opportunity-id") from error
     connection.commit()
     typer.echo(
-        f"Post opportunity #{opportunity.id} converted to draft #{opportunity.draft_id}. No Discord or Meta network calls were made."
+        f"Post opportunity #{opportunity.id} converted to post #{opportunity.draft_id}. No Discord or Meta network calls were made."
     )
 
 
@@ -745,7 +745,7 @@ def opportunities_convert_to_draft(
 def dm_intake(
     message: str = typer.Option(..., "--message", help="DM-style text from Andrew."),
     discord_channel_id: Optional[str] = typer.Option(None, "--discord-channel-id", help="Sanitized Discord DM/channel id for local thread reuse."),
-    draft_id: Optional[int] = typer.Option(None, "--draft-id", help="Optional active draft id to attach context to."),
+    draft_id: Optional[int] = typer.Option(None, "--draft-id", help="Optional active post id to attach context to (existing --draft-id option)."),
     db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
 ) -> None:
     """Simulate user-initiated private DM intake without calling Discord."""
@@ -770,7 +770,7 @@ def discord_dm_intake_poll(
         "--after-message-id",
         help="Only inspect Discord DMs after this message id. Optional for user-initiated intake.",
     ),
-    draft_id: Optional[int] = typer.Option(None, "--draft-id", help="Optional active draft id to attach context to."),
+    draft_id: Optional[int] = typer.Option(None, "--draft-id", help="Optional active post id to attach context to (existing --draft-id option)."),
     db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
 ) -> None:
     """Poll Andrew's private Discord DM for a natural user-initiated Post Relay message."""
@@ -792,7 +792,7 @@ def discord_dm_intake_poll(
 
 @discord_app.command("dm-selection-send")
 def discord_dm_selection_send(
-    draft_id: int = typer.Option(..., "--draft-id", help="Draft id."),
+    draft_id: int = typer.Option(..., "--draft-id", help="Post id (existing --draft-id option)."),
     target_count: int = typer.Option(..., "--target-count", help="Number of photos Andrew should select."),
     post_type: Optional[str] = typer.Option(None, "--post-type", help="Optional post type: single_image, carousel, or reel."),
     db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
@@ -816,7 +816,7 @@ def discord_dm_selection_send(
 
 @discord_app.command("dm-selection-poll")
 def discord_dm_selection_poll(
-    draft_id: int = typer.Option(..., "--draft-id", help="Draft id."),
+    draft_id: int = typer.Option(..., "--draft-id", help="Post id (existing --draft-id option)."),
     channel_id: str = typer.Option(..., "--channel-id", help="Discord DM channel id returned by dm-selection-send."),
     target_count: int = typer.Option(..., "--target-count", help="Expected selected photo count."),
     after_message_id: Optional[str] = typer.Option(None, "--after-message-id", help="Only inspect Discord replies after this message id."),
@@ -845,7 +845,7 @@ def discord_dm_selection_poll(
 
 @discord_app.command("dm-selection-apply")
 def discord_dm_selection_apply(
-    draft_id: int = typer.Option(..., "--draft-id", help="Draft id."),
+    draft_id: int = typer.Option(..., "--draft-id", help="Post id (existing --draft-id option)."),
     message: str = typer.Option(..., "--message", help="Andrew's DM reply, e.g. 'select 3,1,5 lead 3'."),
     target_count: int = typer.Option(..., "--target-count", help="Expected selected photo count."),
     post_type: Optional[str] = typer.Option(None, "--post-type", help="Optional post type: single_image, carousel, or reel."),
@@ -871,7 +871,7 @@ def discord_dm_selection_apply(
 
 @discord_app.command("dm-schedule-send")
 def discord_dm_schedule_send(
-    draft_id: int = typer.Option(..., "--draft-id", help="Approved draft id."),
+    draft_id: int = typer.Option(..., "--draft-id", help="Approved post id (existing --draft-id option)."),
     now: Optional[str] = typer.Option(None, "--now", help="Override current time for deterministic local testing."),
     db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
 ) -> None:
@@ -894,7 +894,7 @@ def discord_dm_schedule_send(
 
 @discord_app.command("dm-schedule-poll")
 def discord_dm_schedule_poll(
-    draft_id: int = typer.Option(..., "--draft-id", help="Draft id."),
+    draft_id: int = typer.Option(..., "--draft-id", help="Post id (existing --draft-id option)."),
     channel_id: str = typer.Option(..., "--channel-id", help="Discord DM channel id returned by dm-schedule-send."),
     after_message_id: str = typer.Option(..., "--after-message-id", help="Only inspect Discord replies after this prompt message id."),
     now: Optional[str] = typer.Option(None, "--now", help="Override current time for deterministic local testing."),
@@ -921,7 +921,7 @@ def discord_dm_schedule_poll(
 
 @discord_app.command("dm-schedule-apply")
 def discord_dm_schedule_apply(
-    draft_id: int = typer.Option(..., "--draft-id", help="Draft id."),
+    draft_id: int = typer.Option(..., "--draft-id", help="Post id (existing --draft-id option)."),
     message: str = typer.Option(..., "--message", help="Andrew's DM schedule reply."),
     now: Optional[str] = typer.Option(None, "--now", help="Override current time for deterministic local testing."),
     discord_channel_id: Optional[str] = typer.Option(None, "--discord-channel-id", help="Sanitized Discord DM channel id for local thread update."),
@@ -945,7 +945,7 @@ def discord_dm_schedule_apply(
 
 @discord_app.command("dm-publish-approval-send")
 def discord_dm_publish_approval_send(
-    draft_id: int = typer.Option(..., "--draft-id", help="Scheduled draft id."),
+    draft_id: int = typer.Option(..., "--draft-id", help="Scheduled post id (existing --draft-id option)."),
     now: Optional[str] = typer.Option(None, "--now", help="Override current time for deterministic local testing."),
     db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
 ) -> None:
@@ -968,7 +968,7 @@ def discord_dm_publish_approval_send(
 
 @discord_app.command("dm-publish-approval-poll")
 def discord_dm_publish_approval_poll(
-    draft_id: int = typer.Option(..., "--draft-id", help="Draft id."),
+    draft_id: int = typer.Option(..., "--draft-id", help="Post id (existing --draft-id option)."),
     channel_id: str = typer.Option(..., "--channel-id", help="Discord DM channel id returned by dm-publish-approval-send."),
     after_message_id: str = typer.Option(..., "--after-message-id", help="Only inspect Discord replies after this prompt/confirmation message id."),
     now: Optional[str] = typer.Option(None, "--now", help="Override current time for deterministic local testing."),
@@ -995,7 +995,7 @@ def discord_dm_publish_approval_poll(
 
 @discord_app.command("dm-publish-approval-apply")
 def discord_dm_publish_approval_apply(
-    draft_id: int = typer.Option(..., "--draft-id", help="Scheduled draft id."),
+    draft_id: int = typer.Option(..., "--draft-id", help="Scheduled post id (existing --draft-id option)."),
     message: str = typer.Option(..., "--message", help="Andrew's final approval reply, e.g. 'approve publish'."),
     now: Optional[str] = typer.Option(None, "--now", help="Override current time for deterministic local testing."),
     discord_channel_id: Optional[str] = typer.Option(None, "--discord-channel-id", help="Sanitized Discord DM channel id for local thread update."),
@@ -1019,7 +1019,7 @@ def discord_dm_publish_approval_apply(
 
 @discord_app.command("dm-guided-review-send")
 def discord_dm_guided_review_send(
-    draft_id: int = typer.Option(..., "--draft-id", help="Draft id."),
+    draft_id: int = typer.Option(..., "--draft-id", help="Post id (existing --draft-id option)."),
     location_text: Optional[str] = typer.Option(None, "--location", help="Confirmed location/place text."),
     story_angle: Optional[str] = typer.Option(None, "--story-angle", help="Story or memory to center."),
     mood: Optional[str] = typer.Option(None, "--mood", help="Caption tone or mood."),
@@ -1052,7 +1052,7 @@ def discord_dm_guided_review_send(
 
 @discord_app.command("dm-guided-review-poll")
 def discord_dm_guided_review_poll(
-    draft_id: int = typer.Option(..., "--draft-id", help="Draft id."),
+    draft_id: int = typer.Option(..., "--draft-id", help="Post id (existing --draft-id option)."),
     channel_id: str = typer.Option(..., "--channel-id", help="Discord DM channel id returned by dm-guided-review-send."),
     after_message_id: str = typer.Option(..., "--after-message-id", help="Only inspect Discord replies after this prompt message id."),
     db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
@@ -1077,7 +1077,7 @@ def discord_dm_guided_review_poll(
 
 @discord_app.command("dm-guided-review-apply")
 def discord_dm_guided_review_apply(
-    draft_id: int = typer.Option(..., "--draft-id", help="Draft id."),
+    draft_id: int = typer.Option(..., "--draft-id", help="Post id (existing --draft-id option)."),
     message: str = typer.Option(..., "--message", help="Andrew's DM guided-review reply."),
     discord_channel_id: Optional[str] = typer.Option(None, "--discord-channel-id", help="Sanitized Discord DM channel id for local thread update."),
     db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
@@ -1102,26 +1102,26 @@ def drafts_create(
     candidate_id: int = typer.Option(..., "--candidate-id", help="Candidate group id."),
     db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
 ) -> None:
-    """Create an initial draft record from a candidate group."""
+    """Create an initial post record from a candidate group."""
     connection = connect_db(db)
     initialize_db(connection)
     try:
         draft = create_draft_from_candidate(connection, candidate_id)
     except CandidateNotFound as error:
         raise typer.BadParameter(str(error), param_hint="--candidate-id") from error
-    typer.echo(f"Created draft #{draft.id} from candidate #{draft.candidate_group_id}.")
+    typer.echo(f"Created post #{draft.id} from candidate #{draft.candidate_group_id}; initial status is {draft.status}.")
 
 
 @drafts_app.command("list")
 def drafts_list(
     db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
 ) -> None:
-    """List draft records."""
+    """List post records."""
     connection = connect_db(db)
     initialize_db(connection)
     drafts = list_drafts(connection)
     if not drafts:
-        typer.echo("No drafts found.")
+        typer.echo("No posts found.")
         return
     for draft in drafts:
         typer.echo(
@@ -1131,10 +1131,10 @@ def drafts_list(
 
 @drafts_app.command("preview")
 def drafts_preview(
-    draft_id: int = typer.Option(..., "--draft-id", help="Draft id."),
+    draft_id: int = typer.Option(..., "--draft-id", help="Post id (existing --draft-id option)."),
     db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
 ) -> None:
-    """Print a structured local review package for a draft."""
+    """Print a structured local review package for a post."""
     connection = connect_db(db)
     initialize_db(connection)
     try:
@@ -1146,10 +1146,10 @@ def drafts_preview(
 
 @drafts_app.command("media-plan")
 def drafts_media_plan(
-    draft_id: int = typer.Option(..., "--draft-id", help="Draft id."),
+    draft_id: int = typer.Option(..., "--draft-id", help="Post id (existing --draft-id option)."),
     db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
 ) -> None:
-    """Print numbered draft media for contact-sheet review instructions."""
+    """Print numbered post media for contact-sheet review instructions."""
     connection = connect_db(db)
     initialize_db(connection)
     try:
@@ -1161,7 +1161,7 @@ def drafts_media_plan(
 
 @drafts_app.command("media-edit")
 def drafts_media_edit(
-    draft_id: int = typer.Option(..., "--draft-id", help="Draft id."),
+    draft_id: int = typer.Option(..., "--draft-id", help="Post id (existing --draft-id option)."),
     lead: int = typer.Option(..., "--lead", help="Review media number to make lead/cover."),
     keep: Optional[str] = typer.Option(None, "--keep", help="Comma-separated review media numbers to keep."),
     remove: Optional[str] = typer.Option(None, "--remove", help="Comma-separated review media numbers to exclude."),
@@ -1189,7 +1189,7 @@ def drafts_media_edit(
 
 @draft_publish_exports_app.command("render")
 def drafts_publish_exports_render(
-    draft_id: int = typer.Option(..., "--draft-id", help="Draft id."),
+    draft_id: int = typer.Option(..., "--draft-id", help="Post id (existing --draft-id option)."),
     profile: str = typer.Option("feed_portrait_4x5", "--profile", help="Publish export profile."),
     landscape_treatment: str = typer.Option("clean_mat", "--landscape-treatment", help="Landscape-in-portrait treatment."),
     config_path: Path = typer.Option(Path("config/photo_sources.yaml"), "--config", help="Photo source and publish export config path."),
@@ -1217,7 +1217,7 @@ def drafts_publish_exports_render(
 
 @drafts_app.command("guided-package-plan")
 def drafts_guided_package_plan(
-    draft_id: int = typer.Option(..., "--draft-id", help="Draft id."),
+    draft_id: int = typer.Option(..., "--draft-id", help="Post id (existing --draft-id option)."),
     location_text: Optional[str] = typer.Option(None, "--location", help="Confirmed location/place text."),
     story_angle: Optional[str] = typer.Option(None, "--story-angle", help="Story or memory to center."),
     mood: Optional[str] = typer.Option(None, "--mood", help="Caption tone or mood."),
@@ -1246,7 +1246,7 @@ def drafts_guided_package_plan(
 
 @drafts_app.command("guided-package-accept")
 def drafts_guided_package_accept(
-    draft_id: int = typer.Option(..., "--draft-id", help="Draft id."),
+    draft_id: int = typer.Option(..., "--draft-id", help="Post id (existing --draft-id option)."),
     caption_index: int = typer.Option(1, "--caption-index", help="Generated caption option to accept."),
     location_text: Optional[str] = typer.Option(None, "--location", help="Confirmed location/place text."),
     story_angle: Optional[str] = typer.Option(None, "--story-angle", help="Story or memory to center."),
@@ -1277,7 +1277,7 @@ def drafts_guided_package_accept(
 
 @drafts_app.command("discord-selection-plan")
 def drafts_discord_selection_plan(
-    draft_id: int = typer.Option(..., "--draft-id", help="Draft id."),
+    draft_id: int = typer.Option(..., "--draft-id", help="Post id (existing --draft-id option)."),
     target_count: int = typer.Option(..., "--target-count", help="Number of photos Andrew should select."),
     post_type: Optional[str] = typer.Option(None, "--post-type", help="Optional post type: single_image, carousel, or reel."),
     db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
@@ -1301,7 +1301,7 @@ def drafts_discord_selection_plan(
 
 @drafts_app.command("discord-selection-preview")
 def drafts_discord_selection_preview(
-    draft_id: int = typer.Option(..., "--draft-id", help="Draft id."),
+    draft_id: int = typer.Option(..., "--draft-id", help="Post id (existing --draft-id option)."),
     target_count: int = typer.Option(..., "--target-count", help="Number of photos Andrew should select."),
     post_type: Optional[str] = typer.Option(None, "--post-type", help="Optional post type: single_image, carousel, or reel."),
     artifact_paths: Optional[list[Path]] = typer.Option(None, "--artifact-path", help="Optional local review artifact path, such as a contact sheet."),
@@ -1327,7 +1327,7 @@ def drafts_discord_selection_preview(
 
 @drafts_app.command("discord-selection-apply")
 def drafts_discord_selection_apply(
-    draft_id: int = typer.Option(..., "--draft-id", help="Draft id."),
+    draft_id: int = typer.Option(..., "--draft-id", help="Post id (existing --draft-id option)."),
     selected: str = typer.Option(..., "--select", help="Comma-separated suggested photo numbers to keep, in Andrew's chosen order."),
     lead: int = typer.Option(..., "--lead", help="Selected suggested photo number to make lead/cover."),
     target_count: int = typer.Option(..., "--target-count", help="Expected selected photo count."),
@@ -1355,7 +1355,7 @@ def drafts_discord_selection_apply(
 
 @drafts_app.command("discord-preview")
 def drafts_discord_preview(
-    draft_id: int = typer.Option(..., "--draft-id", help="Draft id."),
+    draft_id: int = typer.Option(..., "--draft-id", help="Post id (existing --draft-id option)."),
     db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
 ) -> None:
     """Print a dry-run Discord preview payload with ordered image paths."""
@@ -1370,11 +1370,11 @@ def drafts_discord_preview(
 
 @drafts_app.command("r2-stage-plan")
 def drafts_r2_stage_plan(
-    draft_id: int = typer.Option(..., "--draft-id", help="Draft id."),
+    draft_id: int = typer.Option(..., "--draft-id", help="Post id (existing --draft-id option)."),
     config_path: Path = typer.Option(Path("config/photo_sources.yaml"), "--config", help="Photo source and R2 staging config path."),
     db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
 ) -> None:
-    """Print a no-network R2 staging plan for draft media and review artifacts."""
+    """Print a no-network R2 staging plan for post media and review artifacts."""
     config = load_config(config_path)
     connection = connect_db(db)
     initialize_db(connection)
@@ -1395,7 +1395,7 @@ def drafts_r2_stage_plan(
 
 @drafts_app.command("r2-stage-upload")
 def drafts_r2_stage_upload(
-    draft_id: int = typer.Option(..., "--draft-id", help="Draft id."),
+    draft_id: int = typer.Option(..., "--draft-id", help="Post id (existing --draft-id option)."),
     config_path: Path = typer.Option(Path("config/photo_sources.yaml"), "--config", help="Photo source and R2 staging config path."),
     execute: bool = typer.Option(False, "--execute", help="Upload staged objects to R2 and record them."),
     include_review_artifacts: bool = typer.Option(False, "--include-review-artifacts", help="Also upload generated review thumbnails and contact sheet."),
@@ -1424,7 +1424,7 @@ def drafts_r2_stage_upload(
 
 @drafts_app.command("r2-cleanup")
 def drafts_r2_cleanup(
-    draft_id: int = typer.Option(..., "--draft-id", help="Draft id."),
+    draft_id: int = typer.Option(..., "--draft-id", help="Post id (existing --draft-id option)."),
     config_path: Path = typer.Option(Path("config/photo_sources.yaml"), "--config", help="Photo source and R2 staging config path."),
     execute: bool = typer.Option(False, "--execute", help="Delete recorded staged R2 objects and mark them cleaned up."),
     reason: Optional[str] = typer.Option(None, "--reason", help="Cleanup reason stored with deleted records."),
@@ -1449,28 +1449,28 @@ def drafts_r2_cleanup(
 
 @drafts_app.command("submit")
 def drafts_submit(
-    draft_id: int = typer.Option(..., "--draft-id", help="Draft id."),
+    draft_id: int = typer.Option(..., "--draft-id", help="Post id (existing --draft-id option)."),
     db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
 ) -> None:
-    """Submit a draft for content-direction review."""
+    """Submit a post for content-direction review."""
     connection = connect_db(db)
     initialize_db(connection)
     try:
         draft = submit_draft_for_review(connection, draft_id)
     except (ApprovalDraftNotFound, ValueError) as error:
         raise typer.BadParameter(str(error), param_hint="--draft-id") from error
-    typer.echo(f"Submitted draft #{draft.id} for review; status is {draft.status}.")
+    typer.echo(f"Submitted post #{draft.id} for content review; status is {draft.status}.")
 
 
 @drafts_app.command("approve")
 def drafts_approve(
-    draft_id: int = typer.Option(..., "--draft-id", help="Draft id."),
+    draft_id: int = typer.Option(..., "--draft-id", help="Post id (existing --draft-id option)."),
     approved_by: Optional[str] = typer.Option(None, "--approved-by", help="Approver name."),
     notes: Optional[str] = typer.Option(None, "--notes", help="Approval notes."),
     source_message_ref: Optional[str] = typer.Option(None, "--source-message-ref", help="Source message reference."),
     db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
 ) -> None:
-    """Record explicit draft approval for queueing."""
+    """Record explicit content approval for queueing."""
     connection = connect_db(db)
     initialize_db(connection)
     try:
@@ -1485,19 +1485,19 @@ def drafts_approve(
         raise typer.BadParameter(str(error), param_hint="--draft-id") from error
     except DraftNotReadyForApproval as error:
         raise typer.BadParameter(str(error), param_hint="--draft-id") from error
-    typer.echo(f"Approved draft #{approval.draft_id} for queue with approval #{approval.id}.")
+    typer.echo(f"Approved post #{approval.draft_id} for queue with approval #{approval.id}.")
 
 
 @drafts_app.command("edit")
 def drafts_edit(
-    draft_id: int = typer.Option(..., "--draft-id", help="Draft id."),
-    caption: Optional[str] = typer.Option(None, "--caption", help="Draft caption text."),
+    draft_id: int = typer.Option(..., "--draft-id", help="Post id (existing --draft-id option)."),
+    caption: Optional[str] = typer.Option(None, "--caption", help="Post caption text."),
     hashtags: Optional[str] = typer.Option(None, "--hashtags", help="Comma-separated hashtags."),
     location_text: Optional[str] = typer.Option(None, "--location", help="Location text."),
     alt_text: Optional[str] = typer.Option(None, "--alt-text", help="Alt text."),
     db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
 ) -> None:
-    """Edit draft content placeholders and invalidate prior approvals on material changes."""
+    """Edit post content placeholders and invalidate prior approvals on material changes."""
     connection = connect_db(db)
     initialize_db(connection)
     active_before = len(list_active_approvals(connection, draft_id))
@@ -1513,7 +1513,7 @@ def drafts_edit(
     except ApprovalDraftNotFound as error:
         raise typer.BadParameter(str(error), param_hint="--draft-id") from error
     invalidated_count = active_before - len(list_active_approvals(connection, draft_id))
-    message = f"Updated draft #{draft.id}; status is {draft.status}."
+    message = f"Updated post #{draft.id}; status is {draft.status}."
     if invalidated_count:
         message += f" Material edit invalidated active approvals: {invalidated_count}."
     typer.echo(message)
@@ -1521,7 +1521,7 @@ def drafts_edit(
 
 @drafts_app.command("location-candidates")
 def drafts_location_candidates(
-    draft_id: int = typer.Option(..., "--draft-id", help="Draft id."),
+    draft_id: int = typer.Option(..., "--draft-id", help="Post id (existing --draft-id option)."),
     query: Optional[str] = typer.Option(None, "--query", help="Confirmed place query to search with Meta Pages."),
     max_candidates: int = typer.Option(5, "--max-candidates", help="Maximum Meta Page candidates to show."),
     dry_run: bool = typer.Option(False, "--dry-run", help="Plan or clarify without calling Meta."),
@@ -1555,7 +1555,7 @@ def drafts_location_candidates(
 
 @drafts_app.command("location-tag-set")
 def drafts_location_tag_set(
-    draft_id: int = typer.Option(..., "--draft-id", help="Draft id."),
+    draft_id: int = typer.Option(..., "--draft-id", help="Post id (existing --draft-id option)."),
     page_id: str = typer.Option(..., "--page-id", help="Resolved Facebook Page id to send as Meta location_id."),
     name: str = typer.Option(..., "--name", help="Human-readable location Page name."),
     source: str = typer.Option("pages/search", "--source", help="Resolution source/audit note."),
@@ -1577,7 +1577,7 @@ def drafts_location_tag_set(
         raise typer.BadParameter(str(error), param_hint="--draft-id") from error
     invalidated_count = active_before - len(list_active_approvals(connection, draft_id))
     typer.echo(
-        f"Resolved Meta location tag for draft #{tag.draft_id}: location_id={tag.page_id} ({tag.name})."
+        f"Resolved Meta location tag for post #{tag.draft_id}: location_id={tag.page_id} ({tag.name})."
     )
     if invalidated_count:
         typer.echo(
@@ -1588,38 +1588,38 @@ def drafts_location_tag_set(
 
 @drafts_app.command("schedule")
 def drafts_schedule(
-    draft_id: int = typer.Option(..., "--draft-id", help="Draft id."),
+    draft_id: int = typer.Option(..., "--draft-id", help="Post id (existing --draft-id option)."),
     scheduled_for: str = typer.Option(..., "--scheduled-for", help="Scheduled publish time/window."),
     db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
 ) -> None:
-    """Schedule a queue-approved draft without publishing."""
+    """Schedule a queue-approved post without publishing."""
     connection = connect_db(db)
     initialize_db(connection)
     try:
         draft = schedule_draft(connection, draft_id, scheduled_for=scheduled_for)
     except (SchedulingDraftNotFound, DraftNotReadyForScheduling) as error:
         raise typer.BadParameter(str(error), param_hint="--draft-id") from error
-    typer.echo(f"Scheduled draft #{draft.id} for {draft.scheduled_for}; status is {draft.status}.")
+    typer.echo(f"Scheduled post #{draft.id} for {draft.scheduled_for}; status is {draft.status}.")
 
 
 @drafts_app.command("request-publish-approval")
 def drafts_request_publish_approval(
-    draft_id: int = typer.Option(..., "--draft-id", help="Draft id."),
+    draft_id: int = typer.Option(..., "--draft-id", help="Post id (existing --draft-id option)."),
     db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
 ) -> None:
-    """Move a scheduled draft into final publish-approval review."""
+    """Move a scheduled post into final publish-approval review."""
     connection = connect_db(db)
     initialize_db(connection)
     try:
         draft = request_publish_approval(connection, draft_id)
     except (SchedulingDraftNotFound, DraftNotReadyForPublishApproval) as error:
         raise typer.BadParameter(str(error), param_hint="--draft-id") from error
-    typer.echo(f"Requested publish approval for draft #{draft.id}; status is {draft.status}.")
+    typer.echo(f"Requested publish approval for post #{draft.id}; status is {draft.status}.")
 
 
 @drafts_app.command("approve-publish")
 def drafts_approve_publish(
-    draft_id: int = typer.Option(..., "--draft-id", help="Draft id."),
+    draft_id: int = typer.Option(..., "--draft-id", help="Post id (existing --draft-id option)."),
     approved_by: Optional[str] = typer.Option(None, "--approved-by", help="Approver name."),
     notes: Optional[str] = typer.Option(None, "--notes", help="Approval notes."),
     source_message_ref: Optional[str] = typer.Option(None, "--source-message-ref", help="Source message reference."),
@@ -1638,16 +1638,16 @@ def drafts_approve_publish(
         )
     except (SchedulingDraftNotFound, DraftNotReadyForPublishApproval) as error:
         raise typer.BadParameter(str(error), param_hint="--draft-id") from error
-    typer.echo(f"Approved draft #{approval.draft_id} for publishing with approval #{approval.id}.")
+    typer.echo(f"Approved post #{approval.draft_id} for publishing with approval #{approval.id}.")
 
 
 @draft_artifacts_app.command("render")
 def draft_artifacts_render(
-    draft_id: int = typer.Option(..., "--draft-id", help="Draft id."),
+    draft_id: int = typer.Option(..., "--draft-id", help="Post id (existing --draft-id option)."),
     config_path: Path = typer.Option(Path("config/photo_sources.yaml"), "--config", help="Photo source and artifact config path."),
     db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
 ) -> None:
-    """Render local thumbnails and a contact sheet for draft review."""
+    """Render local thumbnails and a contact sheet for post review."""
     config = load_config(config_path)
     connection = connect_db(db)
     initialize_db(connection)
@@ -1670,10 +1670,10 @@ def draft_artifacts_render(
 
 @draft_questions_app.command("generate")
 def draft_questions_generate(
-    draft_id: int = typer.Option(..., "--draft-id", help="Draft id."),
+    draft_id: int = typer.Option(..., "--draft-id", help="Post id (existing --draft-id option)."),
     db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
 ) -> None:
-    """Generate lightweight missing-context questions for a draft."""
+    """Generate lightweight missing-context questions for a post."""
     connection = connect_db(db)
     initialize_db(connection)
     try:
@@ -1681,16 +1681,16 @@ def draft_questions_generate(
     except ContextDraftNotFound as error:
         raise typer.BadParameter(str(error), param_hint="--draft-id") from error
     typer.echo(
-        f"Generated {len(questions)} unresolved context questions for draft #{draft_id}."
+        f"Generated {len(questions)} unresolved context questions for post #{draft_id}."
     )
 
 
 @draft_questions_app.command("list")
 def draft_questions_list(
-    draft_id: int = typer.Option(..., "--draft-id", help="Draft id."),
+    draft_id: int = typer.Option(..., "--draft-id", help="Post id (existing --draft-id option)."),
     db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
 ) -> None:
-    """List context questions for a draft."""
+    """List context questions for a post."""
     connection = connect_db(db)
     initialize_db(connection)
     questions = list_context_questions(connection, draft_id)

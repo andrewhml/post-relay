@@ -129,7 +129,7 @@ def test_preflight_due_scheduled_publish_requires_active_draft_and_publish_appro
             now="2026-05-05T09:30:00-07:00",
         )
 
-    assert "active draft and publish approvals" in str(error.value)
+    assert "active content and publish approvals" in str(error.value)
     assert list_publish_attempts(connection, draft.id) == []
 
 

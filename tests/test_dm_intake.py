@@ -225,7 +225,7 @@ def test_user_dm_with_active_draft_records_sanitized_context_and_routes_to_next_
     assert "lantern glow" in notes[0].summary
     assert "fake-token" not in notes[0].summary
     text = result.to_text()
-    assert f"Linked draft: #{draft.id}" in text
+    assert f"Linked post: #{draft.id}" in text
     assert "Next safe step: media selection" in text
     assert "No Discord or Meta network calls were made." in text
     assert "fake-token" not in text
@@ -256,7 +256,7 @@ def test_user_dm_can_choose_candidate_and_create_linked_draft(tmp_path: Path):
     assert draft.candidate_group_id == candidate_id
     assert result.suggested_candidates == []
     text = result.to_text()
-    assert f"Linked draft: #{draft.id}" in text
+    assert f"Linked post: #{draft.id}" in text
     assert "Next safe step: media selection" in text
 
 

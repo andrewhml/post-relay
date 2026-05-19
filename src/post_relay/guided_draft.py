@@ -35,8 +35,8 @@ class GuidedDraftPackage:
 
     def to_text(self) -> str:
         lines = [
-            "Guided Draft Package",
-            f"Draft ID: {self.draft_id}",
+            "Guided Post Package",
+            f"Post ID: {self.draft_id}",
             f"Post type recommendation: {self.post_type_recommendation}",
             f"Rationale: {self.post_type_rationale}",
             "Caption options:",
@@ -75,7 +75,7 @@ class AcceptedGuidedDraftPackage:
     def to_text(self) -> str:
         return "\n".join(
             [
-                f"Accepted guided draft package for draft #{self.draft_id}",
+                f"Accepted guided post package for post #{self.draft_id}",
                 f"Caption: {self.caption}",
                 "Hashtags: " + " ".join(self.hashtags),
                 f"Location: {self.location_text or '<unconfirmed>'}",
@@ -151,7 +151,7 @@ def accept_guided_draft_package(
             (package.draft_id,),
         )
     if updated is None:
-        raise DraftNotFound(f"Draft {package.draft_id} was not found.")
+        raise DraftNotFound(f"Post {package.draft_id} was not found.")
     upsert_guided_draft_package(
         connection,
         draft_id=package.draft_id,
@@ -180,7 +180,7 @@ def accept_guided_draft_package(
 def _require_draft(connection, draft_id: int) -> DraftRecord:
     draft = get_draft(connection, draft_id)
     if draft is None:
-        raise DraftNotFound(f"Draft {draft_id} was not found.")
+        raise DraftNotFound(f"Post {draft_id} was not found.")
     return draft
 
 

@@ -71,7 +71,7 @@ class DraftLocationCandidateReview:
         if self.status == "needs_clarification":
             return "\n".join(
                 [
-                    f"Need a more specific location before searching Meta Pages for draft #{self.draft_id}.",
+                    f"Need a more specific location before searching Meta Pages for post #{self.draft_id}.",
                     f"Current location context: {self.context or '<none>'}",
                     "Please confirm the specific market/venue/landmark, choose a general city tag, or say to skip the Meta location tag.",
                     "No Meta network calls were made.",
@@ -79,7 +79,7 @@ class DraftLocationCandidateReview:
                 ]
             )
         lines = [
-            f"Possible Meta location tags for draft #{self.draft_id}",
+            f"Possible Meta location tags for post #{self.draft_id}",
             f"Query: {self.query}",
             "Official read route: GET /pages/search",
         ]
@@ -120,7 +120,7 @@ def build_location_candidate_review(
 ) -> DraftLocationCandidateReview:
     draft = get_draft(connection, draft_id)
     if draft is None:
-        raise DraftNotFound(f"Draft #{draft_id} was not found")
+        raise DraftNotFound(f"Post #{draft_id} was not found")
     context = _location_context(connection, draft)
     resolved_query = (query or "").strip() or context
     if not query and _needs_location_clarification(context):
@@ -252,7 +252,7 @@ def set_draft_location_tag(
 ) -> DraftLocationTagRecord:
     draft = get_draft(connection, draft_id)
     if draft is None:
-        raise DraftNotFound(f"Draft #{draft_id} was not found")
+        raise DraftNotFound(f"Post #{draft_id} was not found")
     tag = upsert_draft_location_tag(
         connection,
         draft_id=draft.id,
