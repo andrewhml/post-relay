@@ -117,7 +117,36 @@ def test_dm_next_action_routes_ready_post_to_final_preview_and_guarded_publish(t
     assert plan.action == "publish_preflight"
     assert "meta final-publish-preview" in text
     assert "meta publish-scheduled" in text
-    assert "only with explicit active-session authorization" in text
+    assert "Stored final publish approval is durable" in text
+    assert "No reapproval is needed inside Meta's 24-hour container window" in text
+    assert "--execute" in text
+    assert "only with explicit active-session authorization" not in text
+
+
+def test_dm_next_action_includes_all_scheduled_posts_for_agent_awareness(tmp_path: Path):
+    connection, draft, _root = _create_draft(tmp_path)
+    submit_draft_for_review(connection, draft.id)
+    approve_draft_content(connection, draft.id, approved_by="andrew")
+    schedule_draft(connection, draft.id, scheduled_for="2026-06-01T09:30:00-07:00")
+
+    candidate_cursor = connection.execute(
+        "insert into candidate_groups (title, source_name, source_folder, post_type_recommendation, confidence, reason) values (?, ?, ?, ?, ?, ?)",
+        ("Second post", "processed", "second-post", "carousel", 1.0, "test"),
+    )
+    cursor = connection.execute(
+        "insert into drafts (candidate_group_id, post_type, status, scheduled_for) values (?, ?, ?, ?)",
+        (int(candidate_cursor.lastrowid), "carousel", DraftState.READY_TO_PUBLISH.value, "2026-06-08T09:30:00-07:00"),
+    )
+    connection.commit()
+    other_id = int(cursor.lastrowid)
+
+    plan = build_dm_next_action_plan(connection, draft_id=draft.id)
+    text = plan.to_text()
+
+    assert "Scheduled posts:" in text
+    assert f"#{draft.id} scheduled carousel at 2026-06-01T09:30:00-07:00" in text
+    assert f"#{other_id} ready_to_publish carousel at 2026-06-08T09:30:00-07:00" in text
+    assert "Use this queue before recommending another slot." in text
 
 
 def test_dm_next_action_cli_renders_local_plan_without_network(tmp_path: Path):

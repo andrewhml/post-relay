@@ -177,6 +177,26 @@ def test_preflight_due_scheduled_publish_reports_due_plan_without_network_or_att
     assert list_publish_attempts(connection, draft.id) == []
 
 
+def test_preflight_due_scheduled_publish_accepts_final_approval_older_than_24_hours(tmp_path: Path):
+    connection, draft, r2_config = _build_ready_draft(tmp_path)
+    connection.execute(
+        "update approvals set approved_at = ? where draft_id = ? and approval_type = ?",
+        ("2026-05-01T09:00:00-07:00", draft.id, "publish"),
+    )
+    connection.commit()
+
+    result = preflight_due_scheduled_publish(
+        connection,
+        draft.id,
+        r2_config=r2_config,
+        now="2026-05-05T09:31:00-07:00",
+    )
+
+    assert result.ready is True
+    assert result.scheduled_for == "2026-05-05T09:30:00-07:00"
+    assert list_publish_attempts(connection, draft.id) == []
+
+
 def test_execute_due_scheduled_publish_runs_existing_guarded_carousel_execute_when_due(tmp_path: Path):
     connection, draft, r2_config = _build_ready_draft(tmp_path)
     requested = []

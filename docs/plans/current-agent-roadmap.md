@@ -1049,7 +1049,27 @@ Current local result: `14 passed` focused; `174 passed` full suite.
 2. Use `meta token-extend --env-file .env` to inspect the dry-run plan; use `--execute --update-env` only after a valid short-lived token is in the private `.env`.
 3. Complete PR #60 / Milestone 34 `feat/dm-next-action-planner`, then choose proactive opportunity DM controls, video/reel validation, or deeper local media discovery/enrichment.
 
-### PR #60 / Milestone 34: `feat/dm-next-action-planner` (current branch)
+### PR #61 / Milestone 35: `feat/durable-scheduled-publish-approval` (current branch)
+
+**Goal:** Let Andrew give final publish approval once, schedule arbitrarily far in the future, and have the due scheduled-publish runner proceed from durable stored approval without a second manual approval inside Meta's 24-hour container window. Also make the agent aware of all locally scheduled posts before it recommends or schedules another slot.
+
+**Delivered behavior in branch:**
+- Added scheduled-post feedback rendering for all local posts with `scheduled_for` in scheduled/publish-approval/ready/posting states, sorted by scheduled time.
+- `dm next-action` now includes the scheduled-post queue whenever any scheduled posts exist, so the agent can mention existing slots before suggesting another post time.
+- Ready-to-publish `dm next-action` copy now treats active final publish approval as durable until a material edit invalidates it, and explains that Meta containers are created only when the due runner executes.
+- `drafts schedule` echoes the scheduled-post queue after scheduling, so immediate CLI output warns when another post is already scheduled.
+- Added regression coverage proving scheduled-publish preflight accepts active final approval older than 24 hours.
+
+**Safety rule:** Stored final approval authorizes the scheduled runner only for the approved post, after its local `scheduled_for` time is due, while active content and publish approvals still exist and staged media/caption preflight passes. Material edits still invalidate approvals and require reapproval. Planner and schedule feedback remain local-only and do not call Discord, R2, or Meta.
+
+**Verification:**
+
+```bash
+.venv/bin/python -m pytest tests/test_scheduling.py tests/test_dm_operating_loop.py tests/test_scheduled_publish_runner.py -q
+.venv/bin/python -m pytest -q
+```
+
+### PR #60 / Milestone 34: `feat/dm-next-action-planner` (merged)
 
 **Goal:** Make the private-DM operating loop less manual by adding a local planner that inspects the active thread/post status and tells the agent the next safe step without sending Discord, R2, or Meta requests.
 
