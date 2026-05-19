@@ -22,6 +22,7 @@ Early local-first MVP scaffold with:
 - no-network final publish preview that shows the exact Meta-bound caption, selected staged media URLs, publishable fields, and local/review-only metadata before live execution
 - Instagram-optimized local publish exports for 4:5 portrait feed/carousel assets, including mixed-orientation warnings and contact sheets built from the actual exported files
 - resolved Meta location tags stored separately from freeform location text, with draft-aware candidate search/clarification, explicit `location_id` final preview/publish payloads only after reviewed Page selection and reapproval
+- local post-publish analytics snapshots that capture published media ids, final Meta-bound caption/media URLs, schedule vs actual publish time, resolved location tag, and export dimensions from staged media records without network calls
 - guarded R2 staging upload/cleanup CLI with recorded-object-only deletion and explicit `--execute` safeguards
 - explicit Instagram capability matrix separating publishable fields from local/review-only metadata
 - guarded draft workflow state model
@@ -43,7 +44,7 @@ Early local-first MVP scaffold with:
 - `graph.instagram.com` returned `Invalid platform app` in current setup
 
 ## Immediate goals
-1. Add post-publish analytics/feedback capture so recommendations improve from actual published media outcomes
+1. Continue post-publish analytics/feedback work by adding actual read-only insights fetch/storage after local snapshots and plans are in place
 2. Keep improving the private-DM-first, user-initiated workflow for selecting photos, accepting hook-first captions/metadata, scheduling, and recording local approvals
 3. Keep agent-initiated suggestions local-only until the user-initiated flow has enough successful sessions; then add proactive Discord DMs behind explicit safe trigger and opt-out controls
 4. After feed/carousel publishing is reliable, add read-only insights collection, recommendation improvements, and later reel/video validation
@@ -71,6 +72,8 @@ Use the project virtualenv when running locally:
 .venv/bin/post-relay meta publish-scheduled --draft-id 2 --from-staged-r2 --config config/photo_sources.yaml --db data/post_relay.sqlite
 # Execute only when due and explicitly authorized in the active session:
 .venv/bin/post-relay meta publish-scheduled --draft-id 2 --from-staged-r2 --config config/photo_sources.yaml --db data/post_relay.sqlite --env-file .env --execute
+.venv/bin/post-relay analytics snapshot --draft-id 2 --db data/post_relay.sqlite
+.venv/bin/post-relay analytics insights-plan --draft-id 2 --db data/post_relay.sqlite
 .venv/bin/post-relay candidates build --db data/post_relay.sqlite
 .venv/bin/post-relay candidates list --db data/post_relay.sqlite
 .venv/bin/post-relay drafts create --candidate-id 1 --db data/post_relay.sqlite

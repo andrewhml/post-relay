@@ -13,6 +13,12 @@ from post_relay.approvals import (
     edit_draft_content,
     submit_draft_for_review,
 )
+from post_relay.analytics_feedback import (
+    PublishedPostSnapshotNotReady,
+    build_insights_collection_plan,
+    record_published_post_snapshot,
+    render_published_post_snapshot,
+)
 from post_relay.candidates import build_candidate_groups
 from post_relay.config import load_config
 from post_relay.context_questions import (
@@ -155,6 +161,7 @@ drafts_app = typer.Typer(help="Draft record commands.")
 dm_app = typer.Typer(help="Private DM simulation commands.")
 discord_app = typer.Typer(help="Discord DM integration commands.")
 opportunities_app = typer.Typer(help="Local post opportunity commands.")
+analytics_app = typer.Typer(help="Post-publish analytics and feedback commands.")
 draft_questions_app = typer.Typer(help="Draft context question commands.")
 draft_artifacts_app = typer.Typer(help="Draft review artifact commands.")
 draft_publish_exports_app = typer.Typer(help="Draft publish export commands.")
@@ -167,6 +174,7 @@ app.add_typer(drafts_app, name="drafts")
 app.add_typer(dm_app, name="dm")
 app.add_typer(discord_app, name="discord")
 app.add_typer(opportunities_app, name="opportunities")
+app.add_typer(analytics_app, name="analytics")
 drafts_app.add_typer(draft_questions_app, name="questions")
 drafts_app.add_typer(draft_artifacts_app, name="artifacts")
 drafts_app.add_typer(draft_publish_exports_app, name="publish-exports")
@@ -222,6 +230,47 @@ def library_stats(
         for year, count in stats.by_year.items():
             year_label: Optional[int | str] = year if year is not None else "unknown"
             typer.echo(f"  {year_label}: {count}")
+
+
+@analytics_app.command("snapshot")
+def analytics_snapshot(
+    draft_id: int = typer.Option(..., "--draft-id", help="Draft id."),
+    actual_published_at: Optional[str] = typer.Option(
+        None,
+        "--actual-published-at",
+        help="Actual publish timestamp to persist; defaults to current local time.",
+    ),
+    db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
+) -> None:
+    """Persist and render a local post-publish audit snapshot without network calls."""
+    connection = connect_db(db)
+    initialize_db(connection)
+    try:
+        snapshot = record_published_post_snapshot(
+            connection,
+            draft_id,
+            actual_published_at=actual_published_at,
+        )
+    except PublishedPostSnapshotNotReady as error:
+        typer.echo(str(error))
+        raise typer.Exit(code=1) from error
+    typer.echo(render_published_post_snapshot(snapshot))
+
+
+@analytics_app.command("insights-plan")
+def analytics_insights_plan(
+    draft_id: int = typer.Option(..., "--draft-id", help="Draft id."),
+    db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
+) -> None:
+    """Render a read-only Meta insights collection plan without network calls."""
+    connection = connect_db(db)
+    initialize_db(connection)
+    try:
+        plan = build_insights_collection_plan(connection, draft_id)
+    except PublishedPostSnapshotNotReady as error:
+        typer.echo(str(error))
+        raise typer.Exit(code=1) from error
+    typer.echo(plan.to_text())
 
 
 @meta_app.command("validate-readonly")

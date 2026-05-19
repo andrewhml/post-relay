@@ -693,7 +693,7 @@ As of the first live carousel smoke, the local-first workflow is past the origin
 - Agent-initiated suggestions are modeled locally through `post_opportunities` and safe trigger checks, but proactive Discord outreach has not been implemented yet.
 - DM intake now avoids the worst broad-request failure mode by asking for narrowing cues before suggesting huge weak matches, matched large sets point operators to bounded artifact planning, and natural request matching uses local folder/year/filename descriptors with explainable rationale.
 - Oversized full contact-sheet renders are blocked by `drafts artifacts render`; instead, the CLI prints a bounded, DM-safe first-pass plan with narrowing/sample guidance and no source paths.
-- Single-image publish validation has completed one live smoke test. The first live carousel smoke for draft `2` succeeded through the guarded Meta path. Schedule enforcement, final publish caption/metadata preview, publish exports, and resolved Meta `location_id` support have now landed; the next hardening milestone is analytics feedback from published media outcomes.
+- Single-image publish validation has completed one live smoke test. The first live carousel smoke for draft `2` succeeded through the guarded Meta path. Schedule enforcement, final publish caption/metadata preview, publish exports, resolved Meta `location_id` support, and local post-publish analytics snapshots have now landed; the next hardening milestone is read-only insights fetch/storage and recommendation feedback summaries.
 
 ## Next planned milestones
 
@@ -887,15 +887,41 @@ Current local result: `14 passed` focused; `174 passed` full suite.
 2. Move next to Milestone 28 `feat/post-publish-analytics-feedback` to capture published media outcomes and start improving recommendations from real results.
 3. Keep live-safe defaults: no Discord sends, no R2 `--execute`, and no Meta `--execute` unless explicitly authorized in the active session.
 
-### Milestone 28: `feat/post-publish-analytics-feedback`
+### PR #54 / Milestone 28: `feat/post-publish-analytics-feedback`
 
 **Goal:** After safer publishing is in place, capture performance feedback so recommendations and export choices improve over time.
 
-**Required behavior:**
-- Record published media ids, final caption, final media/export dimensions, schedule time vs actual publish time, and public metadata decisions in local audit tables.
-- Add a read-only insights collection plan for approved metrics that the current Graph permissions support.
-- Keep insights read-only and separate from publishing.
-- Use metrics later to refine cadence, caption length/style, carousel count/order, and export format recommendations.
+**Delivered behavior in branch:**
+- Added `published_post_snapshots`, a local audit table keyed by draft and publish attempt, recording published media id, post type, final Meta-bound caption, ordered media URLs, media dimensions, scheduled time, actual publish time, and resolved location tag fields.
+- Successful guarded single-image/carousel publish execution now records a local post-publish snapshot after Meta returns a published media id and the draft moves to `posted`.
+- Added `analytics snapshot --draft-id ...` to backfill/render the local snapshot from existing successful publish attempts without network calls.
+- Added `analytics insights-plan --draft-id ...` to render the read-only Meta insights endpoint/metric plan for the published media id without network calls; actual insights fetch/storage remains a follow-up.
+- Snapshot dimension capture uses local uploaded staged-media records and exported asset files when available; missing/unreadable files are recorded as unknown rather than blocking the audit snapshot.
+- Added tests for snapshot persistence, publish-path auto-capture, read-only insights planning, CLI rendering, and no-extra-network behavior.
+
+**Safety rule:** Analytics snapshot and insights-plan commands do not call Discord, R2, or Meta. Actual insights collection must remain read-only and separate from publishing, and must not imply permission to execute a live publish.
+
+**Verification:**
+
+```bash
+.venv/bin/python -m pytest tests/test_analytics_feedback.py tests/test_publish_validation.py -q
+.venv/bin/python -m pytest -q
+```
+
+**Next-session start here:**
+1. First verify the current baseline: `.venv/bin/python -m pytest -q` should report the full suite passing.
+2. Move next to read-only insights fetch/storage for published media, using `instagram_manage_insights` only if available and keeping no-network planning as the default safe path.
+3. Then add recommendation feedback summaries that compare outcomes against caption length/style, carousel count/order, timing, location tag, and export format.
+
+### Milestone 29: `feat/read-only-insights-feedback`
+
+**Goal:** Add actual read-only insights fetch/storage for published media after confirming the current token has the required supported insight permission/scope. Keep the no-network `analytics insights-plan` command as the safe default and add explicit `--execute` only for read-only collection.
+
+**Expected behavior:**
+- Store fetched insight metrics in local audit tables keyed by published media id and collection timestamp.
+- Keep fetched metrics separate from publish attempts and drafts so analytics cannot mutate publishing state.
+- Redact tokens/errors and never call write/publish endpoints.
+- Add feedback summaries that can later refine cadence, caption length/style, carousel count/order, location tag usage, and export format recommendations.
 
 ## Later milestones
 
