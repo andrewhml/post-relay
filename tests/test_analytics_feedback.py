@@ -7,10 +7,14 @@ from typer.testing import CliRunner
 from post_relay.analytics_feedback import (
     PublishedPostSnapshotNotReady,
     build_feedback_summary,
+    build_follower_growth_plan,
+    build_follower_growth_summary,
     build_insights_collection_plan,
+    collect_and_store_follower_metrics,
     collect_and_store_media_insights,
     record_published_post_snapshot,
     render_feedback_summary,
+    render_follower_growth_summary,
 )
 from post_relay.approvals import approve_draft_content, submit_draft_for_review
 from post_relay.candidates import build_candidate_groups
@@ -25,6 +29,7 @@ from post_relay.repository import (
     create_r2_staged_object_record,
     get_draft,
     get_published_post_snapshot_for_draft,
+    list_account_metric_snapshots,
     list_candidate_groups,
     list_media_insight_snapshots,
 )
@@ -316,6 +321,36 @@ def test_meta_graph_client_fetches_media_insights_with_read_only_get():
     ]
 
 
+def test_meta_graph_client_fetches_follower_metrics_with_read_only_get():
+    requested = []
+
+    def fake_transport(method, url, params):
+        requested.append((method, url, dict(params)))
+        return {
+            "id": "17841400498120050",
+            "username": "andrewhml",
+            "followers_count": 758,
+            "follows_count": 611,
+            "media_count": 208,
+        }
+
+    client = MetaGraphClient(MetaGraphConfig(access_token="secret-token"), transport=fake_transport)
+
+    payload = client.get_instagram_account_metrics("17841400498120050")
+
+    assert payload["followers_count"] == 758
+    assert requested == [
+        (
+            "GET",
+            "https://graph.facebook.com/v19.0/17841400498120050",
+            {
+                "fields": "id,username,followers_count,follows_count,media_count",
+                "access_token": "secret-token",
+            },
+        )
+    ]
+
+
 def test_collect_and_store_media_insights_persists_read_only_metrics(tmp_path: Path):
     connection, draft, public_urls = _build_ready_carousel_with_exported_staged_media(tmp_path)
     _insert_successful_publish_attempt(connection, draft, public_urls)
@@ -525,3 +560,113 @@ def test_feedback_summary_cli_is_local_only_and_does_not_mutate_state(tmp_path: 
     initialize_db(verify_connection)
     assert get_draft(verify_connection, draft.id).status == before_draft_status
     assert list_media_insight_snapshots(verify_connection, draft.id) == []
+
+
+def test_follower_growth_plan_is_read_only_for_instagram_account():
+    plan = build_follower_growth_plan("17841400498120050")
+
+    assert plan.instagram_account_id == "17841400498120050"
+    assert plan.read_only is True
+    assert plan.endpoint == "/17841400498120050"
+    assert plan.fields == ["id", "username", "followers_count", "follows_count", "media_count"]
+    assert "GET /17841400498120050?fields=id,username,followers_count,follows_count,media_count" in plan.to_text()
+    assert "No network calls were made" in plan.to_text()
+
+
+def test_collect_and_store_follower_metrics_records_read_only_account_snapshot(tmp_path: Path):
+    db_path = tmp_path / "post_relay.sqlite"
+    connection = connect_db(db_path)
+    initialize_db(connection)
+    requested = []
+
+    class FakeClient:
+        def get_instagram_account_metrics(self, instagram_account_id: str):
+            requested.append(instagram_account_id)
+            return {
+                "id": instagram_account_id,
+                "username": "andrewhml",
+                "followers_count": 758,
+                "follows_count": 611,
+                "media_count": 208,
+            }
+
+    record = collect_and_store_follower_metrics(
+        connection,
+        "17841400498120050",
+        client=FakeClient(),
+        collected_at="2026-05-19T09:00:00-07:00",
+    )
+
+    assert requested == ["17841400498120050"]
+    assert record.instagram_account_id == "17841400498120050"
+    assert record.username == "andrewhml"
+    assert record.follower_count == 758
+    assert record.follows_count == 611
+    assert record.media_count == 208
+    assert record.collected_at == "2026-05-19T09:00:00-07:00"
+    assert list_account_metric_snapshots(connection)[0].follower_count == 758
+
+
+def test_follower_growth_summary_computes_progress_and_delta(tmp_path: Path):
+    connection = connect_db(tmp_path / "post_relay.sqlite")
+    initialize_db(connection)
+
+    class FakeClient:
+        def __init__(self, payload):
+            self.payload = payload
+
+        def get_instagram_account_metrics(self, instagram_account_id: str):
+            return dict(self.payload, id=instagram_account_id)
+
+    collect_and_store_follower_metrics(
+        connection,
+        "17841400498120050",
+        client=FakeClient({"username": "andrewhml", "followers_count": 758, "media_count": 206}),
+        collected_at="2026-05-18T09:00:00-07:00",
+    )
+    collect_and_store_follower_metrics(
+        connection,
+        "17841400498120050",
+        client=FakeClient({"username": "andrewhml", "followers_count": 763, "media_count": 208}),
+        collected_at="2026-05-19T09:00:00-07:00",
+    )
+
+    summary = build_follower_growth_summary(connection, target_followers=5000)
+    rendered = render_follower_growth_summary(summary)
+
+    assert summary.current_follower_count == 763
+    assert summary.previous_follower_count == 758
+    assert summary.follower_delta == 5
+    assert summary.remaining_to_target == 4237
+    assert "Follower growth summary" in rendered
+    assert "Current followers: 763" in rendered
+    assert "Change from previous snapshot: +5" in rendered
+    assert "Progress to 5,000: 763/5000" in rendered
+    assert "No Discord, R2, Meta publish, or post lifecycle state changes" in rendered
+
+
+def test_follower_fetch_cli_dry_run_makes_no_network_or_state_changes(tmp_path: Path):
+    db_path = tmp_path / "post_relay.sqlite"
+    connection = connect_db(db_path)
+    initialize_db(connection)
+    connection.close()
+
+    result = runner.invoke(
+        app,
+        [
+            "analytics",
+            "follower-fetch",
+            "--instagram-account-id",
+            "17841400498120050",
+            "--db",
+            str(db_path),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "Dry run only: read-only Instagram follower metrics fetch" in result.output
+    assert "Endpoint: GET /17841400498120050" in result.output
+    assert "No Meta network calls were made" in result.output
+    verify_connection = connect_db(db_path)
+    initialize_db(verify_connection)
+    assert list_account_metric_snapshots(verify_connection) == []

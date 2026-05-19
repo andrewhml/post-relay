@@ -1,7 +1,7 @@
 # Post Relay — Implementation Plan
 
 ## Status
-Current roadmap snapshot after PR #55 was opened for read-only insights storage. This file is historical; the canonical, actively maintained agent plan is `docs/plans/current-agent-roadmap.md`. The immediate next engineering milestone, after PR #55 merges, is `feat/recommendation-feedback-summaries`.
+Current roadmap snapshot after read-only insights storage and recommendation feedback summaries landed, with follower-growth tracking implemented on the current `feat/follower-growth-tracking` branch. This file is historical; the canonical, actively maintained agent plan is `docs/plans/current-agent-roadmap.md`.
 
 ## Purpose
 This document breaks Post Relay into concrete implementation phases and tasks.
@@ -24,9 +24,9 @@ Post Relay has now implemented most feed/carousel production hardening through t
 - broad DM request guardrails that ask for narrowing before huge weak matches
 - bounded review artifact planning that blocks oversized full contact sheets until Andrew narrows the set
 - local semantic DM candidate matching from folder/year/filename descriptors with simple explainable aliases
-- local post-publish snapshots, guarded read-only insight metric storage behind explicit `analytics insights-fetch --execute`, and advisory local recommendation feedback summaries
+- local post-publish snapshots, guarded read-only insight metric storage behind explicit `analytics insights-fetch --execute`, advisory local recommendation feedback summaries, and local follower-growth snapshots/summaries toward the 5,000 follower goal
 
-Remaining near-term gaps are targeted optimization and operating-loop gaps, not generic scaffolding: use deterministic recommendation feedback as the baseline, then decide whether to prioritize follower-growth tracking, more user-initiated DM practice, proactive opportunity DMs, video/reel validation, or deeper media discovery/enrichment.
+Remaining near-term gaps are targeted optimization and operating-loop gaps, not generic scaffolding: use deterministic recommendation feedback plus local follower-growth summaries as the advisory baseline, then decide whether to prioritize more user-initiated DM practice, proactive opportunity DMs, video/reel validation, or deeper media discovery/enrichment.
 
 ## Build Strategy
 
@@ -218,16 +218,17 @@ Make Post Relay smarter over time.
 
 ## Recommended Next Build Artifacts
 The next useful detailed artifacts are now:
-- `docs/plans/current-agent-roadmap.md` Later milestones for follower-growth progress tracking and private-DM operating-loop improvements
-- a later follower-growth tracking plan once more per-post feedback summaries exist
+- `docs/plans/current-agent-roadmap.md` Later milestones for private-DM operating-loop improvements, proactive opportunity DM controls, video/reel validation, and deeper media discovery/enrichment
 - a later video/reel validation plan after feed/carousel cadence is stable
+- a later plan for turning enough advisory feedback/follower-growth snapshots into stronger deterministic recommendations
 
 ## Practical Next Human Steps
 Andrew should continue with:
 - keeping tokens private and rotating any exposed test tokens
 - using private DM-driven sessions to prove the user-initiated workflow on real travel sets
 - collecting read-only insights only with `analytics insights-fetch --execute` when the active token has the needed insights permission
-- treating recommendation feedback as advisory until several real posts provide enough signal
+- collecting read-only follower metrics only with `analytics follower-fetch --execute` when explicitly intended; dry-run remains the default
+- treating recommendation and follower-growth feedback as advisory until several real posts and account snapshots provide enough signal
 
 ## Immediate Next Engineering Step
-Choose the next rollback-safe milestone from `docs/plans/current-agent-roadmap.md`, likely follower-growth progress tracking, more private-DM operating-loop practice, proactive opportunity DM controls, video/reel validation, or deeper local media discovery/enrichment. Keep recommendation feedback advisory-only until several real posts provide enough signal.
+Finish and merge `feat/follower-growth-tracking`, then choose the next rollback-safe milestone from `docs/plans/current-agent-roadmap.md`, likely more private-DM operating-loop practice, proactive opportunity DM controls, video/reel validation, or deeper local media discovery/enrichment. Keep recommendation and follower-growth feedback advisory-only until several real posts and account snapshots provide enough signal.

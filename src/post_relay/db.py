@@ -258,6 +258,19 @@ SCHEMA_STATEMENTS = [
         foreign key(published_post_snapshot_id) references published_post_snapshots(id)
     )
     """,
+    """
+    create table if not exists account_metric_snapshots (
+        id integer primary key,
+        instagram_account_id text not null,
+        username text,
+        follower_count integer,
+        follows_count integer,
+        media_count integer,
+        raw_payload_json text not null,
+        collected_at text not null,
+        created_at text not null default current_timestamp
+    )
+    """,
 ]
 
 

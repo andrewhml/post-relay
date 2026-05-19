@@ -113,6 +113,12 @@ class MetaGraphClient:
             {"fields": "id,username,media_count"},
         )
 
+    def get_instagram_account_metrics(self, instagram_account_id: str) -> Mapping[str, Any]:
+        return self._request(
+            instagram_account_id,
+            {"fields": "id,username,followers_count,follows_count,media_count"},
+        )
+
     def search_pages(self, *, query: str, fields: str = "id,name,location,link") -> Mapping[str, Any]:
         return self._request(
             "pages/search",
