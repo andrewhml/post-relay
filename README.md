@@ -10,7 +10,7 @@ Early local-first MVP scaffold with:
 - library statistics CLI
 - candidate group builder/list CLI
 - post create/list/preview CLI (currently under the existing `drafts` command namespace)
-- local post review artifact CLI for ordered thumbnails/contact sheets without source mutation
+- local post review artifact CLI for staged ordered thumbnails/contact sheets without source mutation: Stage 1 selection by default, Stage 2 crop only after confirmed media selection, Stage 3 final preview only after accepted copy/metadata
 - post context question generate/list CLI
 - post content approval/edit CLI with approval invalidation on material edits
 - explicit post media selection CLI for numbered contact-sheet keep/remove/lead/post-type edits
@@ -99,14 +99,15 @@ Use the project virtualenv when running locally:
 .venv/bin/post-relay drafts create --candidate-id 1 --db data/post_relay.sqlite
 .venv/bin/post-relay drafts list --db data/post_relay.sqlite
 .venv/bin/post-relay drafts preview --draft-id 1 --db data/post_relay.sqlite
-.venv/bin/post-relay drafts artifacts render --draft-id 1 --config config/photo_sources.yaml --db data/post_relay.sqlite
-.venv/bin/post-relay drafts publish-exports render --draft-id 1 --profile feed_portrait_4x5 --config config/photo_sources.yaml --db data/post_relay.sqlite
+.venv/bin/post-relay drafts artifacts render --draft-id 1 --stage select --config config/photo_sources.yaml --db data/post_relay.sqlite
 .venv/bin/post-relay drafts media-plan --draft-id 1 --db data/post_relay.sqlite
 .venv/bin/post-relay drafts media-edit --draft-id 1 --lead 3 --keep 1,3,5 --post-type carousel --db data/post_relay.sqlite
+.venv/bin/post-relay drafts artifacts render --draft-id 1 --stage crop --config config/photo_sources.yaml --db data/post_relay.sqlite
 .venv/bin/post-relay drafts crop-feedback --draft-id 1 --shift 3:B2 --center 5 --tighten 6 --db data/post_relay.sqlite
-.venv/bin/post-relay drafts final-preview-artifact render --draft-id 1 --config config/photo_sources.yaml --db data/post_relay.sqlite
 .venv/bin/post-relay drafts guided-package-plan --draft-id 1 --location "Seoul, South Korea" --story-angle "night market alleys" --mood cinematic --audience-hook "food and light" --db data/post_relay.sqlite
 .venv/bin/post-relay drafts guided-package-accept --draft-id 1 --caption-index 1 --location "Seoul, South Korea" --story-angle "night market alleys" --mood cinematic --audience-hook "food and light" --db data/post_relay.sqlite
+.venv/bin/post-relay drafts final-preview-artifact render --draft-id 1 --config config/photo_sources.yaml --db data/post_relay.sqlite
+.venv/bin/post-relay drafts publish-exports render --draft-id 1 --profile feed_portrait_4x5 --config config/photo_sources.yaml --db data/post_relay.sqlite
 .venv/bin/post-relay drafts location-candidates --draft-id 1 --db data/post_relay.sqlite --dry-run
 .venv/bin/post-relay drafts location-candidates --draft-id 1 --query "Gwangjang Market Seoul" --env-file .env --db data/post_relay.sqlite
 .venv/bin/post-relay drafts location-tag-set --draft-id 1 --page-id <facebook-page-location-id> --name "Seoul, Korea" --source pages/search --db data/post_relay.sqlite

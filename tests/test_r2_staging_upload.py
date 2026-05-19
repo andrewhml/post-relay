@@ -131,10 +131,11 @@ def test_upload_r2_staging_can_include_review_artifacts_when_requested(tmp_path:
 
     records = list_r2_staged_objects(connection, draft.id)
     assert result.executed is True
-    assert result.uploaded_count == 6
-    assert len(client.uploads) == 6
+    assert result.uploaded_count == 5
+    assert len(client.uploads) == 5
     assert records[0].kind == "draft_media"
-    assert [record.kind for record in records[-2:]] == ["contact_sheet_select", "contact_sheet_crop"]
+    assert records[-1].kind == "contact_sheet_select"
+    assert "contact_sheet_crop" not in [record.kind for record in records]
 
 
 def test_upload_r2_staging_execute_blocks_missing_source_before_any_upload(tmp_path: Path):

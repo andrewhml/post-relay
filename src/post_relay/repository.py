@@ -63,6 +63,7 @@ class DraftRecord:
     alt_text: Optional[str]
     status: str
     scheduled_for: Optional[str]
+    media_selection_confirmed_at: Optional[str]
 
 
 @dataclass(frozen=True)
@@ -471,7 +472,7 @@ def create_draft_record(
     row = connection.execute(
         """
         select id, candidate_group_id, post_type, caption, hashtags_json,
-               location_text, alt_text, status, scheduled_for
+               location_text, alt_text, status, scheduled_for, media_selection_confirmed_at
         from drafts
         where candidate_group_id = ?
         """,
@@ -484,7 +485,7 @@ def get_draft(connection, draft_id: int) -> Optional[DraftRecord]:
     row = connection.execute(
         """
         select id, candidate_group_id, post_type, caption, hashtags_json,
-               location_text, alt_text, status, scheduled_for
+               location_text, alt_text, status, scheduled_for, media_selection_confirmed_at
         from drafts
         where id = ?
         """,
@@ -499,7 +500,7 @@ def list_drafts(connection) -> list[DraftRecord]:
     rows = connection.execute(
         """
         select id, candidate_group_id, post_type, caption, hashtags_json,
-               location_text, alt_text, status, scheduled_for
+               location_text, alt_text, status, scheduled_for, media_selection_confirmed_at
         from drafts
         order by id
         """
@@ -1820,6 +1821,7 @@ def _draft_from_row(row) -> DraftRecord:
         alt_text=row[6],
         status=row[7],
         scheduled_for=row[8],
+        media_selection_confirmed_at=row[9],
     )
 
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Sequence
+from typing import List, Optional, Sequence
 
 
 LARGE_REVIEW_ARTIFACT_MEDIA_COUNT = 120
@@ -95,8 +95,8 @@ class ReviewArtifactsPackage:
     artifact_root: Path
     thumbnails: List[ThumbnailArtifact]
     contact_sheet_path: str
-    select_contact_sheet_path: str
-    crop_contact_sheet_path: str
+    select_contact_sheet_path: Optional[str]
+    crop_contact_sheet_path: Optional[str]
 
     def to_text(self) -> str:
         lines = [
@@ -113,15 +113,21 @@ class ReviewArtifactsPackage:
             )
         else:
             lines.append("  <none>")
-        lines.extend(
-            [
-                "Stage 1 · Select:",
-                f"  {self.select_contact_sheet_path}",
-                "  selection only; no crop framing, grid, or lead marker",
-                "Stage 2 · Crop:",
-                f"  {self.crop_contact_sheet_path}",
-            ]
-        )
+        if self.select_contact_sheet_path:
+            lines.extend(
+                [
+                    "Stage 1 · Select:",
+                    f"  {self.select_contact_sheet_path}",
+                    "  selection only; no crop framing, grid, or lead marker",
+                ]
+            )
+        if self.crop_contact_sheet_path:
+            lines.extend(
+                [
+                    "Stage 2 · Crop:",
+                    f"  {self.crop_contact_sheet_path}",
+                ]
+            )
         return "\n".join(lines)
 
 
@@ -155,10 +161,16 @@ def render_review_artifacts_for_draft(
     *,
     protected_source_roots: Sequence[Path] = (),
     allow_large: bool = False,
+    stage: str = "select",
 ) -> ReviewArtifactsPackage:
     draft = get_draft(connection, draft_id)
     if draft is None:
         raise DraftNotFound(f"Post {draft_id} was not found.")
+    valid_stages = {"select", "crop", "all"}
+    if stage not in valid_stages:
+        raise ValueError(f"stage must be one of {', '.join(sorted(valid_stages))}")
+    render_select = stage in {"select", "all"}
+    render_crop = stage in {"crop", "all"}
 
     source_paths = list_candidate_group_photo_paths(connection, draft.candidate_group_id)
     candidate = get_candidate_group(connection, draft.candidate_group_id)
@@ -175,14 +187,29 @@ def render_review_artifacts_for_draft(
 
     artifact_root = config.root / f"draft-{draft.id}"
     _ensure_artifact_root_is_safe(artifact_root, protected_source_roots)
+    select_contact_sheet_path = artifact_root / "contact-sheet-select.png"
+    crop_contact_sheet_path = artifact_root / "contact-sheet-crop.png"
+    if render_crop and not select_contact_sheet_path.exists():
+        raise ValueError(
+            "Stage 1 selection review sheet must exist before rendering Stage 2 crop artifacts; "
+            "run drafts artifacts render --stage select first."
+        )
+    if render_crop and draft.media_selection_confirmed_at is None:
+        raise ValueError(
+            "Stage 1 media selection must be confirmed before rendering Stage 2 crop artifacts; "
+            "apply the selected media with drafts media-edit or discord dm-selection-apply first."
+        )
     thumbnails_root = artifact_root / "thumbnails"
     thumbnails_root.mkdir(parents=True, exist_ok=True)
+    for stale_thumbnail in thumbnails_root.glob("*.jpg"):
+        stale_thumbnail.unlink()
 
     thumbnails: list[ThumbnailArtifact] = []
     contact_sheet_photos: list[tuple[ContactSheetPhoto, Image.Image, bool]] = []
     crop_contact_sheet_photos: list[tuple[ContactSheetPhoto, Image.Image, bool]] = []
     media_plan = build_draft_media_plan(connection, draft.id)
-    for index, item in enumerate(media_plan.items, start=1):
+    included_media_items = [item for item in media_plan.items if item.include_status == "included"]
+    for index, item in enumerate(included_media_items, start=1):
         source = Path(item.local_file_path)
         thumbnail_path = thumbnails_root / f"{index:02d}-{_safe_artifact_stem(source)}.jpg"
         with Image.open(source) as image:
@@ -205,8 +232,7 @@ def render_review_artifacts_for_draft(
             )
             is_lead = item.role == "primary"
             contact_sheet_photos.append((contact_photo, full_image.copy(), is_lead))
-            if item.include_status == "included":
-                crop_contact_sheet_photos.append((contact_photo, full_image.copy(), is_lead))
+            crop_contact_sheet_photos.append((contact_photo, full_image.copy(), is_lead))
             thumbnails.append(
                 ThumbnailArtifact(
                     source_path=source.as_posix(),
@@ -216,35 +242,48 @@ def render_review_artifacts_for_draft(
                 )
             )
 
-    select_contact_sheet_path = artifact_root / "contact-sheet-select.png"
-    crop_contact_sheet_path = artifact_root / "contact-sheet-crop.png"
-    _save_contact_sheet(
-        contact_sheet_photos,
-        select_contact_sheet_path,
-        title=f"Post {draft.id}: {candidate_title}",
-        mode="select",
-        max_px=config.thumbnail_max_px,
-        columns=config.contact_sheet_columns,
-    )
-    _save_contact_sheet(
-        crop_contact_sheet_photos,
-        crop_contact_sheet_path,
-        title=f"Post {draft.id}: {candidate_title}",
-        mode="crop",
-        max_px=config.thumbnail_max_px,
-        columns=config.contact_sheet_columns,
-    )
+    rendered_select_contact_sheet_path = None
+    rendered_crop_contact_sheet_path = None
+    if render_select:
+        _save_contact_sheet(
+            contact_sheet_photos,
+            select_contact_sheet_path,
+            title=f"Post {draft.id}: {candidate_title}",
+            mode="select",
+            max_px=config.thumbnail_max_px,
+            columns=config.contact_sheet_columns,
+        )
+        rendered_select_contact_sheet_path = select_contact_sheet_path.as_posix()
+    if render_crop:
+        _save_contact_sheet(
+            crop_contact_sheet_photos,
+            crop_contact_sheet_path,
+            title=f"Post {draft.id}: {candidate_title}",
+            mode="crop",
+            max_px=config.thumbnail_max_px,
+            columns=config.contact_sheet_columns,
+        )
+        rendered_crop_contact_sheet_path = crop_contact_sheet_path.as_posix()
+    elif crop_contact_sheet_path.exists():
+        crop_contact_sheet_path.unlink()
+    if stage == "select":
+        stale_final_preview_path = artifact_root / "final-post-preview.png"
+        if stale_final_preview_path.exists():
+            stale_final_preview_path.unlink()
     for _photo, image, _is_lead in contact_sheet_photos + crop_contact_sheet_photos:
         image.close()
 
+    primary_contact_sheet_path = rendered_crop_contact_sheet_path or rendered_select_contact_sheet_path
+    if primary_contact_sheet_path is None:
+        raise ValueError("at least one review artifact stage must be rendered")
     return ReviewArtifactsPackage(
         draft_id=draft.id,
         candidate_title=candidate_title,
         artifact_root=artifact_root,
         thumbnails=thumbnails,
-        contact_sheet_path=crop_contact_sheet_path.as_posix(),
-        select_contact_sheet_path=select_contact_sheet_path.as_posix(),
-        crop_contact_sheet_path=crop_contact_sheet_path.as_posix(),
+        contact_sheet_path=primary_contact_sheet_path,
+        select_contact_sheet_path=rendered_select_contact_sheet_path,
+        crop_contact_sheet_path=rendered_crop_contact_sheet_path,
     )
 
 

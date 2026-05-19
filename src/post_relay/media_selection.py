@@ -201,6 +201,15 @@ def apply_draft_media_selection(
             "update drafts set post_type = ?, updated_at = current_timestamp where id = ?",
             (final_post_type, draft.id),
         )
+    connection.execute(
+        """
+        update drafts
+        set media_selection_confirmed_at = current_timestamp,
+            updated_at = current_timestamp
+        where id = ?
+        """,
+        (draft.id,),
+    )
     connection.commit()
 
     refreshed_items = _number_items(list_candidate_group_photo_items(connection, draft.candidate_group_id))

@@ -137,7 +137,7 @@ def _plan_for_draft(
             action="media_selection",
             summary=summary,
             command=(
-                f"post-relay drafts artifacts render --draft-id {draft.id} --config config/photo_sources.yaml --db data/post_relay.sqlite && "
+                f"post-relay drafts artifacts render --draft-id {draft.id} --stage select --config config/photo_sources.yaml --db data/post_relay.sqlite && "
                 f"post-relay discord dm-selection-send --draft-id {draft.id} "
                 f"--target-count {min(max(target_count, 1), max(media_count, 1))} --db data/post_relay.sqlite"
             ),
@@ -147,7 +147,7 @@ def _plan_for_draft(
             rationale=[
                 f"Post has {media_count} included candidate photo(s).",
                 "Photo ordering/lead choice should be reviewed before final copy and content approval.",
-                "Stage artifacts should be kept aligned: contact-sheet-select.png for Stage 1 selection, contact-sheet-crop.png for Stage 2 crop feedback, and final-post-preview.png for Stage 3 approval.",
+                "Render only contact-sheet-select.png for Stage 1 selection; defer contact-sheet-crop.png and final-post-preview.png until the selection is settled.",
                 f"After selection, draft copy locally with: post-relay drafts guided-package-plan --draft-id {draft.id} --db data/post_relay.sqlite",
             ],
             safety_notes=_base_safety_notes(),

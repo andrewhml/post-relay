@@ -74,7 +74,8 @@ def test_dm_next_action_routes_drafting_post_to_photo_selection_and_guided_packa
     assert "contact-sheet-select.png" in text
     assert "contact-sheet-crop.png" in text
     assert "final-post-preview.png" in text
-    assert f"post-relay drafts artifacts render --draft-id {draft.id}" in text
+    assert "defer contact-sheet-crop.png and final-post-preview.png until the selection is settled" in text
+    assert f"post-relay drafts artifacts render --draft-id {draft.id} --stage select" in text
     assert f"post-relay discord dm-selection-send --draft-id {draft.id} --target-count 3" in text
     assert "drafts guided-package-plan" in text
     assert root.as_posix() not in text

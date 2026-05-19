@@ -8,6 +8,7 @@ from post_relay.config import PhotoSource, PostRelayConfig, ReviewArtifactsConfi
 from post_relay.db import connect_db, initialize_db
 from post_relay.drafts import create_draft_from_candidate
 from post_relay.indexer import index_photo_sources
+from post_relay.media_selection import apply_draft_media_selection
 from post_relay.repository import list_candidate_groups
 from post_relay.review_artifacts import (
     DraftNotFound,
@@ -23,13 +24,16 @@ def _write_image(path: Path, size: tuple[int, int], color: str) -> None:
     Image.new("RGB", size, color=color).save(path, format="JPEG")
 
 
-def _build_image_fixture_draft(tmp_path: Path):
+def _build_image_fixture_draft(tmp_path: Path, *, image_count: int = 2):
     root = tmp_path / "processed"
     folder = root / "2025" / "tokyo"
-    first = folder / "01-shibuya.jpg"
-    second = folder / "02-rooftop.jpg"
-    _write_image(first, (400, 300), "red")
-    _write_image(second, (300, 500), "blue")
+    palette = ["red", "blue", "green", "yellow", "purple"]
+    sizes = [(400, 300), (300, 500), (500, 300), (320, 480), (480, 320)]
+    paths = []
+    for index in range(1, image_count + 1):
+        path = folder / f"{index:02d}-tokyo.jpg"
+        _write_image(path, sizes[(index - 1) % len(sizes)], palette[(index - 1) % len(palette)])
+        paths.append(path)
 
     connection = connect_db(tmp_path / "post_relay.sqlite")
     initialize_db(connection)
@@ -40,7 +44,7 @@ def _build_image_fixture_draft(tmp_path: Path):
     build_candidate_groups(connection)
     candidate = list_candidate_groups(connection)[0]
     draft = create_draft_from_candidate(connection, candidate.id)
-    return connection, draft, [first, second]
+    return connection, draft, paths
 
 
 def _count_near_white_pixels(image: Image.Image, rect: tuple[int, int, int, int]) -> int:
@@ -67,7 +71,9 @@ def test_render_review_artifacts_creates_ordered_thumbnails_and_contact_sheet(tm
         mode="local",
     )
 
-    package = render_review_artifacts_for_draft(connection, draft.id, artifact_config)
+    render_review_artifacts_for_draft(connection, draft.id, artifact_config, stage="select")
+    apply_draft_media_selection(connection, draft.id, lead=1, keep=[1, 2], post_type="carousel")
+    package = render_review_artifacts_for_draft(connection, draft.id, artifact_config, stage="all")
 
     assert package.draft_id == draft.id
     assert package.candidate_title == "2025 / tokyo"
@@ -76,8 +82,8 @@ def test_render_review_artifacts_creates_ordered_thumbnails_and_contact_sheet(tm
         path.as_posix() for path in source_paths
     ]
     assert [Path(artifact.local_path).name for artifact in package.thumbnails] == [
-        "01-01-shibuya.jpg",
-        "02-02-rooftop.jpg",
+        "01-01-tokyo.jpg",
+        "02-02-tokyo.jpg",
     ]
     assert Path(package.select_contact_sheet_path).is_file()
     assert Path(package.crop_contact_sheet_path).is_file()
@@ -131,19 +137,120 @@ def test_render_review_artifacts_creates_ordered_thumbnails_and_contact_sheet(tm
         assert path.read_bytes() == original_bytes[path]
 
 
-def test_render_review_artifacts_text_lists_outputs(tmp_path: Path):
+def test_render_review_artifacts_omits_excluded_media_after_selection_edit(tmp_path: Path):
+    connection, draft, source_paths = _build_image_fixture_draft(tmp_path, image_count=4)
+    artifact_config = ReviewArtifactsConfig(
+        root=tmp_path / "review_artifacts",
+        thumbnail_max_px=160,
+        contact_sheet_columns=2,
+        mode="local",
+    )
+    apply_draft_media_selection(connection, draft.id, lead=1, remove=[3, 4], post_type="carousel")
+
+    package = render_review_artifacts_for_draft(connection, draft.id, artifact_config)
+
+    assert [Path(artifact.source_path).name for artifact in package.thumbnails] == [
+        source_paths[0].name,
+        source_paths[1].name,
+    ]
+    assert [Path(path).name for path in source_paths[2:]] == ["03-tokyo.jpg", "04-tokyo.jpg"]
+    assert not (artifact_config.root / f"draft-{draft.id}" / "thumbnails" / "03-03-tokyo.jpg").exists()
+    assert not (artifact_config.root / f"draft-{draft.id}" / "thumbnails" / "04-04-tokyo.jpg").exists()
+
+
+def test_render_review_artifacts_removes_stale_excluded_thumbnails_on_rerender(tmp_path: Path):
+    connection, draft, _source_paths = _build_image_fixture_draft(tmp_path, image_count=4)
+    artifact_config = ReviewArtifactsConfig(
+        root=tmp_path / "review_artifacts",
+        thumbnail_max_px=160,
+        contact_sheet_columns=2,
+        mode="local",
+    )
+    render_review_artifacts_for_draft(connection, draft.id, artifact_config)
+    stale_thumbnail = artifact_config.root / f"draft-{draft.id}" / "thumbnails" / "03-03-tokyo.jpg"
+    assert stale_thumbnail.exists()
+    apply_draft_media_selection(connection, draft.id, lead=1, remove=[3, 4], post_type="carousel")
+
+    render_review_artifacts_for_draft(connection, draft.id, artifact_config)
+
+    assert not stale_thumbnail.exists()
+    assert not (artifact_config.root / f"draft-{draft.id}" / "thumbnails" / "04-04-tokyo.jpg").exists()
+
+
+def test_render_review_artifacts_defaults_to_selection_only(tmp_path: Path):
+    connection, draft, _source_paths = _build_image_fixture_draft(tmp_path)
+    artifact_config = ReviewArtifactsConfig(root=tmp_path / "review_artifacts")
+    artifact_dir = artifact_config.root / f"draft-{draft.id}"
+    artifact_dir.mkdir(parents=True)
+    stale_crop = artifact_dir / "contact-sheet-crop.png"
+    stale_final = artifact_dir / "final-post-preview.png"
+    stale_crop.write_bytes(b"stale crop")
+    stale_final.write_bytes(b"stale final preview")
+
+    package = render_review_artifacts_for_draft(connection, draft.id, artifact_config)
+
+    assert Path(package.select_contact_sheet_path).is_file()
+    assert package.crop_contact_sheet_path is None
+    assert package.contact_sheet_path == package.select_contact_sheet_path
+    assert not stale_crop.exists()
+    assert not stale_final.exists()
+    text = package.to_text()
+    assert "Stage 1 · Select:" in text
+    assert "Stage 2 · Crop:" not in text
+
+
+def test_render_review_artifacts_blocks_crop_until_media_selection_is_confirmed(tmp_path: Path):
+    connection, draft, _source_paths = _build_image_fixture_draft(tmp_path)
+    artifact_config = ReviewArtifactsConfig(root=tmp_path / "review_artifacts")
+    render_review_artifacts_for_draft(connection, draft.id, artifact_config, stage="select")
+
+    with pytest.raises(ValueError, match="media selection must be confirmed"):
+        render_review_artifacts_for_draft(connection, draft.id, artifact_config, stage="crop")
+
+    artifact_dir = artifact_config.root / f"draft-{draft.id}"
+    assert not (artifact_dir / "contact-sheet-crop.png").exists()
+
+
+def test_render_review_artifacts_blocks_all_stage_from_skipping_selection(tmp_path: Path):
     connection, draft, _source_paths = _build_image_fixture_draft(tmp_path)
     artifact_config = ReviewArtifactsConfig(root=tmp_path / "review_artifacts")
 
-    package = render_review_artifacts_for_draft(connection, draft.id, artifact_config)
+    with pytest.raises(ValueError, match="Stage 1 selection review sheet must exist"):
+        render_review_artifacts_for_draft(connection, draft.id, artifact_config, stage="all")
+
+    artifact_dir = artifact_config.root / f"draft-{draft.id}"
+    assert not (artifact_dir / "contact-sheet-crop.png").exists()
+
+
+def test_render_review_artifacts_can_render_crop_after_selection_sheet_exists(tmp_path: Path):
+    connection, draft, _source_paths = _build_image_fixture_draft(tmp_path)
+    artifact_config = ReviewArtifactsConfig(root=tmp_path / "review_artifacts")
+    render_review_artifacts_for_draft(connection, draft.id, artifact_config, stage="select")
+
+    apply_draft_media_selection(connection, draft.id, lead=1, keep=[1, 2], post_type="carousel")
+
+    package = render_review_artifacts_for_draft(connection, draft.id, artifact_config, stage="crop")
+
+    assert package.select_contact_sheet_path is None
+    assert package.crop_contact_sheet_path is not None
+    assert Path(package.crop_contact_sheet_path).is_file()
+
+
+def test_render_review_artifacts_text_lists_outputs(tmp_path: Path):
+    connection, draft, _source_paths = _build_image_fixture_draft(tmp_path)
+    artifact_config = ReviewArtifactsConfig(root=tmp_path / "review_artifacts")
+    render_review_artifacts_for_draft(connection, draft.id, artifact_config, stage="select")
+    apply_draft_media_selection(connection, draft.id, lead=1, keep=[1, 2], post_type="carousel")
+
+    package = render_review_artifacts_for_draft(connection, draft.id, artifact_config, stage="all")
 
     text = package.to_text()
     assert "Review Artifacts" in text
     assert f"Post ID: {draft.id}" in text
     assert "Candidate: 2025 / tokyo" in text
     assert "Thumbnails:" in text
-    assert "01-01-shibuya.jpg" in text
-    assert "02-02-rooftop.jpg" in text
+    assert "01-01-tokyo.jpg" in text
+    assert "02-02-tokyo.jpg" in text
     assert "Stage 1 · Select:" in text
     assert "contact-sheet-select.png" in text
     assert "selection only; no crop framing" in text
