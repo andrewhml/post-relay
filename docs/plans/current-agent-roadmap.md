@@ -1021,9 +1021,9 @@ Current local result: `14 passed` focused; `174 passed` full suite.
 **Next-session start here:**
 1. First verify the current baseline: `.venv/bin/python -m pytest -q` should report the full suite passing.
 2. Use `analytics feedback-summary` plus `analytics follower-summary` as local advisory baselines when planning the next post.
-3. Complete PR TBD / Milestone 33 `feat/meta-token-extend`, then resume private-DM operating-loop improvements.
+3. Complete PR #59 / Milestone 33 `feat/meta-token-extend`, then resume private-DM operating-loop improvements.
 
-### PR TBD / Milestone 33: `feat/meta-token-extend` (current branch)
+### PR #59 / Milestone 33: `feat/meta-token-extend` (current branch)
 
 **Goal:** Reduce daily Meta token refresh friction by adding a safe local command that exchanges a valid short-lived Facebook Graph user token for a long-lived token and can update the private `.env` file without printing secrets.
 
