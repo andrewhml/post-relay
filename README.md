@@ -34,6 +34,7 @@ Early local-first MVP scaffold with:
 - live-capable private Discord DM selection sender/poller for Discord-only selection smoke tests, guarded by environment-provided bot credentials
 - live-capable private Discord DM guided review sender/poller plus no-network apply fallback for accepting hook/caption/metadata decisions from DM-style replies
 - live-capable private Discord DM scheduling guidance sender/poller plus double-confirmed final-publish-approval sender/poller and no-network apply fallbacks
+- no-network `dm next-action` planner that chooses the next private-DM operating-loop step from the active thread/post status without sending Discord, R2, or Meta requests
 - local post opportunity model and safe trigger checks for agent-initiated suggestions with dry-run planning, dedupe, snooze/dismiss respect, manual seeds, and candidate-to-draft conversion, without sending DMs
 - private DM intake narrowing guardrails that ask for more specific cues before suggesting huge weak candidate matches and warn before rendering contact sheets for large matched sets
 - local semantic DM candidate matching using folder/year/filename descriptors, simple aliases, and source-path-safe match rationale
@@ -106,6 +107,8 @@ Use the project virtualenv when running locally:
 .venv/bin/post-relay drafts discord-selection-preview --draft-id 1 --target-count 5 --artifact-path data/artifacts/draft-1/contact-sheet.jpg --db data/post_relay.sqlite
 .venv/bin/post-relay drafts discord-selection-apply --draft-id 1 --select 3,1,5,7,8 --lead 3 --target-count 5 --post-type carousel --db data/post_relay.sqlite
 .venv/bin/post-relay dm intake --message "start a post about Kyoto night market" --discord-channel-id dm-andrew --db data/post_relay.sqlite
+.venv/bin/post-relay dm next-action --discord-channel-id dm-andrew --db data/post_relay.sqlite
+.venv/bin/post-relay dm next-action --draft-id 1 --target-count 5 --db data/post_relay.sqlite
 .venv/bin/post-relay dm intake --message "make this cinematic and less touristy" --draft-id 1 --discord-channel-id dm-andrew --db data/post_relay.sqlite
 .venv/bin/post-relay discord dm-intake-poll --after-message-id <last-known-dm-message-id> --db data/post_relay.sqlite
 .venv/bin/post-relay discord dm-selection-send --draft-id 1 --target-count 5 --db data/post_relay.sqlite
