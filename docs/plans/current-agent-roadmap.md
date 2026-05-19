@@ -1047,9 +1047,9 @@ Current local result: `14 passed` focused; `174 passed` full suite.
 **Next-session start here:**
 1. First verify the current baseline: `.venv/bin/python -m pytest -q` should report the full suite passing.
 2. Use `meta token-extend --env-file .env` to inspect the dry-run plan; use `--execute --update-env` only after a valid short-lived token is in the private `.env`.
-3. Complete PR TBD / Milestone 34 `feat/dm-next-action-planner`, then choose proactive opportunity DM controls, video/reel validation, or deeper local media discovery/enrichment.
+3. Complete PR #60 / Milestone 34 `feat/dm-next-action-planner`, then choose proactive opportunity DM controls, video/reel validation, or deeper local media discovery/enrichment.
 
-### PR TBD / Milestone 34: `feat/dm-next-action-planner` (current branch)
+### PR #60 / Milestone 34: `feat/dm-next-action-planner` (current branch)
 
 **Goal:** Make the private-DM operating loop less manual by adding a local planner that inspects the active thread/post status and tells the agent the next safe step without sending Discord, R2, or Meta requests.
 
