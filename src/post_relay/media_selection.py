@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional, Sequence
 
+from post_relay.contact_sheet_design import anchor_from_chess, chess_from_anchor, ratio_label, ratio_from_label, tightness_label, clamp
 from post_relay.repository import (
     CandidateGroupPhotoItemRecord,
     DraftRecord,
@@ -11,6 +12,7 @@ from post_relay.repository import (
     invalidate_active_approvals,
     list_active_approvals,
     list_candidate_group_photo_items,
+    update_candidate_group_photo_crop,
     update_candidate_group_photo_item,
     update_draft_content,
 )
@@ -32,6 +34,14 @@ class DraftMediaPlanItem:
     local_file_path: str
     role: str
     include_status: str
+    crop_ratio: float = 1.0
+    crop_anchor_x: float = 0.5
+    crop_anchor_y: float = 0.5
+    crop_tightness: float = 1.0
+
+    @property
+    def crop_anchor(self) -> str:
+        return chess_from_anchor(self.crop_anchor_x, self.crop_anchor_y)
 
 
 @dataclass(frozen=True)
@@ -51,7 +61,8 @@ class DraftMediaPlan:
             lines.append("  <none>")
         else:
             lines.extend(
-                f"  {item.review_number}. [{item.role}] {item.include_status} {item.local_file_path}"
+                f"  {item.review_number}. [{item.role}] {item.include_status} {item.local_file_path} "
+                f"(crop {item.crop_anchor}, {ratio_label(item.crop_ratio)}, {tightness_label(item.crop_tightness)})"
                 for item in self.items
             )
         lines.extend(
@@ -59,8 +70,30 @@ class DraftMediaPlan:
                 "Edit examples:",
                 "  drafts media-edit --draft-id N --lead 3 --keep 1,3,5 --post-type carousel",
                 "  drafts media-edit --draft-id N --lead 2 --remove 4",
+                "Crop feedback examples:",
+                "  drafts crop-feedback --draft-id N --shift 3:B2 --tighten 3",
+                "  drafts crop-feedback --draft-id N --center 5 --ratio 5:4:5",
             ]
         )
+        return "\n".join(lines)
+
+
+@dataclass(frozen=True)
+class DraftCropFeedbackResult:
+    draft_id: int
+    updated_items: list[DraftMediaPlanItem]
+    invalidated_approval_count: int
+
+    def to_text(self) -> str:
+        lines = ["Crop Feedback Applied", f"Post ID: {self.draft_id}", "Updated crops:"]
+        for item in self.updated_items:
+            lines.append(
+                f"  - Moved {item.review_number}'s crop anchor to {item.crop_anchor}; "
+                f"ratio {ratio_label(item.crop_ratio)}; tightness {tightness_label(item.crop_tightness)}"
+            )
+        if self.invalidated_approval_count:
+            lines.append(f"Invalidated active approvals: {self.invalidated_approval_count}")
+        lines.append("No Discord, R2, or Meta network calls were made.")
         return "\n".join(lines)
 
 
@@ -180,6 +213,89 @@ def apply_draft_media_selection(
     )
 
 
+def apply_draft_crop_feedback(connection, draft_id: int, *, crop_edits: dict[int, dict]) -> DraftCropFeedbackResult:
+    draft = _require_draft(connection, draft_id)
+    original_items = list_candidate_group_photo_items(connection, draft.candidate_group_id)
+    numbered_original = _number_items(original_items)
+    if not numbered_original:
+        raise InvalidMediaSelection(f"Post #{draft_id} has no candidate media to crop")
+    by_number = {item.review_number: item for item in numbered_original}
+    _validate_positions(list(crop_edits.keys()), by_number)
+
+    changed_numbers: list[int] = []
+    for review_number, edit in crop_edits.items():
+        item = by_number[review_number]
+        ratio = _resolve_crop_ratio(item, edit)
+        ax, ay = _resolve_crop_anchor(item, edit)
+        tightness = _resolve_crop_tightness(item, edit)
+        update_candidate_group_photo_crop(
+            connection,
+            group_id=draft.candidate_group_id,
+            photo_id=item.photo_id,
+            crop_ratio=ratio,
+            crop_anchor_x=ax,
+            crop_anchor_y=ay,
+            crop_tightness=tightness,
+        )
+        changed_numbers.append(review_number)
+
+    invalidated_count = 0
+    active_approvals = list_active_approvals(connection, draft.id)
+    if active_approvals:
+        status = transition_draft_state(DraftState(draft.status), DraftState.NEEDS_EDITS).value
+        invalidated_count = invalidate_active_approvals(
+            connection,
+            draft.id,
+            reason="material post crop feedback edit",
+        )
+        updated_draft = update_draft_content(connection, draft.id, status=status)
+        if updated_draft is None:
+            raise DraftNotFound(f"Post #{draft_id} was not found")
+    connection.commit()
+
+    refreshed = _number_items(list_candidate_group_photo_items(connection, draft.candidate_group_id))
+    refreshed_by_number = {item.review_number: item for item in refreshed}
+    return DraftCropFeedbackResult(
+        draft_id=draft.id,
+        updated_items=[refreshed_by_number[number] for number in changed_numbers],
+        invalidated_approval_count=invalidated_count,
+    )
+
+
+def _resolve_crop_anchor(item: DraftMediaPlanItem, edit: dict) -> tuple[float, float]:
+    if edit.get("center"):
+        ax, ay = 0.5, 0.5
+    elif edit.get("anchor"):
+        try:
+            ax, ay = anchor_from_chess(str(edit["anchor"]))
+        except ValueError as error:
+            raise InvalidMediaSelection(str(error)) from error
+    else:
+        ax, ay = item.crop_anchor_x, item.crop_anchor_y
+    ax = clamp(ax + (float(edit.get("nudge_x", 0)) * 0.25))
+    ay = clamp(ay + (float(edit.get("nudge_y", 0)) * 0.25))
+    return ax, ay
+
+
+def _resolve_crop_ratio(item: DraftMediaPlanItem, edit: dict) -> float:
+    ratio = edit.get("ratio", item.crop_ratio)
+    if isinstance(ratio, str):
+        try:
+            ratio = ratio_from_label(ratio)
+        except (ValueError, ZeroDivisionError) as error:
+            raise InvalidMediaSelection("Crop ratio must be 1:1, 4:5, 1.91:1, 9:16, or a positive number") from error
+    ratio = float(ratio)
+    if ratio <= 0:
+        raise InvalidMediaSelection("Crop ratio must be positive")
+    return ratio
+
+
+def _resolve_crop_tightness(item: DraftMediaPlanItem, edit: dict) -> float:
+    tightness = float(edit.get("tightness", item.crop_tightness))
+    tightness += float(edit.get("tightness_delta", 0))
+    return clamp(tightness, 0.5, 1.0)
+
+
 def _require_draft(connection, draft_id: int) -> DraftRecord:
     draft = get_draft(connection, draft_id)
     if draft is None:
@@ -195,6 +311,10 @@ def _number_items(items: list[CandidateGroupPhotoItemRecord]) -> list[DraftMedia
             local_file_path=item.local_file_path,
             role=item.role,
             include_status=item.include_status,
+            crop_ratio=item.crop_ratio if item.crop_ratio is not None else 1.0,
+            crop_anchor_x=item.crop_anchor_x if item.crop_anchor_x is not None else 0.5,
+            crop_anchor_y=item.crop_anchor_y if item.crop_anchor_y is not None else 0.5,
+            crop_tightness=item.crop_tightness if item.crop_tightness is not None else 1.0,
         )
         for index, item in enumerate(items, start=1)
     ]

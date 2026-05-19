@@ -7,7 +7,9 @@ from typing import Sequence
 from PIL import Image, ImageOps
 
 from post_relay.config import PublishExportsConfig
-from post_relay.repository import get_candidate_group, get_draft, list_candidate_group_photo_paths
+from post_relay.contact_sheet_design import ContactSheetPhoto
+from post_relay.media_selection import build_draft_media_plan
+from post_relay.repository import get_candidate_group, get_draft
 from post_relay.review_artifacts import _ensure_artifact_root_is_safe, _save_contact_sheet
 
 
@@ -110,7 +112,8 @@ def render_publish_exports_for_draft(
         raise DraftNotFound(f"Post {draft_id} was not found.")
     candidate = get_candidate_group(connection, draft.candidate_group_id)
     candidate_title = candidate.title if candidate is not None else f"candidate #{draft.candidate_group_id}"
-    source_paths = list_candidate_group_photo_paths(connection, draft.candidate_group_id)
+    media_plan = build_draft_media_plan(connection, draft_id)
+    selected_items = [item for item in media_plan.items if item.include_status == "included"]
 
     export_root = config.root / f"draft-{draft.id}" / profile.name
     _ensure_artifact_root_is_safe(export_root, protected_source_roots)
@@ -118,10 +121,10 @@ def render_publish_exports_for_draft(
     media_root.mkdir(parents=True, exist_ok=True)
 
     media_items: list[PublishExportMediaItem] = []
-    exported_images: list[Image.Image] = []
+    contact_sheet_photos: list[tuple[ContactSheetPhoto, Image.Image, bool]] = []
     source_orientations: list[str] = []
-    for index, source_path in enumerate(source_paths, start=1):
-        source = Path(source_path)
+    for index, item in enumerate(selected_items, start=1):
+        source = Path(item.local_file_path)
         with Image.open(source) as image:
             original = ImageOps.exif_transpose(image).convert("RGB")
             source_orientation = _orientation(original.width, original.height)
@@ -130,7 +133,23 @@ def render_publish_exports_for_draft(
             exported = _export_image(original, profile, treatment)
             output_path = media_root / f"{index:02d}-{_safe_artifact_stem(source)}.jpg"
             exported.save(output_path, format="JPEG", quality=92)
-            exported_images.append(exported.copy())
+            contact_sheet_photos.append(
+                (
+                    ContactSheetPhoto(
+                        n=index,
+                        file=source.name,
+                        src=source.as_posix(),
+                        w=exported.width,
+                        h=exported.height,
+                        ratio=item.crop_ratio,
+                        ax=item.crop_anchor_x,
+                        ay=item.crop_anchor_y,
+                        tight=item.crop_tightness,
+                    ),
+                    exported.copy(),
+                    item.role == "primary",
+                )
+            )
             media_items.append(
                 PublishExportMediaItem(
                     source_path=source.as_posix(),
@@ -143,22 +162,14 @@ def render_publish_exports_for_draft(
             )
 
     contact_sheet_path = export_root / "publish-contact-sheet.jpg"
-    preview_images: list[Image.Image] = []
-    for image in exported_images:
-        preview = image.copy()
-        preview.thumbnail(
-            (config.contact_sheet_thumbnail_max_px, config.contact_sheet_thumbnail_max_px),
-            Image.Resampling.LANCZOS,
-        )
-        preview_images.append(preview)
     _save_contact_sheet(
-        preview_images,
+        contact_sheet_photos,
         contact_sheet_path,
         title=f"Post {draft.id}: {candidate_title} publish exports",
         max_px=config.contact_sheet_thumbnail_max_px,
         columns=config.contact_sheet_columns,
     )
-    for image in exported_images + preview_images:
+    for _photo, image, _is_lead in contact_sheet_photos:
         image.close()
 
     warnings = _build_warnings(source_orientations)

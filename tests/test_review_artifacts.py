@@ -76,8 +76,20 @@ def test_render_review_artifacts_creates_ordered_thumbnails_and_contact_sheet(tm
             assert artifact.height == image.height
 
     with Image.open(package.contact_sheet_path) as sheet:
-        assert sheet.width == 320
-        assert sheet.height == 184
+        assert sheet.width >= 320
+        assert sheet.height > 184
+        assert sheet.getpixel((8, 8)) != (255, 255, 255)
+        assert sheet.getpixel((8, 8))[0] < 40
+        amber_pixels = 0
+        for x in range(sheet.width):
+            for y in range(sheet.height):
+                r, g, b = sheet.getpixel((x, y))
+                if r > 180 and g > 110 and b < 80:
+                    amber_pixels += 1
+                    break
+            if amber_pixels:
+                break
+        assert amber_pixels > 0
 
     for path in source_paths:
         assert path.read_bytes() == original_bytes[path]

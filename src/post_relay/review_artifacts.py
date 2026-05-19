@@ -8,9 +8,11 @@ from typing import List, Sequence
 LARGE_REVIEW_ARTIFACT_MEDIA_COUNT = 120
 BOUNDED_REVIEW_SAMPLE_COUNT = 24
 
-from PIL import Image, ImageOps
+from PIL import Image, ImageDraw, ImageFont, ImageOps
 
 from post_relay.config import ReviewArtifactsConfig
+from post_relay.contact_sheet_design import ContactSheetPhoto, chess_from_anchor, chess_span, crop_box, ratio_label, tightness_label
+from post_relay.media_selection import build_draft_media_plan
 from post_relay.repository import get_candidate_group, get_draft, list_candidate_group_photo_paths
 
 
@@ -167,17 +169,35 @@ def render_review_artifacts_for_draft(
     thumbnails_root.mkdir(parents=True, exist_ok=True)
 
     thumbnails: list[ThumbnailArtifact] = []
-    thumbnail_images: list[Image.Image] = []
-    for index, source_path in enumerate(source_paths, start=1):
-        source = Path(source_path)
+    contact_sheet_photos: list[tuple[ContactSheetPhoto, Image.Image, bool]] = []
+    media_plan = build_draft_media_plan(connection, draft.id)
+    for index, item in enumerate(media_plan.items, start=1):
+        source = Path(item.local_file_path)
         thumbnail_path = thumbnails_root / f"{index:02d}-{_safe_artifact_stem(source)}.jpg"
         with Image.open(source) as image:
-            thumbnail_image = ImageOps.exif_transpose(image).convert("RGB")
+            full_image = ImageOps.exif_transpose(image).convert("RGB")
+            thumbnail_image = full_image.copy()
             thumbnail_image.thumbnail(
                 (config.thumbnail_max_px, config.thumbnail_max_px), Image.Resampling.LANCZOS
             )
             thumbnail_image.save(thumbnail_path, format="JPEG", quality=85)
-            thumbnail_images.append(thumbnail_image.copy())
+            contact_sheet_photos.append(
+                (
+                    ContactSheetPhoto(
+                        n=index,
+                        file=source.name,
+                        src=source.as_posix(),
+                        w=full_image.width,
+                        h=full_image.height,
+                        ratio=item.crop_ratio,
+                        ax=item.crop_anchor_x,
+                        ay=item.crop_anchor_y,
+                        tight=item.crop_tightness,
+                    ),
+                    full_image.copy(),
+                    item.role == "primary",
+                )
+            )
             thumbnails.append(
                 ThumbnailArtifact(
                     source_path=source.as_posix(),
@@ -189,13 +209,13 @@ def render_review_artifacts_for_draft(
 
     contact_sheet_path = artifact_root / "contact-sheet.jpg"
     _save_contact_sheet(
-        thumbnail_images,
+        contact_sheet_photos,
         contact_sheet_path,
         title=f"Post {draft.id}: {candidate_title}",
         max_px=config.thumbnail_max_px,
         columns=config.contact_sheet_columns,
     )
-    for image in thumbnail_images:
+    for _photo, image, _is_lead in contact_sheet_photos:
         image.close()
 
     return ReviewArtifactsPackage(
@@ -231,8 +251,16 @@ def _is_relative_to(path: Path, possible_parent: Path) -> bool:
 
 
 
+DESIGN_BG = (20, 18, 15)
+DESIGN_MAT = (12, 11, 9)
+DESIGN_CARD = (28, 25, 21)
+DESIGN_AMBER = (232, 168, 56)
+DESIGN_TEXT = (239, 232, 220)
+DESIGN_MUTED = (155, 143, 124)
+
+
 def _save_contact_sheet(
-    images: list[Image.Image],
+    photos: list[tuple[ContactSheetPhoto, Image.Image, bool]],
     path: Path,
     *,
     title: str,
@@ -240,34 +268,118 @@ def _save_contact_sheet(
     columns: int,
 ) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    header_height = 24
-    if not images:
-        sheet = Image.new("RGB", (max_px, max_px + header_height), color="white")
-        _draw_sheet_header(sheet, title)
-        sheet.save(path, format="JPEG", quality=85)
-        return
-
+    font = _font(13)
+    small = _font(10)
+    mono = _font(11)
+    header_height = 78
+    footer_height = 42
+    cell_size = max(max_px, 150)
+    meta_height = 42
+    gap = 16
+    pad = 18
     column_count = max(1, columns)
-    row_count = (len(images) + column_count - 1) // column_count
-    sheet = Image.new(
-        "RGB", (column_count * max_px, row_count * max_px + header_height), color="white"
-    )
-    _draw_sheet_header(sheet, title)
-    for index, image in enumerate(images):
-        row = index // column_count
-        column = index % column_count
-        x = column * max_px + (max_px - image.width) // 2
-        y = header_height + row * max_px + (max_px - image.height) // 2
-        sheet.paste(image, (x, y))
-    sheet.save(path, format="JPEG", quality=85)
-
-
-def _draw_sheet_header(sheet: Image.Image, title: str) -> None:
-    from PIL import ImageDraw
-
+    row_count = max(1, (len(photos) + column_count - 1) // column_count)
+    card_w = cell_size
+    card_h = cell_size + meta_height
+    sheet_w = pad * 2 + column_count * card_w + (column_count - 1) * gap
+    sheet_h = header_height + pad + row_count * card_h + (row_count - 1) * gap + footer_height
+    sheet = Image.new("RGB", (sheet_w, sheet_h), color=DESIGN_BG)
     draw = ImageDraw.Draw(sheet)
-    draw.rectangle((0, 0, sheet.width, 23), fill="white")
-    draw.text((8, 6), title, fill="black")
+    draw.text((pad, 14), "CONTACT SHEET", fill=DESIGN_AMBER, font=small)
+    draw.text((pad, 34), title, fill=DESIGN_TEXT, font=font)
+    draw.text((pad, 55), f"{len(photos)} photos · A1-E5 crop grid · reply: shift 03 to B2 / center 05 / tighten 06", fill=DESIGN_MUTED, font=small)
+
+    for index, (photo, image, is_lead) in enumerate(photos):
+        row = index // column_count
+        col = index % column_count
+        x0 = pad + col * (card_w + gap)
+        y0 = header_height + row * (card_h + gap)
+        _draw_photo_card(draw, sheet, photo, image, is_lead, x0, y0, cell_size, meta_height, font, small, mono)
+
+    footer_y = sheet_h - footer_height + 8
+    draw.text((pad, footer_y), "Crop feedback: shift 03 to B2 · center 05 · tighten 06 · loosen 09 · ratio 03 4:5", fill=DESIGN_MUTED, font=small)
+    sheet.save(path, format="JPEG", quality=88)
+
+
+def _draw_photo_card(
+    draw: ImageDraw.ImageDraw,
+    sheet: Image.Image,
+    photo: ContactSheetPhoto,
+    image: Image.Image,
+    is_lead: bool,
+    x0: int,
+    y0: int,
+    cell_size: int,
+    meta_height: int,
+    font: ImageFont.ImageFont,
+    small: ImageFont.ImageFont,
+    mono: ImageFont.ImageFont,
+) -> None:
+    outline = DESIGN_AMBER if is_lead else (46, 41, 34)
+    draw.rounded_rectangle((x0 - 1, y0 - 1, x0 + cell_size + 1, y0 + cell_size + meta_height + 1), radius=10, fill=DESIGN_CARD, outline=outline, width=3 if is_lead else 1)
+    draw.rectangle((x0, y0, x0 + cell_size, y0 + cell_size), fill=DESIGN_MAT)
+
+    display = image.copy()
+    display.thumbnail((cell_size, cell_size), Image.Resampling.LANCZOS)
+    ix = x0 + (cell_size - display.width) // 2
+    iy = y0 + (cell_size - display.height) // 2
+    sheet.paste(display, (ix, iy))
+
+    box = crop_box(photo)
+    crop_rect = (
+        ix + int(box.x * display.width),
+        iy + int(box.y * display.height),
+        ix + int((box.x + box.w) * display.width),
+        iy + int((box.y + box.h) * display.height),
+    )
+    draw.rectangle(crop_rect, outline=DESIGN_AMBER, width=2)
+    _draw_chess_grid(draw, crop_rect, chess_span(box), chess_from_anchor(photo.ax, photo.ay))
+
+    chip = (x0 + 8, y0 + 8, x0 + 42, y0 + 30)
+    draw.rounded_rectangle(chip, radius=7, fill=DESIGN_AMBER)
+    draw.text((chip[0] + 7, chip[1] + 4), f"{photo.n:02d}", fill=DESIGN_MAT, font=mono)
+
+    meta_y = y0 + cell_size + 8
+    draw.text((x0 + 8, meta_y), _truncate(photo.file, 20), fill=DESIGN_TEXT, font=mono)
+    meta = f"{ratio_label(photo.ratio)} · {chess_from_anchor(photo.ax, photo.ay)} · {tightness_label(photo.tight)}"
+    draw.text((x0 + 8, meta_y + 18), meta, fill=DESIGN_MUTED, font=small)
+    if is_lead:
+        lead_x = x0 + cell_size - 44
+        draw.rounded_rectangle((lead_x, meta_y + 15, x0 + cell_size - 8, meta_y + 33), radius=6, fill=DESIGN_AMBER)
+        draw.text((lead_x + 6, meta_y + 19), "LEAD", fill=DESIGN_MAT, font=small)
+
+
+def _draw_chess_grid(draw: ImageDraw.ImageDraw, rect: tuple[int, int, int, int], span: dict[str, int], anchor: str) -> None:
+    x0, y0, x1, y1 = rect
+    w = max(1, x1 - x0)
+    h = max(1, y1 - y0)
+    active_col = ord(anchor[0]) - 65
+    active_row = int(anchor[1]) - 1
+    for row in range(5):
+        for col in range(5):
+            cx0 = x0 + int(col * w / 5)
+            cy0 = y0 + int(row * h / 5)
+            cx1 = x0 + int((col + 1) * w / 5)
+            cy1 = y0 + int((row + 1) * h / 5)
+            if col == active_col and row == active_row:
+                draw.rectangle((cx0, cy0, cx1, cy1), outline=DESIGN_AMBER, width=2)
+            elif span["c0"] <= col <= span["c1"] and span["r0"] <= row <= span["r1"]:
+                draw.rectangle((cx0, cy0, cx1, cy1), outline=(118, 91, 43), width=1)
+            else:
+                draw.rectangle((cx0, cy0, cx1, cy1), outline=(80, 74, 64), width=1)
+
+
+def _font(size: int) -> ImageFont.ImageFont:
+    for font_name in ["Arial Unicode.ttf", "Arial.ttf", "Helvetica.ttc"]:
+        try:
+            return ImageFont.truetype(font_name, size=size)
+        except OSError:
+            continue
+    return ImageFont.load_default()
+
+
+def _truncate(text: str, max_chars: int) -> str:
+    return text if len(text) <= max_chars else text[: max_chars - 1] + "…"
 
 
 def _safe_artifact_stem(path: Path) -> str:

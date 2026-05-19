@@ -80,6 +80,7 @@ from post_relay.guided_draft import (
     accept_guided_draft_package,
     build_guided_draft_package,
 )
+from post_relay.final_post_artifacts import render_final_post_preview_artifact
 from post_relay.final_publish_preview import build_final_publish_preview
 from post_relay.indexer import index_photo_sources
 from post_relay.location_tags import (
@@ -98,6 +99,7 @@ from post_relay.meta_graph import (
 from post_relay.media_selection import (
     DraftNotFound as MediaSelectionDraftNotFound,
     InvalidMediaSelection,
+    apply_draft_crop_feedback,
     apply_draft_media_selection,
     build_draft_media_plan,
 )
@@ -180,6 +182,7 @@ opportunities_app = typer.Typer(help="Local post opportunity commands.")
 analytics_app = typer.Typer(help="Post-publish analytics and feedback commands.")
 draft_questions_app = typer.Typer(help="Post context question commands.")
 draft_artifacts_app = typer.Typer(help="Post review artifact commands.")
+draft_final_preview_artifact_app = typer.Typer(help="Post final preview artifact commands.")
 draft_publish_exports_app = typer.Typer(help="Post publish export commands.")
 app.add_typer(db_app, name="db")
 app.add_typer(index_app, name="index")
@@ -193,6 +196,7 @@ app.add_typer(opportunities_app, name="opportunities")
 app.add_typer(analytics_app, name="analytics")
 drafts_app.add_typer(draft_questions_app, name="questions")
 drafts_app.add_typer(draft_artifacts_app, name="artifacts")
+drafts_app.add_typer(draft_final_preview_artifact_app, name="final-preview-artifact")
 drafts_app.add_typer(draft_publish_exports_app, name="publish-exports")
 
 DEFAULT_DB_PATH = Path("data/post_relay.sqlite")
@@ -1315,6 +1319,54 @@ def drafts_media_edit(
     typer.echo(result.to_text())
 
 
+@drafts_app.command("crop-feedback")
+def drafts_crop_feedback(
+    draft_id: int = typer.Option(..., "--draft-id", help="Post id (existing --draft-id option)."),
+    shift: Optional[list[str]] = typer.Option(None, "--shift", help="Crop anchor as REVIEW_NUMBER:A1-E5, e.g. 3:B2."),
+    center: Optional[list[int]] = typer.Option(None, "--center", help="Review media number to recenter to C3; repeatable."),
+    tighten: Optional[list[int]] = typer.Option(None, "--tighten", help="Review media number to make one step tighter; repeatable."),
+    loosen: Optional[list[int]] = typer.Option(None, "--loosen", help="Review media number to make one step wider; repeatable."),
+    ratio: Optional[list[str]] = typer.Option(None, "--ratio", help="Crop ratio as REVIEW_NUMBER:RATIO, e.g. 3:4:5 or 3:1:1."),
+    db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
+) -> None:
+    """Apply chat-style crop/center feedback to post media without network calls."""
+    edits = _build_crop_feedback_edits(shift or [], center or [], tighten or [], loosen or [], ratio or [])
+    connection = connect_db(db)
+    initialize_db(connection)
+    try:
+        result = apply_draft_crop_feedback(connection, draft_id, crop_edits=edits)
+    except MediaSelectionDraftNotFound as error:
+        raise typer.BadParameter(str(error), param_hint="--draft-id") from error
+    except InvalidMediaSelection as error:
+        raise typer.BadParameter(str(error), param_hint="--shift/--center/--tighten/--loosen/--ratio") from error
+    typer.echo(result.to_text())
+
+
+@draft_final_preview_artifact_app.command("render")
+def drafts_final_preview_artifact_render(
+    draft_id: int = typer.Option(..., "--draft-id", help="Post id (existing --draft-id option)."),
+    ratio: str = typer.Option("4:5", "--ratio", help="Locked preview ratio, e.g. 4:5 or 1:1."),
+    config_path: Path = typer.Option(Path("config/photo_sources.yaml"), "--config", help="Photo source and review artifact config path."),
+    db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
+) -> None:
+    """Render a local final carousel/post preview artifact without network calls."""
+    from post_relay.contact_sheet_design import ratio_from_label
+
+    config = load_config(config_path)
+    connection = connect_db(db)
+    initialize_db(connection)
+    try:
+        package = render_final_post_preview_artifact(
+            connection,
+            draft_id,
+            config.review_artifacts,
+            ratio=ratio_from_label(ratio),
+        )
+    except ValueError as error:
+        raise typer.BadParameter(str(error), param_hint="--draft-id/--ratio") from error
+    typer.echo(package.to_text())
+
+
 @draft_publish_exports_app.command("render")
 def drafts_publish_exports_render(
     draft_id: int = typer.Option(..., "--draft-id", help="Post id (existing --draft-id option)."),
@@ -1892,3 +1944,40 @@ def _split_ints(value: Optional[str]) -> Optional[list[int]]:
                 param_hint="--keep/--remove",
             ) from error
     return result
+
+
+def _build_crop_feedback_edits(
+    shifts: list[str],
+    centers: list[int],
+    tightens: list[int],
+    loosens: list[int],
+    ratios: list[str],
+) -> dict[int, dict]:
+    edits: dict[int, dict] = {}
+    for number in centers:
+        edits.setdefault(number, {})["center"] = True
+    for number in tightens:
+        edit = edits.setdefault(number, {})
+        edit["tightness_delta"] = edit.get("tightness_delta", 0) - 0.15
+    for number in loosens:
+        edit = edits.setdefault(number, {})
+        edit["tightness_delta"] = edit.get("tightness_delta", 0) + 0.15
+    for raw_shift in shifts:
+        try:
+            number_text, anchor = raw_shift.split(":", 1)
+            number = int(number_text)
+        except ValueError as error:
+            raise typer.BadParameter("Expected --shift REVIEW_NUMBER:A1-E5, e.g. 3:B2", param_hint="--shift") from error
+        edits.setdefault(number, {})["anchor"] = anchor
+    for raw_ratio in ratios:
+        parts = raw_ratio.split(":")
+        if len(parts) < 2:
+            raise typer.BadParameter("Expected --ratio REVIEW_NUMBER:RATIO, e.g. 3:4:5", param_hint="--ratio")
+        try:
+            number = int(parts[0])
+        except ValueError as error:
+            raise typer.BadParameter("Expected --ratio REVIEW_NUMBER:RATIO, e.g. 3:4:5", param_hint="--ratio") from error
+        edits.setdefault(number, {})["ratio"] = ":".join(parts[1:])
+    if not edits:
+        raise typer.BadParameter("Provide at least one crop edit: --shift, --center, --tighten, --loosen, or --ratio")
+    return edits
