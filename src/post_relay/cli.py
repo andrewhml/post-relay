@@ -1439,7 +1439,7 @@ def drafts_final_preview_artifact_render(
 @draft_publish_exports_app.command("render")
 def drafts_publish_exports_render(
     draft_id: int = typer.Option(..., "--draft-id", help="Post id (existing --draft-id option)."),
-    profile: str = typer.Option("feed_portrait_4x5", "--profile", help="Publish export profile."),
+    profile: str = typer.Option("feed_portrait_3x4", "--profile", help="Publish export profile."),
     landscape_treatment: str = typer.Option("clean_mat", "--landscape-treatment", help="Landscape-in-portrait treatment."),
     config_path: Path = typer.Option(Path("config/photo_sources.yaml"), "--config", help="Photo source and publish export config path."),
     db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),

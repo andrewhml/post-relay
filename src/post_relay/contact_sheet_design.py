@@ -81,6 +81,8 @@ def chess_span(box: CropBox) -> dict[str, int]:
 def ratio_label(ratio: float) -> str:
     if abs(ratio - 1) < 0.01:
         return "1:1"
+    if abs(ratio - 3 / 4) < 0.01:
+        return "3:4"
     if abs(ratio - 0.8) < 0.01:
         return "4:5"
     if abs(ratio - 1.91) < 0.02:
@@ -92,7 +94,7 @@ def ratio_label(ratio: float) -> str:
 
 def ratio_from_label(label: str) -> float:
     normalized = label.strip().lower()
-    known = {"1:1": 1.0, "4:5": 0.8, "1.91:1": 1.91, "9:16": 9 / 16}
+    known = {"1:1": 1.0, "3:4": 3 / 4, "4:5": 0.8, "1.91:1": 1.91, "9:16": 9 / 16}
     if normalized in known:
         return known[normalized]
     if ":" in normalized:
