@@ -230,10 +230,10 @@ Run this before opening or merging any PR:
 .venv/bin/python -m pytest -q
 ```
 
-Expected current result after the contact-sheet/chat design refresh milestone:
+Expected current result after the local media discovery enrichment milestone:
 
 ```text
-248 passed
+254 passed
 ```
 
 ## Milestone execution rules
@@ -1177,11 +1177,11 @@ Current branch result: `59 passed` focused; `248 passed` full suite.
 .venv/bin/python -m pytest -q
 ```
 
-### PR #66 / Milestone 39: `feat/proactive-opportunity-dm-controls` (open)
+### PR #66 / Milestone 39: `feat/proactive-opportunity-dm-controls` (landed)
 
 **Goal:** Let the operator safely turn local post opportunities into proactive private-DM suggestions without implementing autonomous Discord outreach.
 
-**Delivered behavior in branch so far:**
+**Delivered behavior:**
 - Added local `opportunities dm-plan --opportunity-id ...` output that renders sanitized suggested DM copy, candidate/post linkage, yes/snooze/dismiss reply controls, and exact operator follow-up commands.
 - Added local `opportunities mark-dm-sent --opportunity-id ...` to record that an explicitly authorized proactive send happened outside the no-network planner path; active `dm_sent` opportunities continue to dedupe future trigger checks.
 - `dm-plan` and `mark-dm-sent` make no Discord, R2, or Meta calls and do not convert opportunities or create posts automatically.
@@ -1196,18 +1196,37 @@ Current branch result: `59 passed` focused; `248 passed` full suite.
 .venv/bin/python -m pytest -q
 ```
 
+### PR #67 / Milestone 40: `feat/local-media-discovery-enrichment` (open)
+
+**Goal:** Add a no-network local metadata enrichment baseline to processed-folder discovery before generated tags, embeddings, or Immich/NAS enrichment.
+
+**Delivered behavior in branch so far:**
+- `index scan` reads supported local image files with Pillow and enriches scanned records with width, height, derived orientation/aspect ratio, and available EXIF date/camera/lens fields.
+- The persisted `photos` records now store enriched date/camera/lens/dimension fields during indexing; lightweight migrations ensure older local databases have those columns before upsert.
+- Unreadable or placeholder image files remain indexed with empty metadata, so fixture scans and partial/corrupt local libraries do not fail the discovery pass.
+- CLI output reports how many photos received local metadata and explicitly states that no network calls were made.
+
+**Safety rule:** This milestone is local-only. It must not call Immich, NAS APIs, Discord, R2, Meta, generated-tag models, or embedding services; source media remains immutable.
+
+**Verification:**
+
+```bash
+.venv/bin/python -m pytest tests/test_config_and_scanner.py tests/test_media_enrichment.py tests/test_cli.py::test_cli_index_scan_and_library_stats -q
+.venv/bin/python -m pytest -q
+```
+
 ## Later milestones
 
 - Video/reel validation after feed/carousel path is reliable.
-- Deeper local media discovery/enrichment for candidate/media narrowing once proactive opportunity controls stay operator-gated.
+- Generated local tags or perceptual/semantic narrowing on top of the completed no-network dimensions/EXIF enrichment, if kept auditable and local-first.
 - Recommendation improvements using approval, revision, and engagement history after the first deterministic feedback summaries land.
-- Candidate/media narrowing follow-ups for natural DM requests should now build on the completed local descriptor/alias ranking and bounded artifact guardrails: lightweight metadata search, generated tags, or Immich enrichment only if they stay auditable and local-first.
+- Candidate/media narrowing follow-ups for natural DM requests should now build on the completed local descriptor/alias ranking, bounded artifact guardrails, and local metadata enrichment: lightweight metadata search, generated tags, or Immich enrichment only if they stay auditable and local-first.
 - Immich/NAS enrichment once the processed-folder MVP works.
 
 ## Known open questions
 
 - Whether and when to add a live proactive Discord send command on top of the local `opportunities dm-plan`/`mark-dm-sent` controls.
-- How far candidate/media narrowing should go before Immich/NAS enrichment: folder/date/filename tokens only, lightweight local metadata, generated tags, perceptual/semantic embeddings, or Immich metadata once reliable.
+- How far candidate/media narrowing should go after no-network dimensions/EXIF enrichment: generated tags, perceptual/semantic embeddings, or Immich metadata once reliable.
 - Exact current Meta permission/token state before the next live publish or read-only insights collection run.
 - Whether reel/video validation should happen immediately after publish hardening or wait until feed/carousel cadence and analytics are stable.
 
