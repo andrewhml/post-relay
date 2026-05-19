@@ -159,6 +159,18 @@ class MediaInsightSnapshotRecord:
 
 
 @dataclass(frozen=True)
+class AccountMetricSnapshotRecord:
+    id: int
+    instagram_account_id: str
+    username: Optional[str]
+    follower_count: Optional[int]
+    follows_count: Optional[int]
+    media_count: Optional[int]
+    raw_payload: dict
+    collected_at: str
+
+
+@dataclass(frozen=True)
 class DraftLocationTagRecord:
     id: int
     draft_id: int
@@ -1417,6 +1429,72 @@ def get_latest_media_insight_snapshot(connection, draft_id: int) -> Optional[Med
     return _media_insight_snapshot_from_row(row)
 
 
+def create_account_metric_snapshot(
+    connection,
+    *,
+    instagram_account_id: str,
+    username: Optional[str],
+    follower_count: Optional[int],
+    follows_count: Optional[int],
+    media_count: Optional[int],
+    raw_payload: dict,
+    collected_at: str,
+) -> AccountMetricSnapshotRecord:
+    cursor = connection.execute(
+        """
+        insert into account_metric_snapshots (
+            instagram_account_id, username, follower_count, follows_count,
+            media_count, raw_payload_json, collected_at
+        ) values (?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            instagram_account_id,
+            username,
+            follower_count,
+            follows_count,
+            media_count,
+            json.dumps(raw_payload, sort_keys=True),
+            collected_at,
+        ),
+    )
+    return get_account_metric_snapshot(connection, int(cursor.lastrowid))
+
+
+def get_account_metric_snapshot(connection, snapshot_id: int) -> Optional[AccountMetricSnapshotRecord]:
+    row = connection.execute(
+        """
+        select id, instagram_account_id, username, follower_count, follows_count,
+               media_count, raw_payload_json, collected_at
+        from account_metric_snapshots
+        where id = ?
+        """,
+        (snapshot_id,),
+    ).fetchone()
+    if row is None:
+        return None
+    return _account_metric_snapshot_from_row(row)
+
+
+def list_account_metric_snapshots(
+    connection,
+    *,
+    limit: Optional[int] = None,
+) -> list[AccountMetricSnapshotRecord]:
+    limit_clause = "limit ?" if limit is not None else ""
+    params: tuple[object, ...] = (limit,) if limit is not None else ()
+    rows = connection.execute(
+        f"""
+        select id, instagram_account_id, username, follower_count, follows_count,
+               media_count, raw_payload_json, collected_at
+        from account_metric_snapshots
+        order by collected_at desc, id desc
+        {limit_clause}
+        """,
+        params,
+    ).fetchall()
+    return [_account_metric_snapshot_from_row(row) for row in rows]
+
+
 def create_r2_staged_object_record(
     connection,
     *,
@@ -1574,6 +1652,19 @@ def _media_insight_snapshot_from_row(row) -> MediaInsightSnapshotRecord:
         metrics=json.loads(row[4]) if row[4] else {},
         raw_payload=json.loads(row[5]) if row[5] else {},
         collected_at=row[6],
+    )
+
+
+def _account_metric_snapshot_from_row(row) -> AccountMetricSnapshotRecord:
+    return AccountMetricSnapshotRecord(
+        id=int(row[0]),
+        instagram_account_id=row[1],
+        username=row[2],
+        follower_count=int(row[3]) if row[3] is not None else None,
+        follows_count=int(row[4]) if row[4] is not None else None,
+        media_count=int(row[5]) if row[5] is not None else None,
+        raw_payload=json.loads(row[6]) if row[6] else {},
+        collected_at=row[7],
     )
 
 

@@ -16,10 +16,16 @@ from post_relay.approvals import (
 from post_relay.analytics_feedback import (
     PublishedPostSnapshotNotReady,
     build_feedback_summary,
+    build_follower_growth_plan,
+    build_follower_growth_summary,
     build_insights_collection_plan,
+    collect_and_store_follower_metrics,
     collect_and_store_media_insights,
     record_published_post_snapshot,
     render_feedback_summary,
+    render_follower_fetch_dry_run,
+    render_follower_growth_summary,
+    render_follower_metric_snapshot,
     render_insights_fetch_dry_run,
     render_insights_fetch_error,
     render_media_insight_snapshot,
@@ -290,6 +296,62 @@ def analytics_feedback_summary(
     initialize_db(connection)
     summary = build_feedback_summary(connection, draft_id=draft_id, limit=limit)
     typer.echo(render_feedback_summary(summary))
+
+
+@analytics_app.command("follower-summary")
+def analytics_follower_summary(
+    target_followers: int = typer.Option(5000, "--target-followers", help="Follower goal for progress reporting."),
+    limit: int = typer.Option(10, "--limit", help="Recent account metric snapshots to summarize."),
+    db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
+) -> None:
+    """Render local follower-growth progress from stored account metric snapshots."""
+    connection = connect_db(db)
+    initialize_db(connection)
+    summary = build_follower_growth_summary(connection, target_followers=target_followers, limit=limit)
+    typer.echo(render_follower_growth_summary(summary))
+
+
+@analytics_app.command("follower-fetch")
+def analytics_follower_fetch(
+    instagram_account_id: Optional[str] = typer.Option(None, "--instagram-account-id", help="Instagram professional account id to inspect."),
+    collected_at: Optional[str] = typer.Option(None, "--collected-at", help="Collection timestamp to persist; defaults to current local time."),
+    execute: bool = typer.Option(False, "--execute", help="Actually call the read-only Meta account endpoint and store follower metrics."),
+    db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
+    env_file: Optional[Path] = typer.Option(Path(".env"), "--env-file", help="Private .env file path."),
+) -> None:
+    """Fetch/store read-only follower metrics only when --execute is explicit."""
+    connection = connect_db(db)
+    initialize_db(connection)
+    config = None
+    if instagram_account_id is None:
+        try:
+            config = load_meta_graph_config(env_file=env_file)
+        except MetaGraphConfigError as error:
+            typer.echo(render_insights_fetch_error(error))
+            raise typer.Exit(code=1) from error
+        instagram_account_id = config.instagram_account_id
+    if not instagram_account_id:
+        typer.echo("Instagram account id is required via --instagram-account-id or POST_RELAY_INSTAGRAM_ACCOUNT_ID.")
+        raise typer.Exit(code=1)
+    plan = build_follower_growth_plan(instagram_account_id)
+    if not execute:
+        typer.echo(render_follower_fetch_dry_run(plan))
+        return
+    try:
+        if config is None:
+            config = load_meta_graph_config(env_file=env_file)
+        client = MetaGraphClient(config)
+        record = collect_and_store_follower_metrics(
+            connection,
+            instagram_account_id,
+            client=client,
+            collected_at=collected_at,
+        )
+    except (MetaGraphConfigError, MetaGraphRequestError) as error:
+        token = config.access_token if config is not None else None
+        typer.echo(render_insights_fetch_error(error, token=token))
+        raise typer.Exit(code=1) from error
+    typer.echo(render_follower_metric_snapshot(record))
 
 
 @analytics_app.command("insights-fetch")

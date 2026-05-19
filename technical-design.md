@@ -402,12 +402,14 @@ Initial recommendation logic should be simple and interpretable.
 ### Inputs
 - local `published_post_snapshots` containing final Meta-bound caption, media count/order, exported dimensions, timing, post type, and resolved location tag state
 - local `media_insight_snapshots` containing read-only Meta metrics collected through explicit `analytics insights-fetch --execute`
+- local `account_metric_snapshots` containing read-only creator-account follower/follows/media counts collected through explicit `analytics follower-fetch --execute`
 - prior approval and revision patterns
 - content category mix
 - posting time history
 
 ### Early outputs
 - advisory feedback summaries for individual published posts and recent-post sets
+- local follower-growth summaries toward the 5,000 follower goal
 - suggested post type and carousel count/order heuristics
 - suggested posting window notes
 - suggested caption tone/length notes
@@ -417,7 +419,7 @@ Initial recommendation logic should be simple and interpretable.
 - learn best-performing formats by trip/theme
 - learn Andrew’s stylistic preferences
 - reduce interview frequency where prior signals are strong
-- add follower-growth progress tracking once per-post feedback summaries are stable
+- turn enough advisory feedback/follower-growth history into stronger deterministic recommendations without mutating post lifecycle state
 
 ## Error Handling
 ### Categories
@@ -557,14 +559,15 @@ These should be verified against the current official Meta docs at build time:
 - the exact publish/create flow on the Facebook/Meta Graph route for a Page-linked Creator account
 
 ## Recommended Next Artifacts
-The canonical active roadmap is now `docs/plans/current-agent-roadmap.md`. The next useful artifact is the Milestone 30 implementation slice for `feat/recommendation-feedback-summaries`; create a separate detailed plan only if that milestone expands beyond the current roadmap checklist.
+The canonical active roadmap is now `docs/plans/current-agent-roadmap.md`. After `feat/follower-growth-tracking` lands, choose the next detailed artifact from private-DM operating-loop improvements, proactive opportunity DM controls, video/reel validation, or deeper local media discovery/enrichment.
 
 ## Current Readiness Criteria
 The system is ready for the next optimization milestone when:
-- PR #55 is merged and local `main` is synced
+- `feat/follower-growth-tracking` is merged and local `main` is synced
 - `.venv/bin/python -m pytest -q` is green
-- recommendation feedback reads only local snapshots/insights and remains advisory-only
+- recommendation feedback and follower-growth summaries read only local snapshots and remain advisory-only
 - any live insights collection remains explicitly gated by `analytics insights-fetch --execute`
+- any live follower metrics collection remains explicitly gated by `analytics follower-fetch --execute`
 
 ## Summary
 This design deliberately separates:

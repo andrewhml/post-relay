@@ -9,14 +9,17 @@ from typing import Mapping, Optional, Sequence
 from PIL import Image
 
 from post_relay.repository import (
+    AccountMetricSnapshotRecord,
     MediaInsightSnapshotRecord,
     PublishedPostSnapshotRecord,
+    create_account_metric_snapshot,
     create_media_insight_snapshot,
     get_draft,
     get_draft_location_tag,
     get_latest_media_insight_snapshot,
     get_latest_published_attempt,
     get_published_post_snapshot_for_draft,
+    list_account_metric_snapshots,
     list_published_post_snapshots,
     list_r2_staged_objects,
     upsert_published_post_snapshot,
@@ -24,6 +27,7 @@ from post_relay.repository import (
 
 
 DEFAULT_INSIGHT_METRICS = ["reach", "likes", "comments", "saved", "shares"]
+FOLLOWER_GROWTH_FIELDS = ["id", "username", "followers_count", "follows_count", "media_count"]
 
 
 class PublishedPostSnapshotNotReady(ValueError):
@@ -71,6 +75,37 @@ class FeedbackSummaryEntry:
 class FeedbackSummary:
     entries: list[FeedbackSummaryEntry]
     sample_size: int
+
+
+@dataclass(frozen=True)
+class FollowerGrowthPlan:
+    instagram_account_id: str
+    read_only: bool
+    endpoint: str
+    fields: list[str]
+
+    def to_text(self) -> str:
+        fields = ",".join(self.fields)
+        return "\n".join(
+            [
+                "Read-only Instagram follower growth collection plan",
+                f"Instagram account ID: {self.instagram_account_id}",
+                f"Endpoint: GET {self.endpoint}?fields={fields}",
+                "Fields:",
+                *[f"  - {field}" for field in self.fields],
+                "Safety: No network calls were made. This plan is read-only and separate from publishing.",
+            ]
+        )
+
+
+@dataclass(frozen=True)
+class FollowerGrowthSummary:
+    snapshots: list[AccountMetricSnapshotRecord]
+    target_followers: int
+    current_follower_count: Optional[int]
+    previous_follower_count: Optional[int]
+    follower_delta: Optional[int]
+    remaining_to_target: Optional[int]
 
 
 def record_published_post_snapshot(
@@ -122,6 +157,58 @@ def build_insights_collection_plan(connection, draft_id: int) -> InsightsCollect
         read_only=True,
         endpoint=f"/{snapshot.published_media_id}/insights",
         metrics=DEFAULT_INSIGHT_METRICS,
+    )
+
+
+def build_follower_growth_plan(instagram_account_id: str) -> FollowerGrowthPlan:
+    return FollowerGrowthPlan(
+        instagram_account_id=instagram_account_id,
+        read_only=True,
+        endpoint=f"/{instagram_account_id}",
+        fields=list(FOLLOWER_GROWTH_FIELDS),
+    )
+
+
+def collect_and_store_follower_metrics(
+    connection,
+    instagram_account_id: str,
+    *,
+    client,
+    collected_at: Optional[str] = None,
+) -> AccountMetricSnapshotRecord:
+    payload = client.get_instagram_account_metrics(instagram_account_id)
+    record = create_account_metric_snapshot(
+        connection,
+        instagram_account_id=str(payload.get("id") or instagram_account_id),
+        username=payload.get("username"),
+        follower_count=_optional_int(payload.get("followers_count")),
+        follows_count=_optional_int(payload.get("follows_count")),
+        media_count=_optional_int(payload.get("media_count")),
+        raw_payload=dict(payload),
+        collected_at=collected_at or datetime.now().astimezone().isoformat(timespec="seconds"),
+    )
+    connection.commit()
+    return record
+
+
+def build_follower_growth_summary(
+    connection,
+    *,
+    target_followers: int = 5000,
+    limit: int = 10,
+) -> FollowerGrowthSummary:
+    snapshots = list_account_metric_snapshots(connection, limit=limit)
+    current = snapshots[0].follower_count if snapshots else None
+    previous = snapshots[1].follower_count if len(snapshots) > 1 else None
+    delta = current - previous if current is not None and previous is not None else None
+    remaining = max(target_followers - current, 0) if current is not None else None
+    return FollowerGrowthSummary(
+        snapshots=snapshots,
+        target_followers=target_followers,
+        current_follower_count=current,
+        previous_follower_count=previous,
+        follower_delta=delta,
+        remaining_to_target=remaining,
     )
 
 
@@ -248,6 +335,78 @@ def render_insights_fetch_dry_run(plan: InsightsCollectionPlan) -> str:
     return "\n".join(lines)
 
 
+def render_follower_fetch_dry_run(plan: FollowerGrowthPlan) -> str:
+    lines = [
+        "Dry run only: read-only Instagram follower metrics fetch",
+        f"Instagram account ID: {plan.instagram_account_id}",
+        f"Endpoint: GET {plan.endpoint}",
+        "Fields:",
+        *[f"  - {field}" for field in plan.fields],
+        "No Meta network calls were made.",
+        "Rerun with --execute to collect and store these read-only account metrics.",
+    ]
+    return "\n".join(lines)
+
+
+def render_follower_metric_snapshot(record: AccountMetricSnapshotRecord) -> str:
+    return "\n".join(
+        [
+            "Read-only Instagram follower metrics fetched",
+            f"Instagram account ID: {record.instagram_account_id}",
+            f"Username: {record.username or '<unknown>'}",
+            f"Followers: {_format_optional_number(record.follower_count)}",
+            f"Follows: {_format_optional_number(record.follows_count)}",
+            f"Media count: {_format_optional_number(record.media_count)}",
+            f"Collected at: {record.collected_at}",
+            "Publishing endpoints called: no",
+            "Safety: Read-only follower metrics were stored locally and did not mutate post lifecycle or publish state.",
+        ]
+    )
+
+
+def render_follower_growth_summary(summary: FollowerGrowthSummary) -> str:
+    lines = [
+        "Follower growth summary",
+        f"Stored account snapshot(s): {len(summary.snapshots)}",
+    ]
+    if not summary.snapshots:
+        lines.extend(
+            [
+                "Current followers: <unknown>",
+                "Change from previous snapshot: <not available>",
+                f"Progress to {summary.target_followers:,}: <not available>",
+                "Next step: run analytics follower-fetch after credentials include read-only account metric access.",
+                "Safety: No Discord, R2, Meta publish, or post lifecycle state changes were made.",
+            ]
+        )
+        return "\n".join(lines)
+
+    current = summary.snapshots[0]
+    lines.extend(
+        [
+            f"Instagram account: {current.username or '<unknown>'} ({current.instagram_account_id})",
+            f"Current followers: {_format_optional_number(summary.current_follower_count)}",
+            f"Change from previous snapshot: {_format_delta(summary.follower_delta)}",
+            f"Progress to {summary.target_followers:,}: {_format_optional_number(summary.current_follower_count)}/{summary.target_followers}",
+            f"Remaining to target: {_format_optional_number(summary.remaining_to_target)}",
+            "Recent snapshots:",
+        ]
+    )
+    for snapshot in summary.snapshots:
+        lines.append(
+            f"  - {snapshot.collected_at}: followers={_format_optional_number(snapshot.follower_count)}, media={_format_optional_number(snapshot.media_count)}"
+        )
+    lines.extend(
+        [
+            "Next-post suggestions:",
+            "  - Treat follower movement as context for planning, not proof that any one post caused growth.",
+            "  - Compare follower deltas alongside stored post insights after multiple reviewed posts collect data.",
+            "Safety: No Discord, R2, Meta publish, or post lifecycle state changes were made.",
+        ]
+    )
+    return "\n".join(lines)
+
+
 def render_insights_fetch_error(error: Exception, *, token: Optional[str] = None) -> str:
     message = str(error)
     if token:
@@ -342,6 +501,27 @@ def _format_timing_delta(minutes: Optional[int]) -> str:
     if minutes > 0:
         return f"{minutes} minute(s) after scheduled time"
     return f"{abs(minutes)} minute(s) before scheduled time"
+
+
+def _optional_int(value) -> Optional[int]:
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _format_optional_number(value: Optional[int]) -> str:
+    return str(value) if value is not None else "<unknown>"
+
+
+def _format_delta(value: Optional[int]) -> str:
+    if value is None:
+        return "<not available>"
+    if value > 0:
+        return f"+{value}"
+    return str(value)
 
 
 def _suggestions_for_entry(entry: FeedbackSummaryEntry) -> list[str]:

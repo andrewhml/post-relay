@@ -693,14 +693,14 @@ As of the first live carousel smoke, the local-first workflow is past the origin
 - Agent-initiated suggestions are modeled locally through `post_opportunities` and safe trigger checks, but proactive Discord outreach has not been implemented yet.
 - DM intake now avoids the worst broad-request failure mode by asking for narrowing cues before suggesting huge weak matches, matched large sets point operators to bounded artifact planning, and natural request matching uses local folder/year/filename descriptors with explainable rationale.
 - Oversized full contact-sheet renders are blocked by `drafts artifacts render`; instead, the CLI prints a bounded, DM-safe first-pass plan with narrowing/sample guidance and no source paths.
-- Single-image publish validation has completed one live smoke test. The first live carousel smoke for draft `2` succeeded through the guarded Meta path. Schedule enforcement, final publish caption/metadata preview, publish exports, resolved Meta `location_id` support, local post-publish analytics snapshots, explicit read-only insights storage, and local-only recommendation feedback summaries are implemented through PR #56.
+- Single-image publish validation has completed one live smoke test. The first live carousel smoke for draft `2` succeeded through the guarded Meta path. Schedule enforcement, final publish caption/metadata preview, publish exports, resolved Meta `location_id` support, local post-publish analytics snapshots, explicit read-only insights storage, local-only recommendation feedback summaries, post terminology cleanup, and local follower-growth tracking are implemented through the current `feat/follower-growth-tracking` branch.
 
 ## Immediate next plan
 
-1. Complete Milestone 31 `feat/post-terminology-copy`: user/agent-facing copy should refer to lifecycle artifacts as posts, while `drafting` remains a status and existing `drafts`/`--draft-id` CLI names remain compatibility shims.
-2. Use `analytics feedback-summary` as the deterministic advisory baseline when planning the next reviewed post.
-3. Choose the next rollback-safe milestone after terminology cleanup: follower-growth progress tracking, more private-DM operating-loop practice, proactive opportunity DM controls, video/reel validation, or deeper local media discovery/enrichment.
-4. Keep recommendation feedback advisory-only until several real posts provide enough signal.
+1. Complete and merge Milestone 32 `feat/follower-growth-tracking`: read-only follower/account metric snapshots, dry-run default fetch, local summary toward 5,000 followers, and docs/handoff updates.
+2. Use `analytics feedback-summary` plus `analytics follower-summary` as deterministic advisory baselines when planning the next reviewed post.
+3. Choose the next rollback-safe milestone after follower-growth tracking: more private-DM operating-loop practice, proactive opportunity DM controls, video/reel validation, or deeper local media discovery/enrichment.
+4. Keep recommendation and follower-growth feedback advisory-only until several real posts and account snapshots provide enough signal.
 5. Keep live-safe defaults: no Discord sends, no R2 `--execute`, and no Meta `--execute` unless explicitly authorized in the active session.
 
 ## Recent completed milestones and current roadmap
@@ -995,12 +995,38 @@ Current local result: `14 passed` focused; `174 passed` full suite.
 **Next-session start here:**
 1. First verify the current baseline: `.venv/bin/python -m pytest -q` should report the full suite passing.
 2. Use `analytics feedback-summary --draft-id ...` or `--limit ...` as the deterministic advisory baseline when planning the next post.
-3. Choose the next milestone from follower-growth progress tracking, private-DM operating-loop improvements, proactive opportunity DM controls, video/reel validation, or deeper local media discovery/enrichment.
+3. Move next to Milestone 32 `feat/follower-growth-tracking` to capture local read-only account/follower snapshots and summarize progress toward 5,000 followers.
+
+### Milestone 32: `feat/follower-growth-tracking` (current branch)
+
+**Goal:** Track Andrew's creator-account follower progress locally so post planning can compare per-post feedback with account-level growth toward 5,000 followers.
+
+**Delivered behavior in branch:**
+- Added `account_metric_snapshots`, a local audit table for read-only Instagram account metrics: account id, username, follower count, follows count, media count, raw payload, and collection timestamp.
+- Added `MetaGraphClient.get_instagram_account_metrics(...)`, using read-only `GET /{ig-account-id}?fields=id,username,followers_count,follows_count,media_count`.
+- Added `analytics follower-fetch`, which defaults to dry-run/no-network output and only calls Meta/stores a snapshot with explicit `--execute`.
+- Added `analytics follower-summary`, which reads local snapshots only and reports current followers, delta from the previous snapshot, progress toward the default 5,000-follower goal, and conservative next-post guidance.
+- Kept follower tracking separate from post lifecycle state, approvals, schedules, publish attempts, Discord, R2, and Meta publishing endpoints.
+- Added tests for read-only plan rendering, Graph request construction, storage, summary delta/progress calculation, and CLI dry-run no-network/no-state-mutation behavior.
+
+**Safety rule:** Follower tracking is advisory analytics only. `analytics follower-fetch` defaults to dry-run; `--execute` may call only the read-only account metrics endpoint and must not mutate posts, approvals, schedules, publish attempts, post snapshots, or insight records.
+
+**Verification:**
+
+```bash
+.venv/bin/python -m pytest tests/test_analytics_feedback.py -q
+.venv/bin/python -m pytest -q
+```
+
+**Next-session start here:**
+1. First verify the current baseline: `.venv/bin/python -m pytest -q` should report the full suite passing.
+2. Use `analytics feedback-summary` plus `analytics follower-summary` as local advisory baselines when planning the next post.
+3. Choose the next milestone from private-DM operating-loop improvements, proactive opportunity DM controls, video/reel validation, or deeper local media discovery/enrichment.
 
 ## Later milestones
 
 - Video/reel validation after feed/carousel path is reliable.
-- Follower-growth progress tracking after recommendation summaries can explain per-post insight snapshots.
+- Proactive opportunity DM controls after more user-initiated DM sessions prove the workflow.
 - Recommendation improvements using approval, revision, and engagement history after the first deterministic feedback summaries land.
 - Candidate/media narrowing follow-ups for natural DM requests should now build on the completed local descriptor/alias ranking and bounded artifact guardrails: lightweight metadata search, generated tags, or Immich enrichment only if they stay auditable and local-first.
 - Immich/NAS enrichment once the processed-folder MVP works.
