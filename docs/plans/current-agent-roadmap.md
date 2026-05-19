@@ -859,7 +859,7 @@ Current local result: `14 passed` focused; `174 passed` full suite.
 .venv/bin/python -m pytest -q
 ```
 
-### Milestone 27: `feat/location-tag-validation` (current branch)
+### PR #53 / Milestone 27: `feat/location-tag-validation`
 
 **Goal:** Support Instagram location as a true publish tag, not just local review text, only after official Meta Graph capability is validated for Andrew's Page-linked Creator account.
 
