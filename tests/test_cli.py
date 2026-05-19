@@ -190,8 +190,10 @@ review_artifacts:
     assert "Review Artifacts" in result.output
     assert "Post ID: 1" in result.output
     assert "Thumbnails:" in result.output
-    assert "Contact sheet:" in result.output
-    assert (artifact_root / "draft-1" / "contact-sheet.jpg").is_file()
+    assert "Stage 1 · Select:" in result.output
+    assert "Stage 2 · Crop:" in result.output
+    assert (artifact_root / "draft-1" / "contact-sheet-select.png").is_file()
+    assert (artifact_root / "draft-1" / "contact-sheet-crop.png").is_file()
     assert len(list((artifact_root / "draft-1" / "thumbnails").glob("*.jpg"))) == 2
 
 
@@ -260,7 +262,8 @@ r2_staging:
     assert "Post ID: 1" in result.output
     assert "Ready to upload: yes" in result.output
     assert "https://peddocks.net/post-relay/staging/drafts/1/media/" in result.output
-    assert "contact-sheet.jpg" in result.output
+    assert "contact-sheet-select.png" in result.output
+    assert "contact-sheet-crop.png" in result.output
     assert "No network calls were made." in result.output
     assert tmp_path.as_posix() not in result.output.split("Object keys:")[-1]
 
@@ -330,7 +333,7 @@ r2_staging:
     assert "review-artifacts" not in upload_result.output
     assert "No network calls were made." in upload_result.output
     assert upload_with_artifacts_result.exit_code == 0
-    assert "Planned objects: 3" in upload_with_artifacts_result.output
+    assert "Planned objects: 4" in upload_with_artifacts_result.output
     assert "review-artifacts" in upload_with_artifacts_result.output
     assert cleanup_result.exit_code == 0
     assert "R2 Staging Cleanup (dry run)" in cleanup_result.output

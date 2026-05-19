@@ -31,7 +31,13 @@ def _build_carousel_draft(tmp_path: Path):
     build_candidate_groups(connection)
     candidate = list_candidate_groups(connection)[0]
     draft = create_draft_from_candidate(connection, candidate.id)
-    update_draft_content(connection, draft.id, caption="Night market glow.", hashtags=["#Seoul"])
+    update_draft_content(
+        connection,
+        draft.id,
+        caption="Night market glow.",
+        hashtags=["#Seoul"],
+        location_text="Gwangjang Market, Seoul",
+    )
     apply_draft_media_selection(connection, draft.id, lead=2, keep=[2, 1], post_type="carousel")
     apply_draft_crop_feedback(connection, draft.id, crop_edits={2: {"anchor": "B2", "ratio": "4:5"}})
     return connection, draft, folder
@@ -44,17 +50,21 @@ def test_render_final_post_preview_artifact_uses_selected_order_and_dark_design(
     package = render_final_post_preview_artifact(connection, draft.id, config)
 
     assert package.draft_id == draft.id
-    assert package.preview_path.endswith("final-post-preview.jpg")
+    assert package.preview_path.endswith("final-post-preview.png")
     assert Path(package.preview_path).is_file()
     assert package.ordered_files == ["02-lanterns.jpg", "01-market.jpg"]
     assert package.ratio_label == "4:5"
+    assert package.metadata_tags == ["LOCATION · Gwangjang Market, Seoul", "TYPE · CAROUSEL", "RATIO · 4:5"]
     assert "Final Post Preview Artifact" in package.to_text()
     assert "02-lanterns.jpg" in package.to_text()
+    assert "Metadata:" in package.to_text()
+    assert "LOCATION · Gwangjang Market, Seoul" in package.to_text()
     assert "No Discord, R2, or Meta network calls were made." in package.to_text()
     with Image.open(package.preview_path) as image:
-        assert image.width >= 320
-        assert image.height >= 300
-        assert image.getpixel((8, 8))[0] < 40
+        assert image.width == 1440
+        assert image.height >= 800
+        assert image.info.get("dpi", (0, 0))[0] >= 190
+        assert image.getpixel((16, 16))[0] < 40
 
 
 def test_cli_final_preview_artifact_render_outputs_local_path(tmp_path: Path):
@@ -93,5 +103,5 @@ review_artifacts:
 
     assert result.exit_code == 0
     assert "Final Post Preview Artifact" in result.output
-    assert "final-post-preview.jpg" in result.output
-    assert (artifact_root / f"draft-{draft.id}" / "final-post-preview.jpg").is_file()
+    assert "final-post-preview.png" in result.output
+    assert (artifact_root / f"draft-{draft.id}" / "final-post-preview.png").is_file()

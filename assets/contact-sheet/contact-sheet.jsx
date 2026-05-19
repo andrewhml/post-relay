@@ -3,18 +3,23 @@
    The Post Relay photo-review contact sheet.
 
    Props:
-     photos     Array<Photo>   list of photo objects (see sample-data.js)
-     leadNum?   number         `n` of the lead/cover photo to designate
+     mode       'select' | 'crop'  workflow stage
+                  'select' — stage 1: photo library, letter stickers only
+                  'crop'   — stage 2: selected photos w/ crop tools (default)
+     photos     Array<Photo>   list of photos to render
+     leadNum?   number         `n` of the lead/cover photo (crop mode only)
      title      string         sheet title (e.g., project · feed candidates)
      sub        string         eyebrow subtitle (e.g., shoot date)
 
    Depends on globals from crop-helpers.js:
-     cropBox, ratioLabel, chessFromAnchor, chessSpan, tightnessLabel
+     cropBox, ratioLabel, chessFromAnchor, chessSpan, tightnessLabel,
+     labelFromIndex
    ========================================================================= */
 
 const { useMemo: _csUseMemo } = React;
 
-function ContactSheet({ photos, leadNum, title, sub }) {
+function ContactSheet({ mode = 'crop', photos, leadNum, title, sub }) {
+  const isSelect = mode === 'select';
   return (
     <div className="cs-sheet">
       <header className="cs-head">
@@ -24,7 +29,9 @@ function ContactSheet({ photos, leadNum, title, sub }) {
             <span className="cs-dot" />
             <span>{String(photos.length).padStart(2, '0')} PHOTOS</span>
             <span className="cs-dot" />
-            <span className="cs-eyebrow-accent">A1–E5 GRID</span>
+            <span className="cs-eyebrow-accent">
+              {isSelect ? 'SELECT' : 'A1\u2013E5 GRID'}
+            </span>
           </div>
           <h1 className="cs-title">{title}</h1>
         </div>
@@ -35,24 +42,58 @@ function ContactSheet({ photos, leadNum, title, sub }) {
         {photos.map((p) => (
           <PhotoCard
             key={p.n}
+            mode={mode}
             photo={p}
-            isLead={leadNum != null && p.n === leadNum}
+            isLead={!isSelect && leadNum != null && p.n === leadNum}
           />
         ))}
       </div>
 
-      <div className="cs-foot">
-        <span className="cs-foot-label">Crop talk</span>
-        <kbd>shift 03 to B2</kbd>
-        <kbd>span 04 across A2–C4</kbd>
-        <kbd>tighten 06</kbd>
-        <kbd>lead 03</kbd>
-      </div>
+      {isSelect ? (
+        <div className="cs-foot">
+          <span className="cs-foot-label">Reply</span>
+          <kbd>keep A, C, D, G</kbd>
+          <kbd>drop F</kbd>
+          <kbd>include B too</kbd>
+        </div>
+      ) : (
+        <div className="cs-foot">
+          <span className="cs-foot-label">Crop talk</span>
+          <kbd>shift C to B2</kbd>
+          <kbd>span D across A2\u2013C4</kbd>
+          <kbd>tighten F</kbd>
+          <kbd>lead C</kbd>
+        </div>
+      )}
     </div>
   );
 }
 
-function PhotoCard({ photo, isLead }) {
+function PhotoCard({ mode, photo, isLead }) {
+  const isSelect = mode === 'select';
+
+  if (isSelect) {
+    // Stage 1 — simple grid, no crop overlays.
+    return (
+      <div className="cs-card cs-card-select">
+        <div className="cs-cell">
+          <div
+            className="cs-photo"
+            style={{ aspectRatio: `${photo.w} / ${photo.h}` }}
+          >
+            <img src={photo.src} alt="" />
+          </div>
+          <div className="cs-sticker">{labelFromIndex(photo.n)}</div>
+        </div>
+        <div className="cs-meta">
+          <div className="cs-meta-row">
+            <span className="cs-meta-file">{photo.file}</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const box = cropBox(photo);
   const coord = chessFromAnchor(photo.ax, photo.ay);
   const tightL = tightnessLabel(photo.tight);
@@ -76,7 +117,7 @@ function PhotoCard({ photo, isLead }) {
           />
           <GridOverlay box={box} active={coord} />
         </div>
-        <div className="cs-sticker">{String(photo.n).padStart(2, '0')}</div>
+        <div className="cs-sticker">{labelFromIndex(photo.n)}</div>
         {isLead && <div className="cs-lead-pin">LEAD</div>}
       </div>
       <div className="cs-meta">

@@ -1,0 +1,885 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>/* =========================================================================
+   contact-sheet-final.css — styles for <ContactSheet> + <CarouselPreview>
+
+   Two component scopes:
+     .cs-sheet      ContactSheet (chess-grid review)
+     .cp-sheet      CarouselPreview (finalized post order)
+
+   Both share a warm-dark palette and IBM Plex Sans + Plex Mono typography.
+   ========================================================================= */
+
+:root {
+  --cs-bg:           #14120f;
+  --cs-paper:        #1a1814;
+  --cs-mat:          #0c0b09;
+  --cs-text:         #ece8de;
+  --cs-text-soft:    #b8b3a7;
+  --cs-mute:         #807a6e;
+  --cs-mute-soft:    #5d584f;
+  --cs-line:         rgba(255, 255, 255, 0.07);
+  --cs-line-strong:  rgba(255, 255, 255, 0.15);
+  --cs-crop-line:    rgba(255, 255, 255, 0.94);
+  --cs-crop-scrim:   rgba(6, 5, 4, 0.55);
+  --cs-accent:       #e8a838;
+  --cs-accent-fg:    #1a1714;
+  --cs-accent-soft:  rgba(232, 168, 56, 0.14);
+}
+
+/* =========================================================================
+   ContactSheet
+   ========================================================================= */
+
+.cs-sheet, .cs-sheet * { box-sizing: border-box; }
+
+.cs-sheet {
+  background: var(--cs-bg);
+  color: var(--cs-text);
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 13px;
+  line-height: 1.4;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.cs-head {
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid var(--cs-line);
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px;
+}
+.cs-eyebrow {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9.5px;
+  letter-spacing: 0.18em;
+  color: var(--cs-mute);
+  text-transform: uppercase;
+  margin-bottom: 6px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  white-space: nowrap;
+}
+.cs-eyebrow > span { white-space: nowrap; }
+.cs-dot {
+  width: 3px;
+  height: 3px;
+  background: var(--cs-mute-soft);
+  border-radius: 50%;
+  display: inline-block;
+}
+.cs-eyebrow-accent { color: var(--cs-accent); letter-spacing: 0.16em; }
+.cs-title {
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 17px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  color: var(--cs-text);
+  margin: 0;
+}
+.cs-sub {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  color: var(--cs-mute);
+  text-transform: uppercase;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.cs-body {
+  padding: 18px 16px 14px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px 10px;
+}
+
+.cs-card { display: flex; flex-direction: column; min-width: 0; }
+
+.cs-cell {
+  position: relative;
+  aspect-ratio: 1;
+  background: var(--cs-mat);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 0 1px transparent inset;
+  transition: box-shadow 0.15s;
+}
+.cs-card-lead .cs-cell {
+  box-shadow: 0 0 0 1.5px var(--cs-accent) inset;
+}
+
+.cs-photo {
+  position: relative;
+  max-width: 100%;
+  max-height: 100%;
+  display: flex;
+}
+.cs-photo img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cs-crop {
+  position: absolute;
+  pointer-events: none;
+  outline: 1.5px solid var(--cs-crop-line);
+  box-shadow: 0 0 0 9999px var(--cs-crop-scrim);
+  z-index: 2;
+}
+
+/* Number sticker — amber chip top-left of the cell. */
+.cs-sticker {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  height: 24px;
+  min-width: 30px;
+  padding: 0 7px;
+  background: var(--cs-accent);
+  color: var(--cs-accent-fg);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.18) inset,
+    0 -1px 0 rgba(0, 0, 0, 0.12) inset,
+    0 2px 6px rgba(0, 0, 0, 0.35);
+  z-index: 6;
+  user-select: none;
+}
+
+/* Lead designator — outlined amber pill top-right of the cell. */
+.cs-lead-pin {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 0 7px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  background: transparent;
+  border: 1px solid var(--cs-accent);
+  color: var(--cs-accent);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  border-radius: 2px;
+  z-index: 6;
+  text-transform: uppercase;
+}
+
+/* 5×5 chess-grid overlay */
+.cs-grid {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  grid-template-rows: repeat(5, 1fr);
+  pointer-events: none;
+  z-index: 4;
+}
+.cs-grid-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 8.5px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.34);
+  letter-spacing: 0.04em;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+.cs-grid-cell.in-crop {
+  background: rgba(232, 168, 56, 0.10);
+  color: rgba(255, 255, 255, 0.5);
+}
+.cs-grid-cell.active {
+  background: var(--cs-accent);
+  color: var(--cs-accent-fg);
+  font-weight: 600;
+  font-size: 10px;
+  border-color: var(--cs-accent);
+  box-shadow: 0 0 0 1px var(--cs-accent);
+  z-index: 1;
+}
+
+/* Meta strip below the cell */
+.cs-meta {
+  padding: 10px 2px 2px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.cs-meta-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+  min-width: 0;
+}
+.cs-meta-file {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  color: var(--cs-text);
+  letter-spacing: 0.005em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.cs-card-lead .cs-meta-file { color: var(--cs-accent); }
+.cs-meta-lead {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 8.5px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  color: var(--cs-accent);
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+.cs-meta-attrs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  color: var(--cs-text-soft);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  overflow: hidden;
+}
+.cs-meta-attrs .cs-sep  { color: var(--cs-mute-soft); }
+.cs-meta-attrs .cs-val  { color: var(--cs-text-soft); }
+.cs-meta-attrs .cs-anchor {
+  color: var(--cs-accent);
+  font-weight: 500;
+  letter-spacing: 0.08em;
+}
+
+.cs-foot {
+  padding: 12px 24px;
+  border-top: 1px solid var(--cs-line);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10.5px;
+  color: var(--cs-mute);
+  letter-spacing: 0.02em;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  align-items: center;
+}
+.cs-foot kbd {
+  background: var(--cs-paper);
+  border: 1px solid var(--cs-line-strong);
+  border-radius: 3px;
+  padding: 2px 6px 1px;
+  color: var(--cs-text-soft);
+  font: inherit;
+  font-size: 9.5px;
+  letter-spacing: 0.02em;
+}
+.cs-foot-label {
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--cs-text-soft);
+}
+
+/* =========================================================================
+   CarouselPreview
+   ========================================================================= */
+
+.cp-sheet, .cp-sheet * { box-sizing: border-box; }
+
+.cp-sheet {
+  background: var(--cs-bg);
+  color: var(--cs-text);
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 13px;
+  line-height: 1.4;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.cp-head {
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid var(--cs-line);
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px;
+}
+.cp-eyebrow {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9.5px;
+  letter-spacing: 0.18em;
+  color: var(--cs-mute);
+  text-transform: uppercase;
+  margin-bottom: 6px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  white-space: nowrap;
+}
+.cp-eyebrow > span { white-space: nowrap; }
+.cp-dot {
+  width: 3px;
+  height: 3px;
+  background: var(--cs-mute-soft);
+  border-radius: 50%;
+  display: inline-block;
+}
+.cp-ratio { color: var(--cs-accent); letter-spacing: 0.16em; }
+.cp-title {
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 17px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  margin: 0;
+}
+.cp-sub {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  color: var(--cs-mute);
+  text-transform: uppercase;
+  text-align: right;
+  white-space: nowrap;
+}
+.cp-lead-num {
+  color: var(--cs-accent);
+  font-weight: 600;
+}
+
+.cp-body {
+  padding: 22px 24px 8px;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.cp-slide {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.cp-slide-frame {
+  position: relative;
+  overflow: hidden;
+  background: var(--cs-mat);
+  box-shadow: 0 0 0 1px transparent inset;
+  transition: box-shadow 0.15s;
+}
+.cp-slide-lead .cp-slide-frame {
+  box-shadow: 0 0 0 1.5px var(--cs-accent) inset;
+}
+
+.cp-slide-pos {
+  position: absolute;
+  bottom: 6px;
+  right: 6px;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 1px;
+  padding: 3px 6px;
+  background: rgba(8, 6, 4, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 3px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  color: var(--cs-text);
+  letter-spacing: 0.04em;
+  backdrop-filter: blur(4px);
+  z-index: 4;
+}
+.cp-pos-num   { font-weight: 600; }
+.cp-pos-sep   { color: var(--cs-text-soft); margin: 0 1px; }
+.cp-pos-total { color: var(--cs-text-soft); }
+
+.cp-lead-pin {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  padding: 0 6px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  background: var(--cs-accent);
+  color: var(--cs-accent-fg);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  border-radius: 2px;
+  z-index: 4;
+  text-transform: uppercase;
+}
+
+.cp-slide-meta {
+  padding: 8px 0 2px;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  overflow: hidden;
+}
+.cp-slide-num {
+  color: var(--cs-accent);
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  flex-shrink: 0;
+}
+.cp-slide-file {
+  color: var(--cs-mute);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cp-dots {
+  padding: 6px 24px 18px;
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+}
+.cp-dot-pip {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--cs-mute-soft);
+  transition: width 0.15s, background 0.15s;
+}
+.cp-dot-pip.on {
+  background: var(--cs-accent);
+  width: 18px;
+  border-radius: 2.5px;
+}
+
+.cp-caption {
+  padding: 14px 24px 20px;
+  border-top: 1px solid var(--cs-line);
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+.cp-caption-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  color: var(--cs-mute);
+  text-transform: uppercase;
+  flex-shrink: 0;
+  padding-top: 1px;
+}
+.cp-caption-text {
+  font-size: 12px;
+  color: var(--cs-text-soft);
+  line-height: 1.5;
+}
+
+html,body{margin:0;padding:0;}
+body{background:#0c0b09;font-family:'IBM Plex Sans',sans-serif;}
+/* Override component's height:100% which collapses to 0 in unconstrained parent */
+.cs-sheet, .cp-sheet { height: auto !important; }
+.demo-page{padding:24px;width:720px;margin:0 auto;}
+.demo-stack{display:flex;flex-direction:column;gap:32px;}
+.demo-frame{border-radius:6px;overflow:hidden;box-shadow:0 24px 60px -24px rgba(0,0,0,0.6);}
+</style>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js"></script>
+</head>
+<body>
+<div id="root"></div>
+<script>/* =========================================================================
+   crop-helpers.js — pure helper functions for Post Relay crop math.
+   No dependencies. Plain ES — works in any project.
+   =========================================================================
+*/
+
+/**
+ * Compute the largest crop rectangle with the given aspect ratio that fits
+ * inside an image, anchored toward (ax, ay) in normalised image coords.
+ *
+ * @param {number} imgW   image width (px or any consistent unit)
+ * @param {number} imgH   image height
+ * @param {number} ratio  target crop ratio = cropW / cropH
+ * @param {number} ax     anchor X (0..1) — 0 = left-aligned, 1 = right-aligned
+ * @param {number} ay     anchor Y (0..1)
+ * @returns {{x:number,y:number,w:number,h:number}} crop box in image-normalised coords
+ */
+function fitCrop(imgW, imgH, ratio, ax = 0.5, ay = 0.5) {
+  const imgAspect = imgW / imgH;
+  let cw, ch;
+  if (ratio > imgAspect) {
+    cw = 1;
+    ch = imgAspect / ratio;
+  } else {
+    cw = ratio / imgAspect;
+    ch = 1;
+  }
+  return { x: (1 - cw) * ax, y: (1 - ch) * ay, w: cw, h: ch };
+}
+
+/**
+ * Compute the final crop box for a photo, optionally overriding its
+ * recommended ratio (e.g., when locking a whole carousel to one ratio).
+ *
+ * @param {object} photo  must have w, h, ratio, ax, ay, optional tight
+ * @param {number} [overrideRatio]
+ * @returns {{x:number,y:number,w:number,h:number}}
+ */
+function cropBox(photo, overrideRatio) {
+  const r = overrideRatio != null ? overrideRatio : photo.ratio;
+  const base = fitCrop(photo.w, photo.h, r, photo.ax, photo.ay);
+  const t = photo.tight != null ? photo.tight : 1;
+  const cw = base.w * t;
+  const ch = base.h * t;
+  return { x: (1 - cw) * photo.ax, y: (1 - ch) * photo.ay, w: cw, h: ch };
+}
+
+/** Render a crop ratio (w/h) as a human label: "1:1", "4:5", "1.91:1", … */
+function ratioLabel(r) {
+  if (Math.abs(r - 1)      < 0.01) return '1:1';
+  if (Math.abs(r - 0.8)    < 0.01) return '4:5';
+  if (Math.abs(r - 1.91)   < 0.02) return '1.91:1';
+  if (Math.abs(r - 9 / 16) < 0.01) return '9:16';
+  return r.toFixed(2);
+}
+
+/**
+ * 5×5 chess-style coord (A1..E5) from anchor.
+ * A = left column, E = right column; 1 = top row, 5 = bottom row.
+ */
+function chessFromAnchor(ax, ay) {
+  const col = Math.min(4, Math.max(0, Math.round(ax * 4)));
+  const row = Math.min(4, Math.max(0, Math.round(ay * 4)));
+  return String.fromCharCode(65 + col) + (row + 1);
+}
+
+/** Cells the crop overlaps in the 5×5 grid. Returns { c0, c1, r0, r1 }. */
+function chessSpan(box) {
+  const c0 = Math.max(0, Math.min(4, Math.floor(box.x * 5)));
+  const c1 = Math.max(0, Math.min(4, Math.ceil((box.x + box.w) * 5) - 1));
+  const r0 = Math.max(0, Math.min(4, Math.floor(box.y * 5)));
+  const r1 = Math.max(0, Math.min(4, Math.ceil((box.y + box.h) * 5) - 1));
+  return { c0, c1, r0, r1 };
+}
+
+/** Named tightness label for a tight value in [0, 1]. */
+function tightnessLabel(t) {
+  if (t >= 0.95) return 'wide';
+  if (t >= 0.83) return 'medium';
+  return 'snug';
+}
+</script>
+<script>/* =========================================================================
+   sample-data.js — sample photos for the contact-sheet demo.
+
+   Photo object shape:
+     n      number   display number (01..NN)
+     file   string   original filename
+     src    string   image URL (replace with your CDN / blob URLs)
+     w, h   number   native pixel dimensions
+     ratio  number   agent-recommended IG crop ratio (w/h: 1 = 1:1, 0.8 = 4:5, 1.91 = 1.91:1)
+     ax     number   crop anchor X (0..1) — where the crop "leans"
+     ay     number   crop anchor Y (0..1)
+     tight  number   crop scale (1.0 = max fit; < 1 = tighter framing)
+   =========================================================================
+*/
+
+const SAMPLE_PHOTOS = [
+  { n: 1, file: 'IMG_4821.jpg', src: 'https://picsum.photos/seed/granary-b1/1000/750',  w: 4032, h: 3024, ratio: 1,    ax: 0.10, ay: 0.20, tight: 1.00 },
+  { n: 2, file: 'IMG_4823.jpg', src: 'https://picsum.photos/seed/granary-b2/750/1000',  w: 3024, h: 4032, ratio: 0.8,  ax: 0.50, ay: 0.05, tight: 1.00 },
+  { n: 3, file: 'IMG_4824.jpg', src: 'https://picsum.photos/seed/granary-b3/1000/750',  w: 4032, h: 3024, ratio: 1,    ax: 0.92, ay: 0.50, tight: 0.78 },
+  { n: 4, file: 'IMG_4827.jpg', src: 'https://picsum.photos/seed/granary-b4/750/1000',  w: 3024, h: 4032, ratio: 0.8,  ax: 0.15, ay: 0.50, tight: 1.00 },
+  { n: 5, file: 'IMG_4830.jpg', src: 'https://picsum.photos/seed/granary-b5/1000/750',  w: 4032, h: 3024, ratio: 1,    ax: 0.50, ay: 0.50, tight: 1.00 },
+  { n: 6, file: 'IMG_4832.jpg', src: 'https://picsum.photos/seed/granary-b6/1000/525',  w: 4032, h: 2112, ratio: 1.91, ax: 0.50, ay: 0.92, tight: 1.00 },
+  { n: 7, file: 'IMG_4835.jpg', src: 'https://picsum.photos/seed/granary-b7/750/1000',  w: 3024, h: 4032, ratio: 0.8,  ax: 0.20, ay: 0.95, tight: 0.92 },
+  { n: 8, file: 'IMG_4838.jpg', src: 'https://picsum.photos/seed/granary-b8/1000/750',  w: 4032, h: 3024, ratio: 1,    ax: 0.80, ay: 0.80, tight: 0.85 },
+  { n: 9, file: 'IMG_4840.jpg', src: 'https://picsum.photos/seed/granary-b9/1000/750',  w: 4032, h: 3024, ratio: 1,    ax: 0.95, ay: 0.08, tight: 0.70 },
+];
+
+const SAMPLE_LEAD = 5;
+const SAMPLE_CAROUSEL_ORDER = [5, 3, 2, 7];
+const SAMPLE_CAROUSEL_RATIO = 0.8; // 4:5 portrait — Instagram feed
+const SAMPLE_CAROUSEL_CAPTION =
+  'Saturday mornings at the Granary. New seasonal blend now pouring — say hi to our baristas. ☕';
+
+/* Expose to other scripts (plain <script> globals + babel scripts). */
+window.SAMPLE_PHOTOS = SAMPLE_PHOTOS;
+window.SAMPLE_LEAD = SAMPLE_LEAD;
+window.SAMPLE_CAROUSEL_ORDER = SAMPLE_CAROUSEL_ORDER;
+window.SAMPLE_CAROUSEL_RATIO = SAMPLE_CAROUSEL_RATIO;
+window.SAMPLE_CAROUSEL_CAPTION = SAMPLE_CAROUSEL_CAPTION;
+</script>
+<script type="text/babel">/* =========================================================================
+   contact-sheet.jsx — <ContactSheet>
+   The Post Relay photo-review contact sheet.
+
+   Props:
+     photos     Array<Photo>   list of photo objects (see sample-data.js)
+     leadNum?   number         `n` of the lead/cover photo to designate
+     title      string         sheet title (e.g., project · feed candidates)
+     sub        string         eyebrow subtitle (e.g., shoot date)
+
+   Depends on globals from crop-helpers.js:
+     cropBox, ratioLabel, chessFromAnchor, chessSpan, tightnessLabel
+   ========================================================================= */
+
+const { useMemo: _csUseMemo } = React;
+
+function ContactSheet({ photos, leadNum, title, sub }) {
+  return (
+    <div className="cs-sheet">
+      <header className="cs-head">
+        <div>
+          <div className="cs-eyebrow">
+            <span>CONTACT SHEET</span>
+            <span className="cs-dot" />
+            <span>{String(photos.length).padStart(2, '0')} PHOTOS</span>
+            <span className="cs-dot" />
+            <span className="cs-eyebrow-accent">A1–E5 GRID</span>
+          </div>
+          <h1 className="cs-title">{title}</h1>
+        </div>
+        <div className="cs-sub">{sub}</div>
+      </header>
+
+      <div className="cs-body">
+        {photos.map((p) => (
+          <PhotoCard
+            key={p.n}
+            photo={p}
+            isLead={leadNum != null && p.n === leadNum}
+          />
+        ))}
+      </div>
+
+      <div className="cs-foot">
+        <span className="cs-foot-label">Crop talk</span>
+        <kbd>shift 03 to B2</kbd>
+        <kbd>span 04 across A2–C4</kbd>
+        <kbd>tighten 06</kbd>
+        <kbd>lead 03</kbd>
+      </div>
+    </div>
+  );
+}
+
+function PhotoCard({ photo, isLead }) {
+  const box = cropBox(photo);
+  const coord = chessFromAnchor(photo.ax, photo.ay);
+  const tightL = tightnessLabel(photo.tight);
+
+  return (
+    <div className={`cs-card ${isLead ? 'cs-card-lead' : ''}`}>
+      <div className="cs-cell">
+        <div
+          className="cs-photo"
+          style={{ aspectRatio: `${photo.w} / ${photo.h}` }}
+        >
+          <img src={photo.src} alt="" />
+          <div
+            className="cs-crop"
+            style={{
+              left:   `${box.x * 100}%`,
+              top:    `${box.y * 100}%`,
+              width:  `${box.w * 100}%`,
+              height: `${box.h * 100}%`,
+            }}
+          />
+          <GridOverlay box={box} active={coord} />
+        </div>
+        <div className="cs-sticker">{String(photo.n).padStart(2, '0')}</div>
+        {isLead && <div className="cs-lead-pin">LEAD</div>}
+      </div>
+      <div className="cs-meta">
+        <div className="cs-meta-row">
+          <span className="cs-meta-file">{photo.file}</span>
+          {isLead && <span className="cs-meta-lead">▲ LEAD</span>}
+        </div>
+        <div className="cs-meta-attrs">
+          <span className="cs-val">{ratioLabel(photo.ratio)}</span>
+          <span className="cs-sep">·</span>
+          <span className="cs-anchor">◎ {coord}</span>
+          <span className="cs-sep">·</span>
+          <span className="cs-val">{tightL}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function GridOverlay({ box, active }) {
+  const { c0, c1, r0, r1 } = chessSpan(box);
+  const cells = [];
+  for (let r = 0; r < 5; r++) {
+    for (let c = 0; c < 5; c++) {
+      const coord = String.fromCharCode(65 + c) + (r + 1);
+      const inCrop = c >= c0 && c <= c1 && r >= r0 && r <= r1;
+      const isActive = coord === active;
+      cells.push(
+        <div
+          key={coord}
+          className={`cs-grid-cell ${isActive ? 'active' : inCrop ? 'in-crop' : ''}`}
+        >
+          {coord}
+        </div>
+      );
+    }
+  }
+  return <div className="cs-grid">{cells}</div>;
+}
+
+window.ContactSheet = ContactSheet;
+</script>
+<script type="text/babel">/* =========================================================================
+   carousel-preview.jsx — <CarouselPreview>
+   Finalized IG carousel from selected photos in confirmed order.
+
+   Props:
+     photos    Array<Photo>   full photo library (lookups by `n`)
+     order     Array<number>  list of photo `n` values in carousel order
+     ratio     number         IG aspect ratio applied to whole carousel
+                              (1 = 1:1, 0.8 = 4:5, 1.91 = 1.91:1)
+     caption?  string         caption preview shown below the slides
+
+   The first item in `order` is treated as the lead (cover) image.
+
+   Depends on globals from crop-helpers.js: cropBox, ratioLabel
+   ========================================================================= */
+
+const { useMemo: _cpUseMemo } = React;
+
+function CarouselPreview({ photos, order, ratio, caption }) {
+  const byNum = _cpUseMemo(
+    () => Object.fromEntries(photos.map((p) => [p.n, p])),
+    [photos]
+  );
+  const selected = order.map((n) => byNum[n]).filter(Boolean);
+  if (selected.length === 0) return null;
+  const lead = selected[0];
+
+  return (
+    <div className="cp-sheet">
+      <header className="cp-head">
+        <div>
+          <div className="cp-eyebrow">
+            <span>CAROUSEL PREVIEW</span>
+            <span className="cp-dot" />
+            <span>{String(selected.length).padStart(2, '0')} SLIDES</span>
+            <span className="cp-dot" />
+            <span className="cp-ratio">{ratioLabel(ratio).toUpperCase()}</span>
+          </div>
+          <h2 className="cp-title">Final post · ordered</h2>
+        </div>
+        <div className="cp-sub">
+          LEAD <span className="cp-lead-num">{String(lead.n).padStart(2, '0')}</span>
+        </div>
+      </header>
+
+      <div className="cp-body">
+        {selected.map((p, i) => (
+          <CarouselSlide
+            key={p.n}
+            photo={p}
+            position={i + 1}
+            total={selected.length}
+            ratio={ratio}
+            isLead={i === 0}
+          />
+        ))}
+      </div>
+
+      <div className="cp-dots">
+        {selected.map((_, i) => (
+          <span key={i} className={`cp-dot-pip ${i === 0 ? 'on' : ''}`} />
+        ))}
+      </div>
+
+      {caption && (
+        <div className="cp-caption">
+          <span className="cp-caption-label">Caption</span>
+          <span className="cp-caption-text">{caption}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CarouselSlide({ photo, position, total, ratio, isLead }) {
+  // Compute the crop at the *carousel* ratio (overrides the photo's
+  // recommended ratio so all slides share one shape).
+  const box = cropBox(photo, ratio);
+  return (
+    <div className={`cp-slide ${isLead ? 'cp-slide-lead' : ''}`}>
+      <div className="cp-slide-frame" style={{ aspectRatio: ratio }}>
+        <img
+          src={photo.src}
+          alt=""
+          style={{
+            position: 'absolute',
+            width:    `${100 / box.w}%`,
+            height:   `${100 / box.h}%`,
+            left:     `${(-box.x * 100) / box.w}%`,
+            top:      `${(-box.y * 100) / box.h}%`,
+            display:  'block',
+            maxWidth: 'none',
+          }}
+        />
+        <div className="cp-slide-pos">
+          <span className="cp-pos-num">{position}</span>
+          <span className="cp-pos-sep">/</span>
+          <span className="cp-pos-total">{total}</span>
+        </div>
+        {isLead && <div className="cp-lead-pin">LEAD</div>}
+      </div>
+      <div className="cp-slide-meta">
+        <span className="cp-slide-num">#{String(photo.n).padStart(2, '0')}</span>
+        <span className="cp-slide-file">{photo.file}</span>
+      </div>
+    </div>
+  );
+}
+
+window.CarouselPreview = CarouselPreview;
+</script>
+<script type="text/babel">
+function App() {
+  return (
+    <div className="demo-page">
+      <div className="demo-stack">
+        <div className="demo-frame">
+          <ContactSheet photos={SAMPLE_PHOTOS} leadNum={SAMPLE_LEAD} title="Granary Coffee · feed candidates" sub="shoot 02 · nov 18" />
+        </div>
+        <div className="demo-frame">
+          <CarouselPreview photos={SAMPLE_PHOTOS} order={SAMPLE_CAROUSEL_ORDER} ratio={SAMPLE_CAROUSEL_RATIO} caption={SAMPLE_CAROUSEL_CAPTION} />
+        </div>
+      </div>
+    </div>
+  );
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body></html>

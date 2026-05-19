@@ -176,16 +176,20 @@ def _plan_review_artifact_items(
         )
         for thumbnail in thumbnails
     ]
-    contact_sheet = draft_artifact_root / "contact-sheet.jpg"
-    if contact_sheet.exists() or draft_artifact_root.exists():
-        items.append(
-            _plan_item(
-                kind="contact_sheet",
-                source=contact_sheet,
-                object_key=f"{prefix}/drafts/{draft_id}/review-artifacts/contact-sheet.jpg",
-                public_base_url=public_base_url,
+    contact_sheets = [
+        ("contact_sheet_select", draft_artifact_root / "contact-sheet-select.png"),
+        ("contact_sheet_crop", draft_artifact_root / "contact-sheet-crop.png"),
+    ]
+    if draft_artifact_root.exists():
+        for kind, contact_sheet in contact_sheets:
+            items.append(
+                _plan_item(
+                    kind=kind,
+                    source=contact_sheet,
+                    object_key=f"{prefix}/drafts/{draft_id}/review-artifacts/{contact_sheet.name}",
+                    public_base_url=public_base_url,
+                )
             )
-        )
     return items
 
 

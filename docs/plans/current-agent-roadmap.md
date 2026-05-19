@@ -697,13 +697,14 @@ As of the first live carousel smoke, the local-first workflow is past the origin
 
 ## Immediate next plan
 
-This handoff refresh is tracked in PR #63 after the merged chat artifact refresh PR #62.
+This handoff refresh follows the chat artifact refresh PR #62 and the follow-up contact-sheet design v2 hardening PR #64.
 
 1. Use `analytics feedback-summary` plus `analytics follower-summary` as deterministic advisory baselines when planning the next reviewed post.
-2. Practice the private-DM-first, user-initiated operating loop with the refreshed contact-sheet/final-preview artifacts before changing live Discord send behavior.
-3. Choose the next rollback-safe engineering milestone from private-DM operating-loop hardening, proactive opportunity DM controls, video/reel validation, or deeper local media discovery/enrichment.
-4. Keep recommendation and follower-growth feedback advisory-only until several real posts and account snapshots provide enough signal.
-5. Keep live-safe defaults: no Discord sends, no R2 `--execute`, and no Meta `--execute` unless explicitly authorized in the active session.
+2. Andrew validated the refreshed Stage 1/Stage 2/Stage 3 assets in a real Discord chat against the upcoming post; continue the upcoming-post operation through the Discord agent rather than adding more artifact design work first.
+3. Next engineering milestone recommendation: `feat/dm-operating-loop-hardening`, focused on making the private-DM user-initiated flow reliably send/use the Stage 1 selection asset, apply keep/drop/reorder/lead/crop feedback, regenerate Stage 2 crop review, and present Stage 3 approval while preserving explicit content approval, scheduling, final publish approval, and separate live Meta execution authorization.
+4. After that, choose between `feat/proactive-opportunity-dm-controls`, `feat/video-reel-validation`, or `feat/local-media-discovery-enrichment`.
+5. Keep recommendation and follower-growth feedback advisory-only until several real posts and account snapshots provide enough signal.
+6. Keep live-safe defaults: no Discord sends, no R2 `--execute`, and no Meta `--execute` unless explicitly authorized in the active session.
 
 ## Recent completed milestones and current roadmap
 
@@ -1128,11 +1129,36 @@ Current local result: `14 passed` focused; `174 passed` full suite.
 
 Current merged-main result: `248 passed` full suite.
 
+### PR #64 / Milestone 37: `feat/contact-sheet-design-v2` (implemented in branch)
+
+**Goal:** Refine the uploaded contact-sheet/final-approval design integration after direct visual feedback, then provide a local browser preview for review.
+
+**Delivered behavior in branch:**
+- Stage 1 now renders `contact-sheet-select.png` as a selection-only artifact: letter stickers and filenames only, with no crop frame, no A1-E5 grid, and no lead marker so the UI cannot imply crop decisions are already in play.
+- Stage 2 renders `contact-sheet-crop.png` for selected media only, with crop framing, A1-E5 grid vocabulary, crop metadata, and lead marker.
+- Stage 3 renders `final-post-preview.png` for approval, with ordered selected media, caption preview, and centered metadata tags.
+- Review/final artifacts now render as high-DPI PNGs at 1440px wide with 192 DPI metadata to reduce text grain in Discord/browser previews.
+- Tag/chip text centering accounts for font bounding boxes, fixing the prior top-heavy vertical padding.
+- README, AGENTS, historical plan references, R2 staging expectations, and tests were cleaned up to use the new `contact-sheet-select.png`, `contact-sheet-crop.png`, and `final-post-preview.png` artifact names.
+- `scripts/render_design_v2_example.py` generates a local three-stage browser preview at `data/review_artifacts/design-v2-example/index.html`.
+- Andrew tested the refreshed assets in Discord chat with the upcoming post and confirmed they look great.
+
+**Safety rule:** Artifact rendering remains local/static. It must not send Discord messages, upload to R2, call Meta, mutate approvals/schedules, or modify local/NAS source media.
+
+**Verification:**
+
+```bash
+.venv/bin/python -m pytest tests/test_review_artifacts.py tests/test_final_post_artifacts.py tests/test_cli.py tests/test_r2_staging.py tests/test_r2_staging_upload.py tests/test_discord_selection_payload.py tests/test_publish_validation.py -q
+.venv/bin/python -m pytest -q
+```
+
+Current branch result: `59 passed` focused; `248 passed` full suite.
+
 **Next-session start here:**
-1. First verify the current baseline: `.venv/bin/python -m pytest -q` should report `248 passed`.
-2. Use `analytics feedback-summary` plus `analytics follower-summary` as advisory baselines when planning a reviewed post.
-3. Use `dm next-action --draft-id <id>` or `--discord-channel-id <dm-channel>` before choosing/sending the next private-DM prompt, and verify the refreshed local artifacts before any live Discord change.
-4. Choose the next rollback-safe milestone from private-DM operating-loop hardening, proactive opportunity DM controls, video/reel validation, or deeper local media discovery/enrichment.
+1. Merge the design v2 branch, sync `main`, and verify `.venv/bin/python -m pytest -q` still reports `248 passed`.
+2. Andrew will continue the upcoming-post operation in Discord; engineering should not run live R2 or Meta commands for that post unless explicitly authorized in the active session.
+3. Start next branch `feat/dm-operating-loop-hardening` to make the private-DM user-initiated loop first-class around the Stage 1/2/3 artifacts.
+4. Keep `feat/proactive-opportunity-dm-controls`, `feat/video-reel-validation`, and `feat/local-media-discovery-enrichment` as the following milestone candidates.
 
 ## Later milestones
 

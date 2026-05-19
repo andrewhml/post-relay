@@ -407,10 +407,10 @@ def test_resolve_staged_r2_publish_image_urls_preserves_selected_media_order(tmp
         connection,
         draft_id=draft.id,
         kind="contact_sheet",
-        source_path="/tmp/contact-sheet.jpg",
+        source_path="/tmp/contact-sheet-select.png",
         bucket="post-relay-publish",
-        object_key="post-relay/staging/drafts/1/artifacts/contact-sheet.jpg",
-        public_url="https://peddocks.net/post-relay/staging/drafts/1/artifacts/contact-sheet.jpg",
+        object_key="post-relay/staging/drafts/1/artifacts/contact-sheet-select.png",
+        public_url="https://peddocks.net/post-relay/staging/drafts/1/artifacts/contact-sheet-select.png",
     )
 
     urls = resolve_staged_r2_publish_image_urls(connection, draft.id, r2_config)
