@@ -63,6 +63,11 @@ from post_relay.guided_draft import (
 )
 from post_relay.final_publish_preview import build_final_publish_preview
 from post_relay.indexer import index_photo_sources
+from post_relay.location_tags import (
+    DraftNotFound as LocationTagDraftNotFound,
+    build_location_candidate_review,
+    set_draft_location_tag,
+)
 from post_relay.meta_graph import (
     MetaGraphClient,
     MetaGraphConfigError,
@@ -1406,6 +1411,73 @@ def drafts_edit(
     if invalidated_count:
         message += f" Material edit invalidated active approvals: {invalidated_count}."
     typer.echo(message)
+
+
+@drafts_app.command("location-candidates")
+def drafts_location_candidates(
+    draft_id: int = typer.Option(..., "--draft-id", help="Draft id."),
+    query: Optional[str] = typer.Option(None, "--query", help="Confirmed place query to search with Meta Pages."),
+    max_candidates: int = typer.Option(5, "--max-candidates", help="Maximum Meta Page candidates to show."),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Plan or clarify without calling Meta."),
+    db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
+    env_file: Optional[Path] = typer.Option(Path(".env"), "--env-file", help="Private .env file path for Meta read-only search."),
+) -> None:
+    """Suggest reviewed Meta location Page candidates without setting a tag."""
+    connection = connect_db(db)
+    initialize_db(connection)
+    client = None
+    if not dry_run and query:
+        try:
+            config = load_meta_graph_config(env_file=env_file)
+        except MetaGraphConfigError as error:
+            raise typer.BadParameter(str(error), param_hint="--env-file") from error
+        client = MetaGraphClient(config)
+    try:
+        review = build_location_candidate_review(
+            connection,
+            draft_id,
+            query=query,
+            client=client,
+            max_candidates=max_candidates,
+        )
+    except LocationTagDraftNotFound as error:
+        raise typer.BadParameter(str(error), param_hint="--draft-id") from error
+    if not dry_run and query and client is None:
+        typer.echo("No Meta network calls were made.")
+    typer.echo(review.to_text())
+
+
+@drafts_app.command("location-tag-set")
+def drafts_location_tag_set(
+    draft_id: int = typer.Option(..., "--draft-id", help="Draft id."),
+    page_id: str = typer.Option(..., "--page-id", help="Resolved Facebook Page id to send as Meta location_id."),
+    name: str = typer.Option(..., "--name", help="Human-readable location Page name."),
+    source: str = typer.Option("pages/search", "--source", help="Resolution source/audit note."),
+    db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
+) -> None:
+    """Persist a reviewed Meta location Page id separately from freeform location text."""
+    connection = connect_db(db)
+    initialize_db(connection)
+    active_before = len(list_active_approvals(connection, draft_id))
+    try:
+        tag = set_draft_location_tag(
+            connection,
+            draft_id,
+            page_id=page_id,
+            name=name,
+            source=source,
+        )
+    except LocationTagDraftNotFound as error:
+        raise typer.BadParameter(str(error), param_hint="--draft-id") from error
+    invalidated_count = active_before - len(list_active_approvals(connection, draft_id))
+    typer.echo(
+        f"Resolved Meta location tag for draft #{tag.draft_id}: location_id={tag.page_id} ({tag.name})."
+    )
+    if invalidated_count:
+        typer.echo(
+            f"Prior approvals were invalidated: {invalidated_count}. Re-submit/reapprove before publishing with this location tag."
+        )
+    typer.echo("Freeform location_text remains local/review-only and was not changed.")
 
 
 @drafts_app.command("schedule")

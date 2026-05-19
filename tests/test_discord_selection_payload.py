@@ -72,7 +72,7 @@ def test_build_discord_selection_payload_renders_numbered_request_and_interactio
     assert "Instagram Capability Matrix" in rendered
     assert "caption: publishable" in rendered
     assert "alt_text: review_only" in rendered
-    assert "location_tag: needs_validation" in rendered
+    assert "location_tag: publishable_when_resolved" in rendered
     assert "1. 01-hero.jpg" in rendered
     assert contact_sheet.as_posix() in rendered
 

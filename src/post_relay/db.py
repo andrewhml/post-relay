@@ -211,6 +211,19 @@ SCHEMA_STATEMENTS = [
         foreign key(draft_id) references drafts(id)
     )
     """,
+    """
+    create table if not exists draft_location_tags (
+        id integer primary key,
+        draft_id integer not null unique,
+        page_id text not null,
+        name text not null,
+        source text not null,
+        status text not null default 'resolved',
+        created_at text not null default current_timestamp,
+        updated_at text not null default current_timestamp,
+        foreign key(draft_id) references drafts(id)
+    )
+    """,
 ]
 
 

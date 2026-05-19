@@ -7,7 +7,7 @@ from urllib.parse import parse_qsl, urlsplit, urlunsplit
 from post_relay.config import R2StagingConfig
 from post_relay.publish_metadata import compose_final_meta_caption, parse_hashtags
 from post_relay.publishing import DraftNotFound, UnsupportedPublishDraft, resolve_staged_r2_publish_image_urls
-from post_relay.repository import get_draft, get_guided_draft_package
+from post_relay.repository import get_draft, get_draft_location_tag, get_guided_draft_package
 
 
 @dataclass(frozen=True)
@@ -20,6 +20,7 @@ class FinalPublishPreview:
     hashtags_embedded_in_caption: list[str]
     location_handling: str
     location_text: Optional[str]
+    location_tag_payload: Optional[dict[str, str]]
     review_only_fields: dict[str, str]
 
     def to_text(self) -> str:
@@ -46,7 +47,12 @@ class FinalPublishPreview:
                 f"Location handling: {self.location_handling}",
             ]
         )
-        if self.location_text:
+        if self.location_tag_payload:
+            lines.append(
+                "Meta location tag payload: "
+                f"location_id={self.location_tag_payload['location_id']} ({self.location_tag_payload['name']})"
+            )
+        elif self.location_text:
             lines.append(f"Location text: {self.location_text} (local/review-only; not sent as a Meta location tag)")
         else:
             lines.append("Location text: <none>")
@@ -85,7 +91,13 @@ def build_final_publish_preview(
     guided_package = get_guided_draft_package(connection, draft_id)
     if guided_package and guided_package.growth_rationale:
         review_only_fields["growth_rationale"] = guided_package.growth_rationale
-    location_handling = "local/review-only" if draft.location_text else "local/review-only (unconfirmed)"
+    location_tag = get_draft_location_tag(connection, draft_id)
+    location_tag_payload = None
+    if location_tag and location_tag.status == "resolved":
+        location_handling = "resolved Meta location tag"
+        location_tag_payload = {"location_id": location_tag.page_id, "name": location_tag.name}
+    else:
+        location_handling = "local/review-only" if draft.location_text else "local/review-only (unconfirmed)"
     return FinalPublishPreview(
         draft_id=draft.id,
         post_type=draft.post_type,
@@ -95,6 +107,7 @@ def build_final_publish_preview(
         hashtags_embedded_in_caption=hashtags,
         location_handling=location_handling,
         location_text=draft.location_text,
+        location_tag_payload=location_tag_payload,
         review_only_fields=review_only_fields,
     )
 

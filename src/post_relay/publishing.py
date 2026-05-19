@@ -11,6 +11,7 @@ from post_relay.publish_metadata import compose_final_meta_caption
 from post_relay.repository import (
     create_publish_attempt,
     get_draft,
+    get_draft_location_tag,
     list_candidate_group_photo_paths,
     list_r2_staged_objects,
     update_draft_status,
@@ -184,6 +185,7 @@ def execute_single_image_publish_validation(
 
     sanitized_image_url = _sanitize_url(image_url)
     caption = compose_final_meta_caption(draft)
+    location_id = _resolved_location_id(connection, draft.id)
     attempt = create_publish_attempt(
         connection,
         draft_id=draft.id,
@@ -206,6 +208,7 @@ def execute_single_image_publish_validation(
             client.config.instagram_account_id,
             image_url=image_url,
             caption=caption,
+            location_id=location_id,
         )
         container_id = str(container_payload.get("id") or "")
         if not container_id:
@@ -320,6 +323,7 @@ def execute_carousel_publish_validation(
 
     sanitized_image_urls = [_sanitize_url(image_url) for image_url in image_urls]
     caption = compose_final_meta_caption(draft)
+    location_id = _resolved_location_id(connection, draft.id)
     attempt = create_publish_attempt(
         connection,
         draft_id=draft.id,
@@ -364,6 +368,7 @@ def execute_carousel_publish_validation(
             client.config.instagram_account_id,
             child_container_ids=child_container_ids,
             caption=caption,
+            location_id=location_id,
         )
         carousel_container_id = str(carousel_payload.get("id") or "")
         if not carousel_container_id:
@@ -437,6 +442,13 @@ def execute_carousel_publish_validation(
         if isinstance(exc, (MetaGraphRequestError, PublishValidationError)):
             raise PublishValidationError(safe_message) from exc
         raise
+
+
+def _resolved_location_id(connection, draft_id: int) -> Optional[str]:
+    tag = get_draft_location_tag(connection, draft_id)
+    if tag is None or tag.status != "resolved":
+        return None
+    return tag.page_id
 
 
 def _enforce_publish_schedule(draft, *, now: Optional[str], publish_now: bool) -> None:
