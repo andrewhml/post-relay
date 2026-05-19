@@ -697,7 +697,7 @@ As of the first live carousel smoke, the local-first workflow is past the origin
 
 ## Immediate next plan
 
-This handoff refresh follows the chat artifact refresh PR #62 and the follow-up contact-sheet design v2 hardening branch.
+This handoff refresh follows the chat artifact refresh PR #62 and the follow-up contact-sheet design v2 hardening PR #64.
 
 1. Use `analytics feedback-summary` plus `analytics follower-summary` as deterministic advisory baselines when planning the next reviewed post.
 2. Andrew validated the refreshed Stage 1/Stage 2/Stage 3 assets in a real Discord chat against the upcoming post; continue the upcoming-post operation through the Discord agent rather than adding more artifact design work first.
@@ -1129,7 +1129,7 @@ Current local result: `14 passed` focused; `174 passed` full suite.
 
 Current merged-main result: `248 passed` full suite.
 
-### Milestone 37: `feat/contact-sheet-design-v2` (implemented in branch)
+### PR #64 / Milestone 37: `feat/contact-sheet-design-v2` (implemented in branch)
 
 **Goal:** Refine the uploaded contact-sheet/final-approval design integration after direct visual feedback, then provide a local browser preview for review.
 
