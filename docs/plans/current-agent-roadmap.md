@@ -995,9 +995,9 @@ Current local result: `14 passed` focused; `174 passed` full suite.
 **Next-session start here:**
 1. First verify the current baseline: `.venv/bin/python -m pytest -q` should report the full suite passing.
 2. Use `analytics feedback-summary --draft-id ...` or `--limit ...` as the deterministic advisory baseline when planning the next post.
-3. Move next to Milestone 32 `feat/follower-growth-tracking` to capture local read-only account/follower snapshots and summarize progress toward 5,000 followers.
+3. Complete PR #58 / Milestone 32 `feat/follower-growth-tracking`, then use `analytics follower-summary` alongside per-post feedback before selecting the next operating-loop milestone.
 
-### Milestone 32: `feat/follower-growth-tracking` (current branch)
+### PR #58 / Milestone 32: `feat/follower-growth-tracking` (current branch)
 
 **Goal:** Track Andrew's creator-account follower progress locally so post planning can compare per-post feedback with account-level growth toward 5,000 followers.
 
@@ -1014,8 +1014,8 @@ Current local result: `14 passed` focused; `174 passed` full suite.
 **Verification:**
 
 ```bash
-.venv/bin/python -m pytest tests/test_analytics_feedback.py -q
-.venv/bin/python -m pytest -q
+.venv/bin/python -m pytest tests/test_analytics_feedback.py -q  # 17 passed
+.venv/bin/python -m pytest -q  # 220 passed
 ```
 
 **Next-session start here:**
