@@ -26,6 +26,7 @@ Early local-first MVP scaffold with:
 - guarded read-only insights fetch/storage for published media behind explicit `analytics insights-fetch --execute`, with dry-run default and local metric audit records
 - local recommendation feedback summaries from stored post-publish snapshots and read-only insight metrics, with advisory-only output and no network/state mutation
 - local follower-growth summaries from stored read-only account metric snapshots, plus guarded dry-run/default `analytics follower-fetch` for account-level follower/media counts
+- guarded Meta user-token extension helper (`meta token-extend`) that dry-runs by default, exchanges valid short-lived tokens only with `--execute`, and updates `.env` only with `--update-env`
 - guarded R2 staging upload/cleanup CLI with recorded-object-only deletion and explicit `--execute` safeguards
 - explicit Instagram capability matrix separating publishable fields from local/review-only metadata
 - guarded post lifecycle state model where `drafting` is a status
@@ -64,6 +65,9 @@ Use the project virtualenv when running locally:
 .venv/bin/post-relay index scan --config config/photo_sources.yaml --db data/post_relay.sqlite
 .venv/bin/post-relay library stats --db data/post_relay.sqlite
 .venv/bin/post-relay meta validate-readonly --env-file .env --dry-run
+.venv/bin/post-relay meta token-extend --env-file .env
+# Execute only after pasting a fresh short-lived token into .env; add --update-env to replace it with the returned long-lived token:
+.venv/bin/post-relay meta token-extend --env-file .env --execute --update-env
 .venv/bin/post-relay meta validate-image-publish --draft-id 1 --image-url "$POST_RELAY_TEST_IMAGE_URL" --db data/post_relay.sqlite --dry-run
 .venv/bin/post-relay meta validate-image-publish --draft-id 1 --from-staged-r2 --config config/photo_sources.yaml --db data/post_relay.sqlite --dry-run
 .venv/bin/post-relay meta validate-image-publish --draft-id 1 --image-url "$POST_RELAY_TEST_IMAGE_URL" --db data/post_relay.sqlite --env-file .env --execute

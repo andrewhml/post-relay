@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 import json
 import os
 from pathlib import Path
@@ -21,10 +22,32 @@ class MetaGraphRequestError(RuntimeError):
 
 
 @dataclass(frozen=True)
+class TokenExtensionResult:
+    access_token: str
+    token_type: Optional[str]
+    expires_in: Optional[int]
+    expires_at: Optional[datetime]
+
+    def to_text(self, *, env_updated: bool) -> str:
+        lines = [
+            "Meta Graph user token extended",
+            "Access token: <redacted>",
+            f"Token type: {self.token_type or '<unknown>'}",
+            f"Expires in: {self.expires_in if self.expires_in is not None else '<unknown>'} seconds",
+            f"Expires at: {self.expires_at.isoformat() if self.expires_at else '<unknown>'}",
+            f"Env file updated: {'yes' if env_updated else 'no'}",
+            "Publishing endpoints called: no",
+        ]
+        return "\n".join(lines)
+
+
+@dataclass(frozen=True)
 class MetaGraphConfig:
     access_token: str
     page_id: Optional[str] = None
     instagram_account_id: Optional[str] = None
+    app_id: Optional[str] = None
+    app_secret: Optional[str] = None
     base_url: str = DEFAULT_META_GRAPH_BASE_URL
     api_version: str = DEFAULT_META_GRAPH_VERSION
 
@@ -33,7 +56,8 @@ class MetaGraphConfig:
             f"base_url={self.base_url}, api_version={self.api_version}, "
             f"page_id={self.page_id or '<unset>'}, "
             f"instagram_account_id={self.instagram_account_id or '<unset>'}, "
-            "access_token=<redacted>"
+            f"app_id={'<set>' if self.app_id else '<unset>'}, "
+            "access_token=<redacted>, app_secret=<redacted>"
         )
 
 
@@ -78,6 +102,8 @@ def load_meta_graph_config(env_file: Optional[Path] = Path(".env")) -> MetaGraph
         access_token=access_token,
         page_id=get("POST_RELAY_FACEBOOK_PAGE_ID"),
         instagram_account_id=get("POST_RELAY_INSTAGRAM_ACCOUNT_ID"),
+        app_id=get("POST_RELAY_META_APP_ID"),
+        app_secret=get("POST_RELAY_META_APP_SECRET"),
         base_url=get("POST_RELAY_META_GRAPH_BASE_URL") or DEFAULT_META_GRAPH_BASE_URL,
         api_version=get("POST_RELAY_META_GRAPH_VERSION") or DEFAULT_META_GRAPH_VERSION,
     )
@@ -129,6 +155,34 @@ class MetaGraphClient:
         return self._request(
             f"{media_id}/insights",
             {"metric": ",".join(metrics)},
+        )
+
+    def exchange_long_lived_user_token(self, *, now: Optional[datetime] = None) -> TokenExtensionResult:
+        if not self.config.app_id or not self.config.app_secret:
+            raise MetaGraphConfigError(
+                "POST_RELAY_META_APP_ID and POST_RELAY_META_APP_SECRET are required to extend a Meta user token"
+            )
+        payload = self._request(
+            "oauth/access_token",
+            {
+                "grant_type": "fb_exchange_token",
+                "client_id": self.config.app_id,
+                "client_secret": self.config.app_secret,
+                "fb_exchange_token": self.config.access_token,
+            },
+            include_access_token=False,
+        )
+        access_token = payload.get("access_token")
+        if not access_token:
+            raise MetaGraphRequestError("Meta Graph did not return an extended access token")
+        expires_in = _optional_int(payload.get("expires_in"))
+        issued_at = now or datetime.now(timezone.utc)
+        expires_at = issued_at + timedelta(seconds=expires_in) if expires_in is not None else None
+        return TokenExtensionResult(
+            access_token=str(access_token),
+            token_type=str(payload.get("token_type")) if payload.get("token_type") else None,
+            expires_in=expires_in,
+            expires_at=expires_at,
         )
 
     def create_image_container(
@@ -220,19 +274,27 @@ class MetaGraphClient:
             self._url(instagram_account_id) + "?fields=id,username,media_count&access_token=<redacted>",
         ]
 
-    def _request(self, path: str, params: Mapping[str, str], *, method: str = "GET") -> Mapping[str, Any]:
+    def _request(
+        self,
+        path: str,
+        params: Mapping[str, str],
+        *,
+        method: str = "GET",
+        include_access_token: bool = True,
+    ) -> Mapping[str, Any]:
         url = self._url(path)
         request_params = dict(params)
-        request_params["access_token"] = self.config.access_token
+        if include_access_token:
+            request_params["access_token"] = self.config.access_token
         try:
             return self._transport(method, url, request_params)
         except MetaGraphRequestError as exc:
             raise MetaGraphRequestError(
-                redact_secrets(str(exc), [self.config.access_token])
+                redact_secrets(str(exc), [self.config.access_token, self.config.app_secret])
             ) from exc
         except Exception as exc:  # pragma: no cover - defensive sanitization path
             raise MetaGraphRequestError(
-                redact_secrets(str(exc), [self.config.access_token])
+                redact_secrets(str(exc), [self.config.access_token, self.config.app_secret])
             ) from exc
 
     def _url(self, path: str) -> str:
@@ -266,6 +328,37 @@ def _resolve_instagram_account_id(
     if linked_id:
         return str(linked_id)
     raise MetaGraphRequestError("Facebook Page did not include a linked Instagram account")
+
+
+def _optional_int(value: Any) -> Optional[int]:
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def update_meta_graph_access_token_env_file(env_file: Path, new_access_token: str) -> None:
+    existing = env_file.read_text() if env_file.exists() else ""
+    lines = existing.splitlines(keepends=True)
+    updated_lines: list[str] = []
+    replaced = False
+    for line in lines:
+        stripped = line.lstrip()
+        if stripped.startswith("POST_RELAY_USER_ACCESS_TOKEN="):
+            newline = "\n" if line.endswith("\n") else ""
+            prefix = line[: len(line) - len(stripped)]
+            updated_lines.append(f"{prefix}POST_RELAY_USER_ACCESS_TOKEN={new_access_token}{newline}")
+            replaced = True
+        else:
+            updated_lines.append(line)
+    if not replaced:
+        separator = "" if not existing or existing.endswith("\n") else "\n"
+        updated_lines.append(f"{separator}POST_RELAY_USER_ACCESS_TOKEN={new_access_token}\n")
+    tmp_file = env_file.with_name(f"{env_file.name}.tmp")
+    tmp_file.write_text("".join(updated_lines))
+    tmp_file.replace(env_file)
 
 
 def _read_env_file(env_file: Optional[Path]) -> Dict[str, str]:

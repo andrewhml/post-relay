@@ -1,5 +1,10 @@
-import pytest
+from datetime import datetime, timezone
 
+import pytest
+from typer.testing import CliRunner
+
+import post_relay.cli as cli_module
+from post_relay.cli import app
 from post_relay.meta_graph import (
     MetaGraphClient,
     MetaGraphConfig,
@@ -8,7 +13,10 @@ from post_relay.meta_graph import (
     ReadOnlyValidationResult,
     load_meta_graph_config,
     redact_secrets,
+    update_meta_graph_access_token_env_file,
 )
+
+runner = CliRunner()
 
 
 def test_load_meta_graph_config_reads_env_file_without_logging_secret(tmp_path, monkeypatch):
@@ -21,6 +29,8 @@ def test_load_meta_graph_config_reads_env_file_without_logging_secret(tmp_path, 
                 "POST_RELAY_INSTAGRAM_ACCOUNT_ID=17841400498120050",
                 "POST_RELAY_META_GRAPH_BASE_URL=https://graph.facebook.com",
                 "POST_RELAY_META_GRAPH_VERSION=v19.0",
+                "POST_RELAY_META_APP_ID=app-id-123",
+                "POST_RELAY_META_APP_SECRET=app-secret-456",
             ]
         )
     )
@@ -33,7 +43,10 @@ def test_load_meta_graph_config_reads_env_file_without_logging_secret(tmp_path, 
     assert config.instagram_account_id == "17841400498120050"
     assert config.base_url == "https://graph.facebook.com"
     assert config.api_version == "v19.0"
+    assert config.app_id == "app-id-123"
+    assert config.app_secret == "app-secret-456"
     assert "env-file-token" not in config.safe_summary()
+    assert "app-secret-456" not in config.safe_summary()
     assert "<redacted>" in config.safe_summary()
 
 
@@ -132,3 +145,154 @@ def test_meta_graph_client_redacts_token_from_request_errors():
 
     assert "secret-token" not in str(error.value)
     assert "<redacted>" in str(error.value)
+
+
+def test_meta_graph_client_exchanges_user_token_without_publishing_or_leaking_secrets():
+    requested = []
+
+    def fake_transport(method, url, params):
+        requested.append((method, url, dict(params)))
+        return {
+            "access_token": "new-long-lived-token",
+            "token_type": "bearer",
+            "expires_in": 5183944,
+        }
+
+    client = MetaGraphClient(
+        MetaGraphConfig(
+            access_token="short-lived-token",
+            app_id="app-id-123",
+            app_secret="app-secret-456",
+        ),
+        transport=fake_transport,
+    )
+
+    result = client.exchange_long_lived_user_token(
+        now=datetime(2026, 5, 19, 10, 0, 0, tzinfo=timezone.utc)
+    )
+
+    assert result.access_token == "new-long-lived-token"
+    assert result.token_type == "bearer"
+    assert result.expires_in == 5183944
+    assert result.expires_at.isoformat() == "2026-07-18T09:59:04+00:00"
+    assert requested == [
+        (
+            "GET",
+            "https://graph.facebook.com/v19.0/oauth/access_token",
+            {
+                "grant_type": "fb_exchange_token",
+                "client_id": "app-id-123",
+                "client_secret": "app-secret-456",
+                "fb_exchange_token": "short-lived-token",
+            },
+        )
+    ]
+    rendered = result.to_text(env_updated=False)
+    assert "new-long-lived-token" not in rendered
+    assert "Meta Graph user token extended" in rendered
+    assert "Env file updated: no" in rendered
+    assert "Publishing endpoints called: no" in rendered
+
+
+def test_meta_graph_client_token_exchange_requires_app_credentials():
+    client = MetaGraphClient(MetaGraphConfig(access_token="short-lived-token"))
+
+    with pytest.raises(MetaGraphConfigError) as error:
+        client.exchange_long_lived_user_token()
+
+    assert "POST_RELAY_META_APP_ID" in str(error.value)
+    assert "POST_RELAY_META_APP_SECRET" in str(error.value)
+
+
+def test_meta_graph_client_token_exchange_redacts_old_token_and_app_secret_from_errors():
+    def fake_transport(_method, _url, _params):
+        raise MetaGraphRequestError("bad short-lived-token and app-secret-456")
+
+    client = MetaGraphClient(
+        MetaGraphConfig(
+            access_token="short-lived-token",
+            app_id="app-id-123",
+            app_secret="app-secret-456",
+        ),
+        transport=fake_transport,
+    )
+
+    with pytest.raises(MetaGraphRequestError) as error:
+        client.exchange_long_lived_user_token()
+
+    assert "short-lived-token" not in str(error.value)
+    assert "app-secret-456" not in str(error.value)
+    assert str(error.value).count("<redacted>") == 2
+
+
+def test_update_meta_graph_access_token_env_file_replaces_only_user_token(tmp_path):
+    env_file = tmp_path / ".env"
+    env_file.write_text(
+        "# private config\n"
+        "POST_RELAY_META_APP_ID=app-id-123\n"
+        "POST_RELAY_USER_ACCESS_TOKEN=old-token\n"
+        "POST_RELAY_TEST_CAPTION=caption with spaces\n"
+    )
+
+    update_meta_graph_access_token_env_file(env_file, "new-token")
+
+    assert env_file.read_text() == (
+        "# private config\n"
+        "POST_RELAY_META_APP_ID=app-id-123\n"
+        "POST_RELAY_USER_ACCESS_TOKEN=new-token\n"
+        "POST_RELAY_TEST_CAPTION=caption with spaces\n"
+    )
+
+
+def test_meta_token_extend_cli_requires_execute_for_network_and_does_not_print_secrets(tmp_path):
+    env_file = tmp_path / ".env"
+    env_file.write_text(
+        "POST_RELAY_META_APP_ID=app-id-123\n"
+        "POST_RELAY_META_APP_SECRET=app-secret-456\n"
+        "POST_RELAY_USER_ACCESS_TOKEN=short-lived-token\n"
+    )
+
+    result = runner.invoke(app, ["meta", "token-extend", "--env-file", str(env_file)])
+
+    assert result.exit_code == 0
+    assert "Meta Graph user token extension (dry run)" in result.output
+    assert "https://graph.facebook.com/v19.0/oauth/access_token" in result.output
+    assert "No network calls were made." in result.output
+    assert "short-lived-token" not in result.output
+    assert "app-secret-456" not in result.output
+    assert "POST_RELAY_USER_ACCESS_TOKEN=short-lived-token" in env_file.read_text()
+
+
+def test_meta_token_extend_cli_updates_env_only_when_requested(tmp_path, monkeypatch):
+    env_file = tmp_path / ".env"
+    env_file.write_text(
+        "POST_RELAY_META_APP_ID=app-id-123\n"
+        "POST_RELAY_META_APP_SECRET=app-secret-456\n"
+        "POST_RELAY_USER_ACCESS_TOKEN=short-lived-token\n"
+    )
+
+    class FakeClient:
+        def __init__(self, config):
+            assert config.access_token == "short-lived-token"
+
+        def exchange_long_lived_user_token(self):
+            return cli_module.TokenExtensionResult(
+                access_token="new-long-lived-token",
+                token_type="bearer",
+                expires_in=5183944,
+                expires_at=datetime(2026, 7, 18, 10, 39, 4, tzinfo=timezone.utc),
+            )
+
+    monkeypatch.setattr(cli_module, "MetaGraphClient", FakeClient)
+
+    result = runner.invoke(
+        app,
+        ["meta", "token-extend", "--env-file", str(env_file), "--execute", "--update-env"],
+    )
+
+    assert result.exit_code == 0
+    assert "Meta Graph user token extended" in result.output
+    assert "Env file updated: yes" in result.output
+    assert "new-long-lived-token" not in result.output
+    assert "app-secret-456" not in result.output
+    assert "POST_RELAY_USER_ACCESS_TOKEN=new-long-lived-token" in env_file.read_text()

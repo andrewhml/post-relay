@@ -90,7 +90,9 @@ from post_relay.meta_graph import (
     MetaGraphClient,
     MetaGraphConfigError,
     MetaGraphRequestError,
+    TokenExtensionResult,
     load_meta_graph_config,
+    update_meta_graph_access_token_env_file,
 )
 from post_relay.media_selection import (
     DraftNotFound as MediaSelectionDraftNotFound,
@@ -390,6 +392,46 @@ def analytics_insights_fetch(
         typer.echo(render_insights_fetch_error(error, token=token))
         raise typer.Exit(code=1) from error
     typer.echo(render_media_insight_snapshot(record))
+
+
+@meta_app.command("token-extend")
+def meta_token_extend(
+    env_file: Optional[Path] = typer.Option(Path(".env"), "--env-file", help="Private .env file path."),
+    execute: bool = typer.Option(False, "--execute", help="Call Meta Graph OAuth token exchange endpoint."),
+    update_env: bool = typer.Option(False, "--update-env", help="Replace POST_RELAY_USER_ACCESS_TOKEN in the env file with the extended token."),
+) -> None:
+    """Exchange a valid short-lived Meta user token for a long-lived token."""
+    try:
+        config = load_meta_graph_config(env_file=env_file)
+    except MetaGraphConfigError as error:
+        raise typer.BadParameter(str(error), param_hint="--env-file") from error
+
+    client = MetaGraphClient(config)
+    if not execute:
+        typer.echo("Meta Graph user token extension (dry run)")
+        typer.echo(config.safe_summary())
+        typer.echo(
+            f"Endpoint: {config.base_url.rstrip('/')}/{config.api_version}/oauth/access_token"
+        )
+        typer.echo("Grant type: fb_exchange_token")
+        typer.echo("Access token and app secret: <redacted>")
+        typer.echo("No network calls were made.")
+        typer.echo("No env file was changed.")
+        typer.echo("Publishing endpoints called: no")
+        return
+    if update_env and env_file is None:
+        raise typer.BadParameter("--update-env requires an --env-file path", param_hint="--env-file")
+    try:
+        result = client.exchange_long_lived_user_token()
+    except (MetaGraphConfigError, MetaGraphRequestError) as error:
+        raise typer.BadParameter(str(error), param_hint="--env-file") from error
+    env_updated = False
+    if update_env:
+        if env_file is None:
+            raise typer.BadParameter("--update-env requires an --env-file path", param_hint="--env-file")
+        update_meta_graph_access_token_env_file(env_file, result.access_token)
+        env_updated = True
+    typer.echo(result.to_text(env_updated=env_updated))
 
 
 @meta_app.command("validate-readonly")

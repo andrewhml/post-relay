@@ -1021,7 +1021,33 @@ Current local result: `14 passed` focused; `174 passed` full suite.
 **Next-session start here:**
 1. First verify the current baseline: `.venv/bin/python -m pytest -q` should report the full suite passing.
 2. Use `analytics feedback-summary` plus `analytics follower-summary` as local advisory baselines when planning the next post.
-3. Choose the next milestone from private-DM operating-loop improvements, proactive opportunity DM controls, video/reel validation, or deeper local media discovery/enrichment.
+3. Complete PR #59 / Milestone 33 `feat/meta-token-extend`, then resume private-DM operating-loop improvements.
+
+### PR #59 / Milestone 33: `feat/meta-token-extend` (current branch)
+
+**Goal:** Reduce daily Meta token refresh friction by adding a safe local command that exchanges a valid short-lived Facebook Graph user token for a long-lived token and can update the private `.env` file without printing secrets.
+
+**Delivered behavior in branch:**
+- Added `MetaGraphClient.exchange_long_lived_user_token(...)`, which calls only `GET /oauth/access_token` with `grant_type=fb_exchange_token` and never calls publishing endpoints.
+- Added `TokenExtensionResult` rendering that redacts returned access tokens while showing token type, `expires_in`, and calculated `expires_at`.
+- Added `POST_RELAY_META_APP_ID` and `POST_RELAY_META_APP_SECRET` loading to Meta Graph config, with safe summaries that do not expose secret values.
+- Added `update_meta_graph_access_token_env_file(...)` to replace only `POST_RELAY_USER_ACCESS_TOKEN` in the private env file through a temporary-file replace.
+- Added `meta token-extend`, which defaults to dry-run/no-network output; `--execute` performs the exchange and `--update-env` explicitly updates `.env` with the extended token.
+- Added tests for exchange request construction, missing app credentials, secret redaction, env-file replacement, CLI dry-run, and CLI update behavior.
+
+**Safety rule:** Token extension is credential maintenance only. The command must redact old and new tokens plus app secrets, default to no network, and never call Meta publishing endpoints, Discord, R2, or mutate post lifecycle/analytics state. `.env` updates require explicit `--update-env`.
+
+**Verification:**
+
+```bash
+.venv/bin/python -m pytest tests/test_meta_graph.py -q
+.venv/bin/python -m pytest -q
+```
+
+**Next-session start here:**
+1. First verify the current baseline: `.venv/bin/python -m pytest -q` should report the full suite passing.
+2. Use `meta token-extend --env-file .env` to inspect the dry-run plan; use `--execute --update-env` only after a valid short-lived token is in the private `.env`.
+3. Resume the reviewed private-DM operating-loop improvement milestone after token maintenance is merged.
 
 ## Later milestones
 
