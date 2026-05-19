@@ -1049,7 +1049,7 @@ Current local result: `14 passed` focused; `174 passed` full suite.
 2. Use `meta token-extend --env-file .env` to inspect the dry-run plan; use `--execute --update-env` only after a valid short-lived token is in the private `.env`.
 3. Complete PR #60 / Milestone 34 `feat/dm-next-action-planner`, then choose proactive opportunity DM controls, video/reel validation, or deeper local media discovery/enrichment.
 
-### Milestone 35: `feat/durable-scheduled-publish-approval` (current branch)
+### PR #61 / Milestone 35: `feat/durable-scheduled-publish-approval` (current branch)
 
 **Goal:** Let Andrew give final publish approval once, schedule arbitrarily far in the future, and have the due scheduled-publish runner proceed from durable stored approval without a second manual approval inside Meta's 24-hour container window. Also make the agent aware of all locally scheduled posts before it recommends or schedules another slot.
 
