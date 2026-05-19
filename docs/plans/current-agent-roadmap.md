@@ -701,7 +701,7 @@ This handoff refresh follows the chat artifact refresh PR #62, contact-sheet des
 
 1. Use `analytics feedback-summary` plus `analytics follower-summary` as deterministic advisory baselines when planning the next reviewed post.
 2. Andrew validated the refreshed Stage 1/Stage 2/Stage 3 assets in a real Discord chat against the upcoming post; continue the upcoming-post operation through the Discord agent rather than adding more artifact design work first.
-3. Current engineering branch: `feat/proactive-opportunity-dm-controls`, focused on rendering safe proactive opportunity DM copy plus explicit local mark-sent controls without sending Discord, R2, or Meta requests.
+3. Current engineering branch/PR: `feat/proactive-opportunity-dm-controls` / PR #66, focused on rendering safe proactive opportunity DM copy plus explicit local mark-sent controls without sending Discord, R2, or Meta requests.
 4. After that, choose between `feat/video-reel-validation` or `feat/local-media-discovery-enrichment`.
 5. Keep recommendation and follower-growth feedback advisory-only until several real posts and account snapshots provide enough signal.
 6. Keep live-safe defaults: no Discord sends, no R2 `--execute`, and no Meta `--execute` unless explicitly authorized in the active session.
@@ -1177,7 +1177,7 @@ Current branch result: `59 passed` focused; `248 passed` full suite.
 .venv/bin/python -m pytest -q
 ```
 
-### Milestone 39: `feat/proactive-opportunity-dm-controls` (current branch)
+### PR #66 / Milestone 39: `feat/proactive-opportunity-dm-controls` (open)
 
 **Goal:** Let the operator safely turn local post opportunities into proactive private-DM suggestions without implementing autonomous Discord outreach.
 
