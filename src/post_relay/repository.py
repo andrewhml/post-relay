@@ -254,15 +254,25 @@ def upsert_scanned_photo(connection, scanned: ScannedMedia, source_id: int) -> N
             source_type,
             source_confidence,
             inferred_year,
+            date_taken,
+            camera_model,
+            lens_model,
+            width,
+            height,
             processed_status
         )
-        values (?, ?, ?, ?, ?, ?, 'processed')
+        values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'processed')
         on conflict(local_file_path) do update set
             source_id = excluded.source_id,
             source_name = excluded.source_name,
             source_type = excluded.source_type,
             source_confidence = excluded.source_confidence,
             inferred_year = excluded.inferred_year,
+            date_taken = excluded.date_taken,
+            camera_model = excluded.camera_model,
+            lens_model = excluded.lens_model,
+            width = excluded.width,
+            height = excluded.height,
             indexed_at = current_timestamp
         """,
         (
@@ -272,6 +282,11 @@ def upsert_scanned_photo(connection, scanned: ScannedMedia, source_id: int) -> N
             scanned.source_type,
             scanned.source_confidence,
             scanned.inferred_year,
+            scanned.date_taken,
+            scanned.camera_model,
+            scanned.lens_model,
+            scanned.width,
+            scanned.height,
         ),
     )
 

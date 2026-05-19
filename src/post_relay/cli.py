@@ -232,6 +232,9 @@ def index_scan(
     typer.echo(
         f"Indexed {result.scanned_count} photos from {result.source_count} source{source_plural}."
     )
+    photo_plural = "" if result.enriched_count == 1 else "s"
+    typer.echo(f"Enriched local metadata for {result.enriched_count} photo{photo_plural}.")
+    typer.echo("No network calls were made.")
 
 
 @library_app.command("stats")
