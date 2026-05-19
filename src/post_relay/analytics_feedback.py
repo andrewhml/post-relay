@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+import re
 from typing import Mapping, Optional, Sequence
 
 from PIL import Image
@@ -13,8 +14,10 @@ from post_relay.repository import (
     create_media_insight_snapshot,
     get_draft,
     get_draft_location_tag,
+    get_latest_media_insight_snapshot,
     get_latest_published_attempt,
     get_published_post_snapshot_for_draft,
+    list_published_post_snapshots,
     list_r2_staged_objects,
     upsert_published_post_snapshot,
 )
@@ -47,6 +50,27 @@ class InsightsCollectionPlan:
                 "Safety: No network calls were made. This plan is read-only and separate from publishing.",
             ]
         )
+
+
+@dataclass(frozen=True)
+class FeedbackSummaryEntry:
+    draft_id: int
+    published_media_id: str
+    post_type: str
+    media_count: int
+    caption_character_count: int
+    hashtag_count: int
+    aspect_ratio_class: str
+    minutes_from_schedule: Optional[int]
+    has_location_tag: bool
+    insight_metrics: dict[str, int | float | str | None]
+    insight_collected_at: Optional[str]
+
+
+@dataclass(frozen=True)
+class FeedbackSummary:
+    entries: list[FeedbackSummaryEntry]
+    sample_size: int
 
 
 def record_published_post_snapshot(
@@ -142,6 +166,74 @@ def render_media_insight_snapshot(record: MediaInsightSnapshotRecord) -> str:
     return "\n".join(lines)
 
 
+def build_feedback_summary(
+    connection,
+    *,
+    draft_id: Optional[int] = None,
+    limit: int = 10,
+) -> FeedbackSummary:
+    if draft_id is not None:
+        snapshot = get_published_post_snapshot_for_draft(connection, draft_id)
+        snapshots = [snapshot] if snapshot is not None else []
+    else:
+        snapshots = list_published_post_snapshots(connection, limit=limit)
+    entries = [_build_feedback_entry(connection, snapshot) for snapshot in snapshots]
+    return FeedbackSummary(entries=entries, sample_size=len(entries))
+
+
+def render_feedback_summary(summary: FeedbackSummary) -> str:
+    lines = [
+        "Recommendation feedback summary",
+        f"Sample size: {summary.sample_size} published post(s)",
+        "Caution: These suggestions are advisory, not causal, especially with small samples.",
+    ]
+    if not summary.entries:
+        lines.extend(
+            [
+                "Observed signals: <none>",
+                "Next-post suggestions:",
+                "  - Publish and snapshot at least one reviewed post before drawing feedback.",
+                "Safety: No Discord, R2, or Meta calls were made. No draft state was changed.",
+            ]
+        )
+        return "\n".join(lines)
+
+    for entry in summary.entries:
+        lines.extend(
+            [
+                "",
+                f"Draft {entry.draft_id} / media {entry.published_media_id}",
+                "Observed signals:",
+                f"  - Post type: {entry.post_type}",
+                f"  - Media count: {entry.media_count}",
+                f"  - Caption length: {entry.caption_character_count} characters",
+                f"  - Hashtag count in final caption: {entry.hashtag_count}",
+                f"  - Export/aspect ratio: {entry.aspect_ratio_class}",
+                f"  - Schedule timing delta: {_format_timing_delta(entry.minutes_from_schedule)}",
+                f"  - Resolved location tag: {'yes' if entry.has_location_tag else 'no'}",
+            ]
+        )
+        if entry.insight_metrics:
+            lines.append("  - Latest stored insights:")
+            for name in sorted(entry.insight_metrics):
+                lines.append(f"      {name}: {entry.insight_metrics[name]}")
+            if entry.insight_collected_at:
+                lines.append(f"      collected_at: {entry.insight_collected_at}")
+        else:
+            lines.append("  - No stored insight metrics yet; this is a payload-only summary.")
+            lines.append(
+                f"  - To collect later: analytics insights-fetch --draft-id {entry.draft_id} --db data/post_relay.sqlite"
+            )
+        lines.extend(
+            [
+                "Next-post suggestions:",
+                *_suggestions_for_entry(entry),
+            ]
+        )
+    lines.append("Safety: No Discord, R2, or Meta calls were made. No drafts, approvals, schedules, or publish records were changed.")
+    return "\n".join(lines)
+
+
 def render_insights_fetch_dry_run(plan: InsightsCollectionPlan) -> str:
     lines = [
         "Dry run only: read-only Instagram insights fetch",
@@ -192,6 +284,79 @@ def render_published_post_snapshot(snapshot: PublishedPostSnapshotRecord) -> str
         lines.append("Resolved location tag: <none>")
     lines.append("Safety: No network calls were made. Snapshot uses local publish attempt and staged media records only.")
     return "\n".join(lines)
+
+
+def _build_feedback_entry(connection, snapshot: PublishedPostSnapshotRecord) -> FeedbackSummaryEntry:
+    insight = get_latest_media_insight_snapshot(connection, snapshot.draft_id)
+    return FeedbackSummaryEntry(
+        draft_id=snapshot.draft_id,
+        published_media_id=snapshot.published_media_id,
+        post_type=snapshot.post_type,
+        media_count=len(snapshot.media_urls),
+        caption_character_count=len(snapshot.final_caption or ""),
+        hashtag_count=len(re.findall(r"(?<!\w)#\w+", snapshot.final_caption or "")),
+        aspect_ratio_class=_classify_aspect_ratios(snapshot.media_dimensions),
+        minutes_from_schedule=_minutes_from_schedule(snapshot.scheduled_for, snapshot.actual_published_at),
+        has_location_tag=bool(snapshot.location_page_id),
+        insight_metrics=dict(insight.metrics) if insight else {},
+        insight_collected_at=insight.collected_at if insight else None,
+    )
+
+
+def _classify_aspect_ratios(dimensions: Sequence[dict[str, Optional[int]]]) -> str:
+    ratios = [
+        item["width"] / item["height"]
+        for item in dimensions
+        if item.get("width") and item.get("height")
+    ]
+    if not ratios:
+        return "unknown"
+    average = sum(ratios) / len(ratios)
+    if abs(average - 0.8) <= 0.03:
+        return "portrait_4x5"
+    if abs(average - 1.0) <= 0.03:
+        return "square"
+    if average < 0.8:
+        return "portrait_tall"
+    if average > 1.05:
+        return "landscape"
+    return "mixed_or_custom"
+
+
+def _minutes_from_schedule(scheduled_for: Optional[str], actual_published_at: str) -> Optional[int]:
+    if not scheduled_for:
+        return None
+    try:
+        scheduled = datetime.fromisoformat(scheduled_for)
+        actual = datetime.fromisoformat(actual_published_at)
+    except ValueError:
+        return None
+    return round((actual - scheduled).total_seconds() / 60)
+
+
+def _format_timing_delta(minutes: Optional[int]) -> str:
+    if minutes is None:
+        return "<not available>"
+    if minutes == 0:
+        return "on schedule"
+    if minutes > 0:
+        return f"{minutes} minute(s) after scheduled time"
+    return f"{abs(minutes)} minute(s) before scheduled time"
+
+
+def _suggestions_for_entry(entry: FeedbackSummaryEntry) -> list[str]:
+    suggestions = [
+        "  - Keep comparing hook/caption length, media count, timing, location tags, and export format as more posts collect insights."
+    ]
+    if entry.media_count > 1:
+        suggestions.append("  - Review whether the carousel count and lead image correlate with stronger reach/saves over future posts.")
+    if entry.aspect_ratio_class != "portrait_4x5":
+        suggestions.append("  - Consider a 4:5 feed export when the source crop supports it, then compare retention/reach later.")
+    if not entry.has_location_tag:
+        suggestions.append("  - If there is a real place tag, test a reviewed Meta location_id on a future approved draft.")
+    if not entry.insight_metrics:
+        suggestions.append("  - Collect read-only insights after Meta has populated them before changing recommendations.")
+    return suggestions
 
 
 def _resolve_media_dimensions(connection, draft_id: int, media_urls: list[str]) -> list[dict[str, Optional[int]]]:

@@ -693,14 +693,14 @@ As of the first live carousel smoke, the local-first workflow is past the origin
 - Agent-initiated suggestions are modeled locally through `post_opportunities` and safe trigger checks, but proactive Discord outreach has not been implemented yet.
 - DM intake now avoids the worst broad-request failure mode by asking for narrowing cues before suggesting huge weak matches, matched large sets point operators to bounded artifact planning, and natural request matching uses local folder/year/filename descriptors with explainable rationale.
 - Oversized full contact-sheet renders are blocked by `drafts artifacts render`; instead, the CLI prints a bounded, DM-safe first-pass plan with narrowing/sample guidance and no source paths.
-- Single-image publish validation has completed one live smoke test. The first live carousel smoke for draft `2` succeeded through the guarded Meta path. Schedule enforcement, final publish caption/metadata preview, publish exports, resolved Meta `location_id` support, local post-publish analytics snapshots, and explicit read-only insights storage are implemented through open PR #55. The next hardening milestone, after PR #55 is merged, is recommendation feedback summaries from local snapshots/insights.
+- Single-image publish validation has completed one live smoke test. The first live carousel smoke for draft `2` succeeded through the guarded Meta path. Schedule enforcement, final publish caption/metadata preview, publish exports, resolved Meta `location_id` support, local post-publish analytics snapshots, explicit read-only insights storage, and local-only recommendation feedback summaries are implemented through PR #56.
 
 ## Immediate next plan
 
-1. Merge PR #55 `feat/read-only-insights-feedback`, sync local `main`, and verify `.venv/bin/python -m pytest -q`.
-2. Start Milestone 30 on `feat/recommendation-feedback-summaries`.
-3. Keep the Milestone 30 output advisory-only: no draft edits, approval changes, scheduling changes, Discord sends, R2 execution, or Meta publish execution.
-4. Use the stored `published_post_snapshots` and `media_insight_snapshots` as the only data source for the first recommendation slice; do not add new live Meta calls in this milestone.
+1. Use `analytics feedback-summary` as the deterministic advisory baseline when planning the next reviewed post.
+2. Choose the next rollback-safe milestone: follower-growth progress tracking, more private-DM operating-loop practice, proactive opportunity DM controls, video/reel validation, or deeper local media discovery/enrichment.
+3. Keep recommendation feedback advisory-only until several real posts provide enough signal.
+4. Keep live-safe defaults: no Discord sends, no R2 `--execute`, and no Meta `--execute` unless explicitly authorized in the active session.
 
 ## Recent completed milestones and current roadmap
 
@@ -946,31 +946,31 @@ Current local result: `14 passed` focused; `174 passed` full suite.
 2. Move next to recommendation feedback summaries from stored `published_post_snapshots` + `media_insight_snapshots`.
 3. Summaries should compare outcomes against caption length/style, carousel count/order, timing, resolved location tag usage, and export format, without auto-changing approved drafts or publishing anything.
 
-### Milestone 30: `feat/recommendation-feedback-summaries`
+### PR #56 / Milestone 30: `feat/recommendation-feedback-summaries`
 
 **Goal:** Turn local published payload snapshots and stored insight metrics into human-readable recommendation feedback for future post planning.
 
-**Required behavior:**
-- Add an advisory CLI, tentatively `analytics feedback-summary`, that reads only local SQLite records and defaults to all available posted drafts or a specific `--draft-id`.
-- Summarize the latest stored insight metrics alongside payload choices from `published_post_snapshots`: post type, carousel count/order, caption length, hashtag count, scheduled vs actual publish time, resolved location tag presence, and export dimensions/aspect ratio.
-- Produce clear "observed signals" and "next-post suggestions" sections without pretending causality from one post or a tiny sample.
-- When no insights are stored yet, render a useful payload-only summary plus the exact safe `analytics insights-fetch` dry-run/execute command to collect metrics later.
-- Keep output advisory only; no draft edits, approval invalidation, scheduling changes, Discord messages, R2 operations, or Meta calls.
-- Add tests for single-draft summaries, missing-insights fallback, multi-snapshot latest-metric selection, and CLI no-network/no-state-mutation behavior.
+**Delivered behavior in branch:**
+- Added `analytics feedback-summary`, a local-only advisory CLI that reads stored `published_post_snapshots` and latest `media_insight_snapshots` for all recent posts or a specific `--draft-id`.
+- Summaries include payload features: post type, media count/order, caption character count, hashtag count in final caption, schedule-vs-actual timing delta, resolved location tag presence, and export/aspect-ratio class.
+- Latest stored insight metrics are included when available; when absent, the command renders a payload-only fallback plus the safe `analytics insights-fetch` command to collect metrics later.
+- Renderer copy explicitly avoids causal claims from tiny samples and separates "observed signals" from conservative "next-post suggestions".
+- Repository helpers list published snapshots and select the latest insight snapshot per draft without adding any network calls.
+- Added tests for single-draft summaries, missing-insights fallback, latest-metric selection, and CLI no-network/no-state-mutation behavior.
 
-**Suggested implementation tasks:**
-1. Add repository list helpers for `published_post_snapshots` and latest `media_insight_snapshots` per draft.
-2. Add a small analytics feedback service that computes deterministic features: caption character count, hashtag count from the final caption, media count, aspect ratio class, timing delta, and location-tag flag.
-3. Add renderer copy that is conservative about causality and calls out sample-size limits.
-4. Add Typer command under `analytics feedback-summary` with `--draft-id` optional and `--limit` for recent posts.
-5. Update README/AGENTS command references and this roadmap with the delivered PR number.
+**Safety rule:** `analytics feedback-summary` is advisory only. It makes no Discord, R2, or Meta calls and must not mutate drafts, approvals, schedules, publish attempts, snapshots, or insight records.
 
-**Verification target:**
+**Verification:**
 
 ```bash
 .venv/bin/python -m pytest tests/test_analytics_feedback.py -q
 .venv/bin/python -m pytest -q
 ```
+
+**Next-session start here:**
+1. First verify the current baseline: `.venv/bin/python -m pytest -q` should report the full suite passing.
+2. Use `analytics feedback-summary --draft-id ...` or `--limit ...` as the deterministic advisory baseline when planning the next post.
+3. Choose the next milestone from follower-growth progress tracking, private-DM operating-loop improvements, proactive opportunity DM controls, video/reel validation, or deeper local media discovery/enrichment.
 
 ## Later milestones
 

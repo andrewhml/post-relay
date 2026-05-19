@@ -24,6 +24,7 @@ Early local-first MVP scaffold with:
 - resolved Meta location tags stored separately from freeform location text, with draft-aware candidate search/clarification, explicit `location_id` final preview/publish payloads only after reviewed Page selection and reapproval
 - local post-publish analytics snapshots that capture published media ids, final Meta-bound caption/media URLs, schedule vs actual publish time, resolved location tag, and export dimensions from staged media records without network calls
 - guarded read-only insights fetch/storage for published media behind explicit `analytics insights-fetch --execute`, with dry-run default and local metric audit records
+- local recommendation feedback summaries from stored post-publish snapshots and read-only insight metrics, with advisory-only output and no network/state mutation
 - guarded R2 staging upload/cleanup CLI with recorded-object-only deletion and explicit `--execute` safeguards
 - explicit Instagram capability matrix separating publishable fields from local/review-only metadata
 - guarded draft workflow state model
@@ -45,10 +46,10 @@ Early local-first MVP scaffold with:
 - `graph.instagram.com` returned `Invalid platform app` in current setup
 
 ## Immediate goals
-1. Add recommendation feedback summaries from stored post-publish snapshots and read-only insight metrics
+1. Use recommendation feedback summaries from stored snapshots/insights to guide the next reviewed travel post; keep improving deterministic suggestions as more real posts collect data
 2. Keep improving the private-DM-first, user-initiated workflow for selecting photos, accepting hook-first captions/metadata, scheduling, and recording local approvals
 3. Keep agent-initiated suggestions local-only until the user-initiated flow has enough successful sessions; then add proactive Discord DMs behind explicit safe trigger and opt-out controls
-4. After feed/carousel publishing is reliable, add read-only insights collection, recommendation improvements, and later reel/video validation
+4. After feed/carousel publishing is reliable, add follower-growth tracking and later reel/video validation
 
 ## Agent handoff
 Future agents should start with `AGENTS.md`, then `docs/plans/current-agent-roadmap.md`. The durable plan for local/NAS sources, review artifacts, and Cloudflare R2 staging is `docs/plans/content-pipeline-r2-staging-plan.md`. The specialized agent baseline is `docs/plans/postrelay-agent-operating-baseline.md`. The current private-DM conversation plan is `docs/plans/discord-dm-conversation-orchestration.md`, and the Discord-before-live-publish selection/review plan is `docs/plans/discord-photo-selection-before-carousel-smoke.md`.
@@ -76,6 +77,8 @@ Use the project virtualenv when running locally:
 .venv/bin/post-relay analytics snapshot --draft-id 2 --db data/post_relay.sqlite
 .venv/bin/post-relay analytics insights-plan --draft-id 2 --db data/post_relay.sqlite
 .venv/bin/post-relay analytics insights-fetch --draft-id 2 --db data/post_relay.sqlite
+.venv/bin/post-relay analytics feedback-summary --draft-id 2 --db data/post_relay.sqlite
+.venv/bin/post-relay analytics feedback-summary --limit 10 --db data/post_relay.sqlite
 # Execute only for read-only insights collection when the token has instagram_manage_insights:
 .venv/bin/post-relay analytics insights-fetch --draft-id 2 --metric reach --metric likes --metric comments --metric saved --metric shares --db data/post_relay.sqlite --env-file .env --execute
 .venv/bin/post-relay candidates build --db data/post_relay.sqlite

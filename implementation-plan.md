@@ -24,9 +24,9 @@ Post Relay has now implemented most feed/carousel production hardening through t
 - broad DM request guardrails that ask for narrowing before huge weak matches
 - bounded review artifact planning that blocks oversized full contact sheets until Andrew narrows the set
 - local semantic DM candidate matching from folder/year/filename descriptors with simple explainable aliases
-- local post-publish snapshots and guarded read-only insight metric storage behind explicit `analytics insights-fetch --execute`
+- local post-publish snapshots, guarded read-only insight metric storage behind explicit `analytics insights-fetch --execute`, and advisory local recommendation feedback summaries
 
-Remaining near-term gaps are targeted optimization and operating-loop gaps, not generic scaffolding: merge PR #55, add deterministic recommendation feedback summaries from stored local snapshots/insights, then decide whether to prioritize follower-growth tracking, more user-initiated DM practice, proactive opportunity DMs, video/reel validation, or deeper media discovery/enrichment.
+Remaining near-term gaps are targeted optimization and operating-loop gaps, not generic scaffolding: use deterministic recommendation feedback as the baseline, then decide whether to prioritize follower-growth tracking, more user-initiated DM practice, proactive opportunity DMs, video/reel validation, or deeper media discovery/enrichment.
 
 ## Build Strategy
 
@@ -218,9 +218,9 @@ Make Post Relay smarter over time.
 
 ## Recommended Next Build Artifacts
 The next useful detailed artifacts are now:
-- `docs/plans/current-agent-roadmap.md` Milestone 30 section for `feat/recommendation-feedback-summaries`
-- a small implementation plan for deterministic analytics feedback only if Milestone 30 grows beyond the current bite-sized roadmap task list
-- a later follower-growth tracking plan once per-post feedback summaries exist
+- `docs/plans/current-agent-roadmap.md` Later milestones for follower-growth progress tracking and private-DM operating-loop improvements
+- a later follower-growth tracking plan once more per-post feedback summaries exist
+- a later video/reel validation plan after feed/carousel cadence is stable
 
 ## Practical Next Human Steps
 Andrew should continue with:
@@ -230,4 +230,4 @@ Andrew should continue with:
 - treating recommendation feedback as advisory until several real posts provide enough signal
 
 ## Immediate Next Engineering Step
-Merge PR #55 `feat/read-only-insights-feedback`, sync local `main`, and verify `.venv/bin/python -m pytest -q`. Then build `feat/recommendation-feedback-summaries`: a local-only analytics command that reads `published_post_snapshots` plus `media_insight_snapshots`, summarizes observed payload choices and metrics, and produces conservative next-post suggestions without mutating drafts, approvals, schedules, Discord, R2, or Meta state.
+Choose the next rollback-safe milestone from `docs/plans/current-agent-roadmap.md`, likely follower-growth progress tracking, more private-DM operating-loop practice, proactive opportunity DM controls, video/reel validation, or deeper local media discovery/enrichment. Keep recommendation feedback advisory-only until several real posts provide enough signal.

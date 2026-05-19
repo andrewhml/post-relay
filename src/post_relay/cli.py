@@ -15,9 +15,11 @@ from post_relay.approvals import (
 )
 from post_relay.analytics_feedback import (
     PublishedPostSnapshotNotReady,
+    build_feedback_summary,
     build_insights_collection_plan,
     collect_and_store_media_insights,
     record_published_post_snapshot,
+    render_feedback_summary,
     render_insights_fetch_dry_run,
     render_insights_fetch_error,
     render_media_insight_snapshot,
@@ -275,6 +277,19 @@ def analytics_insights_plan(
         typer.echo(str(error))
         raise typer.Exit(code=1) from error
     typer.echo(plan.to_text())
+
+
+@analytics_app.command("feedback-summary")
+def analytics_feedback_summary(
+    draft_id: Optional[int] = typer.Option(None, "--draft-id", help="Optional draft id to summarize."),
+    limit: int = typer.Option(10, "--limit", help="Recent published snapshots to summarize when --draft-id is omitted."),
+    db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
+) -> None:
+    """Render local-only recommendation feedback from stored snapshots and insights."""
+    connection = connect_db(db)
+    initialize_db(connection)
+    summary = build_feedback_summary(connection, draft_id=draft_id, limit=limit)
+    typer.echo(render_feedback_summary(summary))
 
 
 @analytics_app.command("insights-fetch")
