@@ -4,7 +4,7 @@
 
 **Goal:** Make the Post Relay plan discoverable and executable for future agents across sessions.
 
-**Architecture:** Post Relay is a local-first Python CLI and SQLite workflow. The repo now supports processed-folder indexing, candidate/draft creation, numbered media selection, local review artifacts, R2 staging, guarded single-image/carousel publish validation, private Discord DM intake/selection/guided review/scheduling/double-confirmed final approval, local opportunity records, safe opportunity trigger checks, DM narrowing guardrails, bounded review artifact planning, and semantic local candidate matching. The first live carousel smoke succeeded; the next roadmap focus is publish hardening around schedule enforcement, final metadata preview, and Instagram-optimized export assets.
+**Architecture:** Post Relay is a local-first Python CLI and SQLite workflow. The repo now supports processed-folder indexing, candidate/draft creation, numbered media selection, local review artifacts, R2 staging, guarded single-image/carousel publish validation, private Discord DM intake/selection/guided review/scheduling/double-confirmed final approval, local opportunity records, safe opportunity trigger checks, DM narrowing guardrails, bounded review artifact planning, and semantic local candidate matching. The first live carousel smoke succeeded; schedule enforcement, final Meta-bound caption/metadata preview, and Instagram-optimized export assets are now in place. The next roadmap focus is validating true Instagram location tags before analytics feedback work.
 
 **Tech Stack:** Python 3.9+, SQLite, Typer, Pydantic, PyYAML, Pillow, pytest, GitHub PR milestone workflow.
 
@@ -230,10 +230,10 @@ Run this before opening or merging any PR:
 .venv/bin/python -m pytest -q
 ```
 
-Expected current result after the final publish preview metadata milestone:
+Expected current result after the publish export profiles milestone:
 
 ```text
-192 passed
+195 passed
 ```
 
 ## Milestone execution rules
@@ -849,7 +849,7 @@ Current local result: `14 passed` focused; `174 passed` full suite.
 
 **Next-session start here:**
 1. First verify the current baseline: `.venv/bin/python -m pytest -q` should report the full suite passing.
-2. Move next to Milestone 27 `feat/post-publish-analytics-feedback` to capture publish outcomes and read-only analytics feedback.
+2. Move next to Milestone 27 `feat/location-tag-validation` to validate and safely support true Instagram location tags before analytics feedback work.
 3. Keep live-safe defaults: no Discord sends, no R2 `--execute`, and no Meta `--execute` unless explicitly authorized in the active session.
 
 **Verification:**
@@ -859,7 +859,23 @@ Current local result: `14 passed` focused; `174 passed` full suite.
 .venv/bin/python -m pytest -q
 ```
 
-### Milestone 27: `feat/post-publish-analytics-feedback`
+### Milestone 27: `feat/location-tag-validation`
+
+**Goal:** Support Instagram location as a true publish tag, not just local review text, only after official Meta Graph capability is validated for Andrew's Page-linked Creator account.
+
+**Required behavior:**
+- Research and validate the official Meta Graph field/endpoint shape for feed image and carousel location tagging on the current `graph.facebook.com` route and API version.
+- Add a no-network capability/dry-run harness that clearly distinguishes three states: unsupported, supported-but-unresolved, and resolved publishable location tag.
+- Model resolved location tags separately from freeform `location_text`; do not infer or fabricate a tag id from caption text, folder names, or user-provided prose.
+- Add lookup/selection behavior only through official Meta/Graph-supported routes if available, with token redaction and read-only defaults.
+- Update final publish preview so it shows both the human location text and the exact location tag payload, or explicitly explains why no tag will be sent.
+- Update single-image, carousel, and scheduled publish paths to send the location tag only when it is officially validated, resolved, reviewed, and covered by active draft/publish approvals.
+- Ensure material edits to resolved location tags invalidate active approvals just like caption, hashtags, media, or location text edits.
+- Add tests proving unsupported/unresolved location text remains local-only, resolved tags appear in final preview, live execute/dry-run uses identical payload composition, and no unvalidated location fields are silently sent to Meta.
+
+**Safety rule:** Until this milestone validates official support, `location_text` remains local/review-only and must not be sent as a Meta location tag. If validation shows the Graph path cannot tag locations for this account/post type, keep the feature as manual-review guidance and do not fake it by caption metadata.
+
+### Milestone 28: `feat/post-publish-analytics-feedback`
 
 **Goal:** After safer publishing is in place, capture performance feedback so recommendations and export choices improve over time.
 
