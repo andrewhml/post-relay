@@ -19,7 +19,7 @@ Post Relay has now implemented most feed/carousel production hardening through t
 - local SQLite content/draft pipeline, candidate grouping, context questions, approvals, scheduling, and publish approval
 - review artifacts, numbered media selection, R2 staging plans/uploads/cleanup, staged-R2 publish URL resolution, and publish export profiles
 - sanitized Meta Graph read-only validation, live-proven single-image publishing, live-proven carousel publishing, schedule enforcement, final Meta-bound preview, and explicit resolved `location_id` support
-- private Discord DM user-initiated intake, media selection, guided review, scheduling, and double-confirmed local publish approval
+- private Discord DM user-initiated intake, media selection, guided review, scheduling, and final local publish approval
 - local agent-initiated opportunity records and safe no-network trigger checks
 - broad DM request guardrails that ask for narrowing before huge weak matches
 - bounded review artifact planning that blocks oversized full contact sheets until Andrew narrows the set

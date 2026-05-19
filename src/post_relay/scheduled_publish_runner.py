@@ -261,7 +261,7 @@ def _build_publish_command(
             ".venv/bin/post-relay",
             "meta",
             "publish-scheduled",
-            "--draft-id",
+            "--post-id",
             str(draft_id),
             "--from-staged-r2",
             "--config",

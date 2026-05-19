@@ -112,7 +112,7 @@ def test_dm_schedule_reply_slot_choice_persists_schedule_and_updates_thread(tmp_
     assert "No Discord or Meta network calls were made." in result.to_text()
 
 
-def test_publish_approval_reply_requires_double_confirm_before_recording_flag(tmp_path: Path):
+def test_publish_approval_reply_records_final_approval_with_one_confirmation(tmp_path: Path):
     connection, draft, _root = _build_approved_fixture_draft(tmp_path)
     handle_dm_schedule_reply(
         connection,
@@ -127,19 +127,9 @@ def test_publish_approval_reply_requires_double_confirm_before_recording_flag(tm
         draft.id,
         now="2026-05-18T12:00:00-07:00",
     )
-    first_reply = handle_dm_publish_approval_reply(
-        connection,
-        draft.id,
-        "approve publish",
-        now="2026-05-18T12:00:00-07:00",
-        discord_channel_id="dm-andrew",
-    )
-
     assert guidance.scheduled_for == "2026-05-19T09:30:00-07:00"
-    assert "double confirm" in guidance.to_text().lower()
-    assert first_reply.approved is False
-    assert first_reply.status == DraftState.SCHEDULED.value
-    assert "Confirm by replying `confirm publish approval for post #" in first_reply.to_text()
+    assert "confirm publish approval for post #" in guidance.to_text()
+    assert "double confirm" not in guidance.to_text().lower()
     assert get_draft(connection, draft.id).status == DraftState.SCHEDULED.value
     assert [approval.approval_type for approval in list_active_approvals(connection, draft.id)] == [
         ApprovalType.DRAFT.value
@@ -224,7 +214,7 @@ def test_send_dm_schedule_prompt_sends_private_dm_and_records_waiting_thread(tmp
     assert root.as_posix() not in sent_text
 
 
-def test_send_dm_publish_approval_prompt_sends_double_confirm_private_dm(tmp_path: Path):
+def test_send_dm_publish_approval_prompt_sends_final_confirmation_private_dm(tmp_path: Path):
     connection, draft, root = _build_approved_fixture_draft(tmp_path)
     handle_dm_schedule_reply(
         connection,
@@ -250,8 +240,7 @@ def test_send_dm_publish_approval_prompt_sends_double_confirm_private_dm(tmp_pat
     assert thread.status == "waiting_for_user"
     sent_text = transport.sent_messages[0][1]
     assert "Post Relay final publish approval request" in sent_text
-    assert "double confirm" in sent_text.lower()
-    assert "approve publish" in sent_text
+    assert "double confirm" not in sent_text.lower()
     assert "confirm publish approval" in sent_text
     assert root.as_posix() not in sent_text
 
@@ -284,7 +273,7 @@ def test_poll_dm_schedule_reply_schedules_first_andrew_reply_and_confirms(tmp_pa
     assert transport.sent_messages[-1] == ("dm-andrew", result.confirmation_text)
 
 
-def test_poll_dm_publish_approval_reply_requires_second_message_before_flag(tmp_path: Path):
+def test_poll_dm_publish_approval_reply_records_first_confirmation_message(tmp_path: Path):
     connection, draft, _root = _build_approved_fixture_draft(tmp_path)
     handle_dm_schedule_reply(
         connection,
@@ -293,51 +282,31 @@ def test_poll_dm_publish_approval_reply_requires_second_message_before_flag(tmp_
         now="2026-05-16T20:00:00-07:00",
         discord_channel_id="dm-andrew",
     )
-    first_transport = FakeDiscordTransport(
-        messages=[DiscordMessage(id="102", author_id="andrew", content="approve publish")]
+    transport = FakeDiscordTransport(
+        messages=[DiscordMessage(id="102", author_id="andrew", content=f"confirm publish approval for post #{draft.id}")]
     )
 
-    first_result = poll_dm_publish_approval_reply(
+    result = poll_dm_publish_approval_reply(
         connection,
         draft.id,
         channel_id="dm-andrew",
         target_user_id="andrew",
         after_message_id="sent-1",
         now="2026-05-18T12:00:00-07:00",
-        transport=first_transport,
+        transport=transport,
     )
 
-    assert first_result.applied is False
-    assert "Confirm by replying" in first_result.confirmation_text
-    assert get_draft(connection, draft.id).status == DraftState.SCHEDULED.value
-    assert [approval.approval_type for approval in list_active_approvals(connection, draft.id)] == [
-        ApprovalType.DRAFT.value
-    ]
-
-    second_transport = FakeDiscordTransport(
-        messages=[DiscordMessage(id="104", author_id="andrew", content=f"confirm publish approval for post #{draft.id}")]
-    )
-    second_result = poll_dm_publish_approval_reply(
-        connection,
-        draft.id,
-        channel_id="dm-andrew",
-        target_user_id="andrew",
-        after_message_id="sent-2",
-        now="2026-05-18T12:00:00-07:00",
-        transport=second_transport,
-    )
-
-    assert second_result.applied is True
+    assert result.applied is True
     assert get_draft(connection, draft.id).status == DraftState.READY_TO_PUBLISH.value
     assert [approval.approval_type for approval in list_active_approvals(connection, draft.id)] == [
         ApprovalType.DRAFT.value,
         ApprovalType.PUBLISH.value,
     ]
-    assert "Publish approval recorded" in second_result.confirmation_text
-    assert second_transport.sent_messages[-1] == ("dm-andrew", second_result.confirmation_text)
+    assert "Publish approval recorded" in result.confirmation_text
+    assert transport.sent_messages[-1] == ("dm-andrew", result.confirmation_text)
 
 
-def test_publish_approval_confirm_phrase_without_pending_second_confirm_does_not_record_flag(tmp_path: Path):
+def test_publish_approval_confirm_phrase_without_pending_second_confirm_records_flag(tmp_path: Path):
     connection, draft, _root = _build_approved_fixture_draft(tmp_path)
     handle_dm_schedule_reply(
         connection,
@@ -360,11 +329,12 @@ def test_publish_approval_confirm_phrase_without_pending_second_confirm_does_not
         transport=transport,
     )
 
-    assert result.applied is False
-    assert "approve publish" in result.confirmation_text
-    assert get_draft(connection, draft.id).status == DraftState.SCHEDULED.value
+    assert result.applied is True
+    assert "Publish approval recorded" in result.confirmation_text
+    assert get_draft(connection, draft.id).status == DraftState.READY_TO_PUBLISH.value
     assert [approval.approval_type for approval in list_active_approvals(connection, draft.id)] == [
-        ApprovalType.DRAFT.value
+        ApprovalType.DRAFT.value,
+        ApprovalType.PUBLISH.value,
     ]
 
 
@@ -378,7 +348,7 @@ def test_cli_dm_schedule_apply_accepts_reply_without_network_calls(tmp_path: Pat
         [
             "discord",
             "dm-schedule-apply",
-            "--draft-id",
+            "--post-id",
             str(draft.id),
             "--message",
             "slot 1",
@@ -396,7 +366,7 @@ def test_cli_dm_schedule_apply_accepts_reply_without_network_calls(tmp_path: Pat
     assert "No Discord or Meta network calls were made." in result.output
 
 
-def test_cli_dm_publish_approval_apply_requires_confirmation_before_recording_without_network_calls(tmp_path: Path):
+def test_cli_dm_publish_approval_apply_records_final_confirmation_without_network_calls(tmp_path: Path):
     connection, draft, _root = _build_approved_fixture_draft(tmp_path)
     handle_dm_schedule_reply(
         connection,
@@ -413,29 +383,7 @@ def test_cli_dm_publish_approval_apply_requires_confirmation_before_recording_wi
         [
             "discord",
             "dm-publish-approval-apply",
-            "--draft-id",
-            str(draft.id),
-            "--message",
-            "approve publish",
-            "--now",
-            "2026-05-18T12:00:00-07:00",
-            "--discord-channel-id",
-            "dm-andrew",
-            "--db",
-            str(db_path),
-        ],
-    )
-
-    assert result.exit_code == 0
-    assert "Confirm by replying `confirm publish approval for post #" in result.output
-    assert "No Discord or Meta network calls were made." in result.output
-
-    confirm_result = runner.invoke(
-        app,
-        [
-            "discord",
-            "dm-publish-approval-apply",
-            "--draft-id",
+            "--post-id",
             str(draft.id),
             "--message",
             f"confirm publish approval for post #{draft.id}",
@@ -448,9 +396,9 @@ def test_cli_dm_publish_approval_apply_requires_confirmation_before_recording_wi
         ],
     )
 
-    assert confirm_result.exit_code == 0
-    assert "Publish approval recorded for post #" in confirm_result.output
-    assert "No Discord or Meta network calls were made." in confirm_result.output
+    assert result.exit_code == 0
+    assert "Publish approval recorded for post #" in result.output
+    assert "No Discord or Meta network calls were made." in result.output
 
 
 def test_cli_dm_schedule_send_uses_live_discord_adapter_with_fake_transport(tmp_path: Path, monkeypatch):
@@ -475,7 +423,7 @@ def test_cli_dm_schedule_send_uses_live_discord_adapter_with_fake_transport(tmp_
         [
             "discord",
             "dm-schedule-send",
-            "--draft-id",
+            "--post-id",
             str(draft.id),
             "--now",
             "2026-05-16T20:00:00-07:00",
@@ -512,7 +460,7 @@ def test_cli_dm_schedule_poll_uses_live_discord_adapter_with_fake_transport(tmp_
         [
             "discord",
             "dm-schedule-poll",
-            "--draft-id",
+            "--post-id",
             str(draft.id),
             "--channel-id",
             "dm-andrew",
@@ -560,7 +508,7 @@ def test_cli_dm_publish_approval_send_uses_live_discord_adapter_with_fake_transp
         [
             "discord",
             "dm-publish-approval-send",
-            "--draft-id",
+            "--post-id",
             str(draft.id),
             "--now",
             "2026-05-18T12:00:00-07:00",
@@ -582,13 +530,6 @@ def test_cli_dm_publish_approval_poll_uses_live_discord_adapter_with_fake_transp
         draft.id,
         "slot 1",
         now="2026-05-16T20:00:00-07:00",
-        discord_channel_id="dm-andrew",
-    )
-    handle_dm_publish_approval_reply(
-        connection,
-        draft.id,
-        "approve publish",
-        now="2026-05-18T12:00:00-07:00",
         discord_channel_id="dm-andrew",
     )
     connection.close()
@@ -613,7 +554,7 @@ def test_cli_dm_publish_approval_poll_uses_live_discord_adapter_with_fake_transp
         [
             "discord",
             "dm-publish-approval-poll",
-            "--draft-id",
+            "--post-id",
             str(draft.id),
             "--channel-id",
             "dm-andrew",

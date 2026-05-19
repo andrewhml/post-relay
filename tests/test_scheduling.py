@@ -78,20 +78,9 @@ def test_schedule_draft_requires_draft_approval_queue_status(tmp_path: Path):
         schedule_draft(connection, draft.id, scheduled_for="2026-05-05T09:30:00-07:00")
 
 
-def test_request_publish_approval_moves_scheduled_draft_to_awaiting_publish_approval(tmp_path: Path):
+def test_publish_approval_records_publish_approval_directly_after_scheduling(tmp_path: Path):
     connection, draft = _build_approved_fixture_draft(tmp_path)
     schedule_draft(connection, draft.id, scheduled_for="2026-05-05T09:30:00-07:00")
-
-    updated = request_publish_approval(connection, draft.id)
-
-    assert updated.status == DraftState.AWAITING_PUBLISH_APPROVAL.value
-    assert updated.scheduled_for == "2026-05-05T09:30:00-07:00"
-
-
-def test_publish_approval_records_publish_approval_and_moves_to_ready(tmp_path: Path):
-    connection, draft = _build_approved_fixture_draft(tmp_path)
-    schedule_draft(connection, draft.id, scheduled_for="2026-05-05T09:30:00-07:00")
-    request_publish_approval(connection, draft.id)
 
     approval = approve_draft_for_publishing(
         connection,
@@ -111,9 +100,18 @@ def test_publish_approval_records_publish_approval_and_moves_to_ready(tmp_path: 
     ]
 
 
-def test_publish_approval_requires_awaiting_publish_approval_status(tmp_path: Path):
+def test_request_publish_approval_is_legacy_noop_for_scheduled_posts(tmp_path: Path):
     connection, draft = _build_approved_fixture_draft(tmp_path)
     schedule_draft(connection, draft.id, scheduled_for="2026-05-05T09:30:00-07:00")
+
+    updated = request_publish_approval(connection, draft.id)
+
+    assert updated.status == DraftState.SCHEDULED.value
+    assert updated.scheduled_for == "2026-05-05T09:30:00-07:00"
+
+
+def test_publish_approval_requires_scheduled_status(tmp_path: Path):
+    connection, draft = _build_approved_fixture_draft(tmp_path)
 
     with pytest.raises(DraftNotReadyForPublishApproval):
         approve_draft_for_publishing(connection, draft.id, approved_by="andrew")
@@ -173,7 +171,7 @@ photo_sources:
     connection.commit()
     second_id = int(cursor.lastrowid)
 
-    result = runner.invoke(app, ["drafts", "schedule", "--draft-id", str(second_id), "--scheduled-for", "2026-06-08T09:30:00-07:00", "--db", str(db_path)])
+    result = runner.invoke(app, ["drafts", "schedule", "--post-id", str(second_id), "--scheduled-for", "2026-06-08T09:30:00-07:00", "--db", str(db_path)])
 
     assert result.exit_code == 0
     assert f"Scheduled post #{second_id} for 2026-06-08T09:30:00-07:00" in result.output

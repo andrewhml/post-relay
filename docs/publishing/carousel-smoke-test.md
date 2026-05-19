@@ -42,12 +42,11 @@ Useful local flow for preparing a carousel draft:
 
 ```bash
 .venv/bin/post-relay drafts create --candidate-id <carousel-candidate-id> --db data/post_relay.sqlite
-.venv/bin/post-relay drafts edit --draft-id <draft-id> --caption "Approved carousel caption" --db data/post_relay.sqlite
-.venv/bin/post-relay drafts submit --draft-id <draft-id> --db data/post_relay.sqlite
-.venv/bin/post-relay drafts approve --draft-id <draft-id> --approved-by andrew --notes "Carousel direction approved" --db data/post_relay.sqlite
-.venv/bin/post-relay drafts schedule --draft-id <draft-id> --scheduled-for "2026-05-05T09:30:00-07:00" --db data/post_relay.sqlite
-.venv/bin/post-relay drafts request-publish-approval --draft-id <draft-id> --db data/post_relay.sqlite
-.venv/bin/post-relay drafts approve-publish --draft-id <draft-id> --approved-by andrew --notes "Final carousel approval" --db data/post_relay.sqlite
+.venv/bin/post-relay drafts edit --post-id <post-id> --caption "Approved carousel caption" --db data/post_relay.sqlite
+.venv/bin/post-relay drafts submit --post-id <post-id> --db data/post_relay.sqlite
+.venv/bin/post-relay drafts approve --post-id <post-id> --approved-by andrew --notes "Carousel direction approved" --db data/post_relay.sqlite
+.venv/bin/post-relay drafts schedule --post-id <post-id> --scheduled-for "2026-05-05T09:30:00-07:00" --db data/post_relay.sqlite
+.venv/bin/post-relay drafts approve-publish --post-id <post-id> --approved-by andrew --notes "Final carousel approval" --db data/post_relay.sqlite
 ```
 
 ## Dry run
@@ -56,18 +55,18 @@ Preferred staged-R2 path:
 
 ```bash
 .venv/bin/post-relay drafts r2-stage-upload \
-  --draft-id <draft-id> \
+  --post-id <post-id> \
   --config config/photo_sources.yaml \
   --db data/post_relay.sqlite
 
 .venv/bin/post-relay drafts r2-stage-upload \
-  --draft-id <draft-id> \
+  --post-id <post-id> \
   --config config/photo_sources.yaml \
   --db data/post_relay.sqlite \
   --execute
 
 .venv/bin/post-relay meta validate-carousel-publish \
-  --draft-id <draft-id> \
+  --post-id <post-id> \
   --from-staged-r2 \
   --config config/photo_sources.yaml \
   --db data/post_relay.sqlite \
@@ -78,7 +77,7 @@ Manual public URL path:
 
 ```bash
 .venv/bin/post-relay meta validate-carousel-publish \
-  --draft-id <draft-id> \
+  --post-id <post-id> \
   --image-url "https://example.com/first.jpg" \
   --image-url "https://example.com/second.jpg" \
   --db data/post_relay.sqlite \
@@ -101,7 +100,7 @@ Preferred staged-R2 path:
 
 ```bash
 .venv/bin/post-relay meta validate-carousel-publish \
-  --draft-id <draft-id> \
+  --post-id <post-id> \
   --from-staged-r2 \
   --config config/photo_sources.yaml \
   --db data/post_relay.sqlite \
@@ -113,7 +112,7 @@ Manual public URL path:
 
 ```bash
 .venv/bin/post-relay meta validate-carousel-publish \
-  --draft-id <draft-id> \
+  --post-id <post-id> \
   --image-url "https://example.com/first.jpg" \
   --image-url "https://example.com/second.jpg" \
   --db data/post_relay.sqlite \
@@ -142,7 +141,7 @@ Expected success indicators:
 ```bash
 .venv/bin/post-relay drafts list --db data/post_relay.sqlite
 .venv/bin/post-relay drafts r2-cleanup \
-  --draft-id <draft-id> \
+  --post-id <post-id> \
   --config config/photo_sources.yaml \
   --db data/post_relay.sqlite
 .venv/bin/python -m pytest -q

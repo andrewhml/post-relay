@@ -35,7 +35,12 @@ _ALLOWED_DRAFT_TRANSITIONS: dict[DraftState, set[DraftState]] = {
     DraftState.AWAITING_REVIEW: {DraftState.NEEDS_EDITS, DraftState.APPROVED_FOR_QUEUE, DraftState.ARCHIVED},
     DraftState.NEEDS_EDITS: {DraftState.DRAFTING, DraftState.AWAITING_REVIEW, DraftState.ARCHIVED},
     DraftState.APPROVED_FOR_QUEUE: {DraftState.SCHEDULED, DraftState.NEEDS_EDITS, DraftState.ARCHIVED},
-    DraftState.SCHEDULED: {DraftState.AWAITING_PUBLISH_APPROVAL, DraftState.NEEDS_EDITS, DraftState.ARCHIVED},
+    DraftState.SCHEDULED: {
+        DraftState.AWAITING_PUBLISH_APPROVAL,
+        DraftState.READY_TO_PUBLISH,
+        DraftState.NEEDS_EDITS,
+        DraftState.ARCHIVED,
+    },
     DraftState.AWAITING_PUBLISH_APPROVAL: {DraftState.READY_TO_PUBLISH, DraftState.NEEDS_EDITS, DraftState.ARCHIVED},
     DraftState.READY_TO_PUBLISH: {DraftState.POSTING, DraftState.NEEDS_EDITS, DraftState.ARCHIVED},
     DraftState.POSTING: {DraftState.POSTED, DraftState.FAILED},

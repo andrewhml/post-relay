@@ -68,7 +68,7 @@ def test_build_discord_selection_payload_renders_numbered_request_and_interactio
     assert "Accept exactly 3 selected photo numbers" in rendered
     assert "Lead/cover must be one of the selected numbers" in rendered
     assert "Command fallback:" in rendered
-    assert "discord-selection-apply --draft-id" in rendered
+    assert "discord-selection-apply --post-id" in rendered
     assert "Instagram Capability Matrix" in rendered
     assert "caption: publishable" in rendered
     assert "alt_text: review_only" in rendered
@@ -139,7 +139,7 @@ photo_sources:
         [
             "drafts",
             "discord-selection-preview",
-            "--draft-id",
+            "--post-id",
             "1",
             "--target-count",
             "2",

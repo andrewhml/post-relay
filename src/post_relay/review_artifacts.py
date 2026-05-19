@@ -62,7 +62,7 @@ class BoundedReviewArtifactPlan:
             lines.extend(
                 [
                     "Full contact sheet render is safe for this post.",
-                    f"Next command: drafts artifacts render --draft-id {self.draft_id}",
+                    f"Next command: drafts artifacts render --post-id {self.draft_id}",
                 ]
             )
         else:
@@ -71,8 +71,8 @@ class BoundedReviewArtifactPlan:
                 [
                     "Full contact sheet render blocked until the set is narrowed.",
                     f"Recommended bounded first-pass review: inspect a capped first-pass review of items 1-{sample_end}, then choose a smaller range or explicit keep list.",
-                    f"Operator commands: drafts media-plan --draft-id {self.draft_id}",
-                    f"Operator commands: drafts media-edit --draft-id {self.draft_id} --keep <comma-separated-numbers> --lead <number> --post-type carousel",
+                    f"Operator commands: drafts media-plan --post-id {self.draft_id}",
+                    f"Operator commands: drafts media-edit --post-id {self.draft_id} --keep <comma-separated-numbers> --lead <number> --post-type carousel",
                     "DM-safe prompt: This matched a large photo set. Please send a smaller range, date/neighborhood cue, or 5-10 filenames before I render the full contact sheet.",
                 ]
             )

@@ -309,7 +309,7 @@ def render_feedback_summary(summary: FeedbackSummary) -> str:
         else:
             lines.append("  - No stored insight metrics yet; this is a payload-only summary.")
             lines.append(
-                f"  - To collect later: analytics insights-fetch --draft-id {entry.draft_id} --db data/post_relay.sqlite"
+                f"  - To collect later: analytics insights-fetch --post-id {entry.draft_id} --db data/post_relay.sqlite"
             )
         lines.extend(
             [

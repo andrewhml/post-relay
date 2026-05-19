@@ -273,7 +273,7 @@ photo_sources:
         [
             "discord",
             "dm-selection-apply",
-            "--draft-id",
+            "--post-id",
             "1",
             "--message",
             "select 3,1,4 lead 3",

@@ -178,7 +178,7 @@ photo_sources:
         [
             "discord",
             "dm-guided-review-apply",
-            "--draft-id",
+            "--post-id",
             "1",
             "--message",
             "location: Kyoto, Japan; story: night market alleys; mood: cinematic; hook: food and light; caption 1",
@@ -334,7 +334,7 @@ def test_cli_dm_guided_review_send_uses_live_discord_adapter_with_fake_transport
         [
             "discord",
             "dm-guided-review-send",
-            "--draft-id",
+            "--post-id",
             str(draft.id),
             "--mood",
             "cinematic",
@@ -379,7 +379,7 @@ def test_cli_dm_guided_review_poll_uses_live_discord_adapter_with_fake_transport
         [
             "discord",
             "dm-guided-review-poll",
-            "--draft-id",
+            "--post-id",
             str(draft.id),
             "--channel-id",
             "dm-andrew",

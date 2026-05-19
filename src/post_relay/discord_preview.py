@@ -114,7 +114,7 @@ class DiscordSelectionPayload:
                 "Command fallback:",
                 _command_fallback(self.draft_id, self.target_count, self.post_type),
                 "Crop feedback fallback:",
-                f"  drafts crop-feedback --draft-id {self.draft_id} --shift 3:B2 --center 5 --tighten 6",
+                f"  drafts crop-feedback --post-id {self.draft_id} --shift 3:B2 --center 5 --tighten 6",
                 "Fallbacks if Discord attachments fail:",
                 "  - use the designed contact sheet or final post preview artifact paths rendered locally",
                 "  - use local source paths for manual review",
@@ -202,7 +202,7 @@ def _command_fallback(draft_id: int, target_count: int, post_type: str) -> str:
     lead = "1" if target_count else "<lead>"
     return (
         "  drafts discord-selection-apply "
-        f"--draft-id {draft_id} --select {select_values} --lead {lead} "
+        f"--post-id {draft_id} --select {select_values} --lead {lead} "
         f"--target-count {target_count} --post-type {post_type}"
     )
 

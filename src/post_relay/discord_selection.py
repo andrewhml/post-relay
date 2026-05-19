@@ -48,7 +48,7 @@ class DiscordSelectionRequest:
         lines.extend(
             [
                 "Apply example:",
-                "  drafts discord-selection-apply --draft-id "
+                "  drafts discord-selection-apply --post-id "
                 f"{self.draft_id} --select {example_select} --lead {example_lead} "
                 f"--target-count {self.target_count} --post-type {self.post_type}",
             ]

@@ -137,8 +137,8 @@ def _plan_for_draft(
             action="media_selection",
             summary=summary,
             command=(
-                f"post-relay drafts artifacts render --draft-id {draft.id} --stage select --config config/photo_sources.yaml --db data/post_relay.sqlite && "
-                f"post-relay discord dm-selection-send --draft-id {draft.id} "
+                f"post-relay drafts artifacts render --post-id {draft.id} --stage select --config config/photo_sources.yaml --db data/post_relay.sqlite && "
+                f"post-relay discord dm-selection-send --post-id {draft.id} "
                 f"--target-count {min(max(target_count, 1), max(media_count, 1))} --db data/post_relay.sqlite"
             ),
             draft_id=draft.id,
@@ -148,7 +148,7 @@ def _plan_for_draft(
                 f"Post has {media_count} included candidate photo(s).",
                 "Photo ordering/lead choice should be reviewed before final copy and content approval.",
                 "Render only contact-sheet-select.png for Stage 1 selection; defer contact-sheet-crop.png and final-post-preview.png until the selection is settled.",
-                f"After selection, draft copy locally with: post-relay drafts guided-package-plan --draft-id {draft.id} --db data/post_relay.sqlite",
+                f"After selection, draft copy locally with: post-relay drafts guided-package-plan --post-id {draft.id} --db data/post_relay.sqlite",
             ],
             safety_notes=_base_safety_notes(),
         )
@@ -157,7 +157,7 @@ def _plan_for_draft(
         return DmNextActionPlan(
             action="content_review",
             summary="Ask Andrew to approve or edit the post content direction before queueing.",
-            command=f"post-relay drafts approve --draft-id {draft.id} --approved-by andrew --notes \"Content direction approved\" --db data/post_relay.sqlite",
+            command=f"post-relay drafts approve --post-id {draft.id} --approved-by andrew --notes \"Content direction approved\" --db data/post_relay.sqlite",
             draft_id=draft.id,
             thread_id=thread.id if thread else None,
             status=status,
@@ -169,7 +169,7 @@ def _plan_for_draft(
         return DmNextActionPlan(
             action="schedule_prompt",
             summary="Send a private-DM scheduling prompt; content approval is active and the next gate is queue scheduling.",
-            command=f"post-relay discord dm-schedule-send --draft-id {draft.id} --db data/post_relay.sqlite",
+            command=f"post-relay discord dm-schedule-send --post-id {draft.id} --db data/post_relay.sqlite",
             draft_id=draft.id,
             thread_id=thread.id if thread else None,
             status=status,
@@ -183,8 +183,8 @@ def _plan_for_draft(
     if status in {DraftState.SCHEDULED.value, DraftState.AWAITING_PUBLISH_APPROVAL.value}:
         return DmNextActionPlan(
             action="publish_approval_prompt",
-            summary="Request double-confirmed final publish approval in the private DM; this only records local approval and does not publish to Instagram.",
-            command=f"post-relay discord dm-publish-approval-send --draft-id {draft.id} --db data/post_relay.sqlite",
+            summary="Request final publish approval in the private DM; this only records local approval and does not publish to Instagram.",
+            command=f"post-relay discord dm-publish-approval-send --post-id {draft.id} --db data/post_relay.sqlite",
             draft_id=draft.id,
             thread_id=thread.id if thread else None,
             status=status,
@@ -200,8 +200,8 @@ def _plan_for_draft(
             action="publish_preflight",
             summary="Render the final Meta-bound preview and let the due scheduled-publish runner execute from stored final approval when the schedule arrives.",
             command=(
-                f"post-relay meta final-publish-preview --draft-id {draft.id} --from-staged-r2 --config config/photo_sources.yaml --db data/post_relay.sqlite && "
-                f"post-relay meta publish-scheduled --draft-id {draft.id} --from-staged-r2 --config config/photo_sources.yaml --db data/post_relay.sqlite"
+                f"post-relay meta final-publish-preview --post-id {draft.id} --from-staged-r2 --config config/photo_sources.yaml --db data/post_relay.sqlite && "
+                f"post-relay meta publish-scheduled --post-id {draft.id} --from-staged-r2 --config config/photo_sources.yaml --db data/post_relay.sqlite"
             ),
             draft_id=draft.id,
             thread_id=thread.id if thread else None,
@@ -220,7 +220,7 @@ def _plan_for_draft(
         return DmNextActionPlan(
             action="post_publish_feedback",
             summary="Review stored analytics/feedback summaries and follower progress before choosing the next post opportunity.",
-            command=f"post-relay analytics feedback-summary --draft-id {draft.id} --db data/post_relay.sqlite && post-relay analytics follower-summary --db data/post_relay.sqlite",
+            command=f"post-relay analytics feedback-summary --post-id {draft.id} --db data/post_relay.sqlite && post-relay analytics follower-summary --db data/post_relay.sqlite",
             draft_id=draft.id,
             thread_id=thread.id if thread else None,
             status=status,
@@ -231,7 +231,7 @@ def _plan_for_draft(
     return DmNextActionPlan(
         action="manual_review",
         summary="Review this post manually before sending another DM prompt.",
-        command=f"post-relay drafts preview --draft-id {draft.id} --db data/post_relay.sqlite",
+        command=f"post-relay drafts preview --post-id {draft.id} --db data/post_relay.sqlite",
         draft_id=draft.id,
         thread_id=thread.id if thread else None,
         status=status,

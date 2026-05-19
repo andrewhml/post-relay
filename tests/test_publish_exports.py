@@ -171,7 +171,7 @@ publish_exports:
             "drafts",
             "publish-exports",
             "render",
-            "--draft-id",
+            "--post-id",
             str(draft.id),
             "--profile",
             "feed_portrait_4x5",

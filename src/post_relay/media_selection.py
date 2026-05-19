@@ -68,11 +68,11 @@ class DraftMediaPlan:
         lines.extend(
             [
                 "Edit examples:",
-                "  drafts media-edit --draft-id N --lead 3 --keep 1,3,5 --post-type carousel",
-                "  drafts media-edit --draft-id N --lead 2 --remove 4",
+                "  drafts media-edit --post-id N --lead 3 --keep 1,3,5 --post-type carousel",
+                "  drafts media-edit --post-id N --lead 2 --remove 4",
                 "Crop feedback examples:",
-                "  drafts crop-feedback --draft-id N --shift 3:B2 --tighten 3",
-                "  drafts crop-feedback --draft-id N --center 5 --ratio 5:4:5",
+                "  drafts crop-feedback --post-id N --shift 3:B2 --tighten 3",
+                "  drafts crop-feedback --post-id N --center 5 --ratio 5:4:5",
             ]
         )
         return "\n".join(lines)
