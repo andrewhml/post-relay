@@ -701,7 +701,7 @@ This handoff refresh follows the chat artifact refresh PR #62 and the follow-up 
 
 1. Use `analytics feedback-summary` plus `analytics follower-summary` as deterministic advisory baselines when planning the next reviewed post.
 2. Andrew validated the refreshed Stage 1/Stage 2/Stage 3 assets in a real Discord chat against the upcoming post; continue the upcoming-post operation through the Discord agent rather than adding more artifact design work first.
-3. Current engineering branch: `feat/dm-operating-loop-hardening`, focused on making the private-DM next-action planner reliably lead with the Stage 1/2/3 artifact loop and keeping advisory DM commands no-network/no-`--execute` by default.
+3. Current engineering branch/PR: `feat/dm-operating-loop-hardening` / PR #65, focused on making the private-DM next-action planner reliably lead with the Stage 1/2/3 artifact loop and keeping advisory DM commands no-network/no-`--execute` by default.
 4. After that, choose between `feat/proactive-opportunity-dm-controls`, `feat/video-reel-validation`, or `feat/local-media-discovery-enrichment`.
 5. Keep recommendation and follower-growth feedback advisory-only until several real posts and account snapshots provide enough signal.
 6. Keep live-safe defaults: no Discord sends, no R2 `--execute`, and no Meta `--execute` unless explicitly authorized in the active session.
@@ -1157,10 +1157,10 @@ Current branch result: `59 passed` focused; `248 passed` full suite.
 **Next-session start here:**
 1. PR #64 is merged and `main` is synced; `.venv/bin/python -m pytest -q` reports `248 passed`.
 2. Andrew will continue the upcoming-post operation in Discord; engineering should not run live R2 or Meta commands for that post unless explicitly authorized in the active session.
-3. Current branch `feat/dm-operating-loop-hardening` should make the private-DM user-initiated loop first-class around the Stage 1/2/3 artifacts and no-network advisory commands.
+3. Current branch/PR `feat/dm-operating-loop-hardening` / PR #65 should make the private-DM user-initiated loop first-class around the Stage 1/2/3 artifacts and no-network advisory commands.
 4. Keep `feat/proactive-opportunity-dm-controls`, `feat/video-reel-validation`, and `feat/local-media-discovery-enrichment` as the following milestone candidates.
 
-### Milestone 38: `feat/dm-operating-loop-hardening` (in progress)
+### PR #65 / Milestone 38: `feat/dm-operating-loop-hardening` (open)
 
 **Goal:** Make `dm next-action` safer and more useful as the operator entry point for the private-DM Stage 1/2/3 review loop.
 
