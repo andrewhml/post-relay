@@ -248,7 +248,7 @@ def test_analytics_snapshot_cli_renders_local_snapshot_without_network(tmp_path:
         [
             "analytics",
             "snapshot",
-            "--draft-id",
+            "--post-id",
             str(draft.id),
             "--actual-published-at",
             "2026-05-19T10:02:30-04:00",
@@ -396,7 +396,7 @@ def test_analytics_insights_fetch_requires_execute_before_meta_network(tmp_path:
         [
             "analytics",
             "insights-fetch",
-            "--draft-id",
+            "--post-id",
             str(draft.id),
             "--db",
             str(db_path),
@@ -436,7 +436,7 @@ def test_analytics_insights_fetch_cli_execute_collects_and_stores_with_injected_
         [
             "analytics",
             "insights-fetch",
-            "--draft-id",
+            "--post-id",
             str(draft.id),
             "--metric",
             "reach",
@@ -528,7 +528,7 @@ def test_feedback_summary_renders_payload_only_fallback_without_insights(tmp_pat
 
     assert summary.entries[0].insight_metrics == {}
     assert "No stored insight metrics yet" in rendered
-    assert "analytics insights-fetch --draft-id 1 --db data/post_relay.sqlite" in rendered
+    assert "analytics insights-fetch --post-id 1 --db data/post_relay.sqlite" in rendered
     assert "No Discord, R2, or Meta calls were made" in rendered
 
 
@@ -544,7 +544,7 @@ def test_feedback_summary_cli_is_local_only_and_does_not_mutate_state(tmp_path: 
         [
             "analytics",
             "feedback-summary",
-            "--draft-id",
+            "--post-id",
             str(draft.id),
             "--db",
             str(db_path),

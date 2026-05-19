@@ -41,12 +41,11 @@ Useful local flow for preparing a draft:
 
 ```bash
 .venv/bin/post-relay drafts create --candidate-id <single-image-candidate-id> --db data/post_relay.sqlite
-.venv/bin/post-relay drafts edit --draft-id <draft-id> --caption "Post Relay validation test" --db data/post_relay.sqlite
-.venv/bin/post-relay drafts submit --draft-id <draft-id> --db data/post_relay.sqlite
-.venv/bin/post-relay drafts approve --draft-id <draft-id> --approved-by andrew --notes "Content direction approved" --db data/post_relay.sqlite
-.venv/bin/post-relay drafts schedule --draft-id <draft-id> --scheduled-for "2026-05-05T09:30:00-07:00" --db data/post_relay.sqlite
-.venv/bin/post-relay drafts request-publish-approval --draft-id <draft-id> --db data/post_relay.sqlite
-.venv/bin/post-relay drafts approve-publish --draft-id <draft-id> --approved-by andrew --notes "Final smoke-test approval" --db data/post_relay.sqlite
+.venv/bin/post-relay drafts edit --post-id <post-id> --caption "Post Relay validation test" --db data/post_relay.sqlite
+.venv/bin/post-relay drafts submit --post-id <post-id> --db data/post_relay.sqlite
+.venv/bin/post-relay drafts approve --post-id <post-id> --approved-by andrew --notes "Content direction approved" --db data/post_relay.sqlite
+.venv/bin/post-relay drafts schedule --post-id <post-id> --scheduled-for "2026-05-05T09:30:00-07:00" --db data/post_relay.sqlite
+.venv/bin/post-relay drafts approve-publish --post-id <post-id> --approved-by andrew --notes "Final smoke-test approval" --db data/post_relay.sqlite
 ```
 
 ## Preflight check
@@ -73,7 +72,7 @@ ready draft ids: <draft-id>
 
 ```bash
 .venv/bin/post-relay meta validate-image-publish \
-  --draft-id <draft-id> \
+  --post-id <post-id> \
   --image-url "$POST_RELAY_TEST_IMAGE_URL" \
   --db data/post_relay.sqlite \
   --dry-run
@@ -92,7 +91,7 @@ Only after Andrew explicitly authorizes the live smoke test:
 
 ```bash
 .venv/bin/post-relay meta validate-image-publish \
-  --draft-id <draft-id> \
+  --post-id <post-id> \
   --image-url "$POST_RELAY_TEST_IMAGE_URL" \
   --db data/post_relay.sqlite \
   --env-file .env \

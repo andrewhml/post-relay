@@ -333,7 +333,7 @@ def test_bounded_review_artifact_plan_classifies_large_draft_without_source_path
     assert "Bounded Review Artifact Plan" in text
     assert "130 included photos" in text
     assert "capped first-pass review" in text
-    assert "drafts media-edit --draft-id" in text
+    assert "drafts media-edit --post-id" in text
     assert root.as_posix() not in text
     assert "image-000.jpg" not in text
     assert "No Discord, R2, or Meta network calls were made." in text
@@ -379,7 +379,7 @@ review_artifacts:
             "drafts",
             "artifacts",
             "render",
-            "--draft-id",
+            "--post-id",
             str(draft.id),
             "--config",
             str(config_path),

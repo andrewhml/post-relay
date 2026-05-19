@@ -160,7 +160,7 @@ photo_sources:
         [
             "drafts",
             "guided-package-plan",
-            "--draft-id",
+            "--post-id",
             "1",
             "--location",
             "Seoul, South Korea",
@@ -179,7 +179,7 @@ photo_sources:
         [
             "drafts",
             "guided-package-accept",
-            "--draft-id",
+            "--post-id",
             "1",
             "--location",
             "Seoul, South Korea",

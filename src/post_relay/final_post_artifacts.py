@@ -91,28 +91,45 @@ def render_final_post_preview_artifact(
     header_h = _px(88)
     side_pad = _px(24)
     gap = _px(12)
-    slide_w = int((width - side_pad * 2 - max(0, len(items) - 1) * gap) / max(1, len(items)))
+    columns = min(3, max(1, len(items)))
+    rows = max(1, (len(items) + columns - 1) // columns)
+    slide_w = int((width - side_pad * 2 - max(0, columns - 1) * gap) / columns)
     slide_h = int(slide_w / ratio)
-    body_h = _px(22) + slide_h + _px(36) + _px(8)
-    dots_h = _px(29)
-    metadata_h = _px(42) if metadata_tags else 0
-    caption_h = _px(1) + metadata_h + _px(14) + (_px(54) if caption else _px(18)) + _px(20)
-    height = header_h + body_h + dots_h + caption_h
-    canvas = Image.new("RGBA", (width, height), PAPER + (255,))
-    draw = ImageDraw.Draw(canvas)
+    slide_label_h = _px(36)
+    row_gap = _px(18)
+    body_top = _px(22)
+    body_bottom = _px(12)
+    body_h = body_top + rows * (slide_h + slide_label_h) + max(0, rows - 1) * row_gap + body_bottom
     title_font = _font(_px(17))
     small = _font(_px(10))
     mono = _font(_px(11))
     caption_font = _font(_px(13))
+    caption_text_x = side_pad + _px(82)
+    caption_text_w = width - side_pad - caption_text_x
+    measure = ImageDraw.Draw(Image.new("RGBA", (1, 1)))
+    caption_lines = _wrap_text_lines(measure, caption, caption_text_w, caption_font) if caption else []
+    caption_line_h = _px(18)
+    metadata_h = _px(42) if metadata_tags else 0
+    caption_text_h = max(_px(18), len(caption_lines) * caption_line_h) if caption else _px(18)
+    caption_h = _px(1) + metadata_h + _px(14) + caption_text_h + _px(20)
+    height = header_h + body_h + caption_h
+    canvas = Image.new("RGBA", (width, height), PAPER + (255,))
+    draw = ImageDraw.Draw(canvas)
 
     _draw_header(draw, width, len(items), ratio_label(ratio), label_from_index(items[0].review_number) if items else "-", title_font, small)
 
     ordered_files: list[str] = []
-    y = header_h + _px(22)
+    y0 = header_h + body_top
     for index, item in enumerate(items):
         source = Path(item.local_file_path)
         ordered_files.append(source.name)
-        x = side_pad + index * (slide_w + gap)
+        row = index // columns
+        col = index % columns
+        row_count = min(columns, len(items) - row * columns)
+        row_width = row_count * slide_w + max(0, row_count - 1) * gap
+        row_x0 = side_pad + ((width - side_pad * 2) - row_width) // 2
+        x = row_x0 + col * (slide_w + gap)
+        y = y0 + row * (slide_h + slide_label_h + row_gap)
         with Image.open(source) as raw:
             image = ImageOps.exif_transpose(raw).convert("RGB")
         photo = ContactSheetPhoto(
@@ -128,9 +145,7 @@ def render_final_post_preview_artifact(
         )
         _draw_slide(canvas, draw, image, photo, x, y, slide_w, slide_h, ratio, index, len(items), small, mono)
 
-    dots_y = y + slide_h + _px(36)
-    _draw_dots(draw, width, len(items), dots_y)
-    caption_y = header_h + body_h + dots_h
+    caption_y = header_h + body_h
     draw.line((0, caption_y, width, caption_y), fill=LINE, width=_px(1))
     body_text_y = caption_y + _px(14)
     if metadata_tags:
@@ -143,7 +158,7 @@ def render_final_post_preview_artifact(
         body_text_y += metadata_h
     draw.text((side_pad, body_text_y), "CAPTION", fill=MUTED, font=small)
     if caption:
-        _draw_wrapped_text(draw, caption.replace("\n", " "), side_pad + _px(82), body_text_y - _px(2), width - side_pad - (side_pad + _px(82)), caption_font, TEXT_SOFT, line_h=_px(18), max_lines=3)
+        _draw_text_lines(draw, caption_lines, caption_text_x, body_text_y - _px(2), caption_font, TEXT_SOFT, line_h=caption_line_h)
     canvas.save(path, format="PNG", optimize=True, dpi=PNG_DPI)
     return FinalPostPreviewArtifactPackage(
         draft_id=draft_id,
@@ -228,6 +243,37 @@ def _draw_dots(draw: ImageDraw.ImageDraw, width: int, count: int, y: int) -> Non
     for _ in range(1, count):
         draw.ellipse((x, y, x + _px(5), y + _px(5)), fill=MUTED_SOFT)
         x += _px(10)
+
+
+def _draw_text_lines(draw: ImageDraw.ImageDraw, lines: list[str], x: int, y: int, font: ImageFont.ImageFont, fill, *, line_h: int) -> None:
+    for i, line in enumerate(lines):
+        draw.text((x, y + i * line_h), line, fill=fill, font=font)
+
+
+def _wrap_text_lines(draw: ImageDraw.ImageDraw, text: str, max_w: int, font: ImageFont.ImageFont) -> list[str]:
+    lines: list[str] = []
+    paragraphs = text.split("\n")
+    for paragraph_index, paragraph in enumerate(paragraphs):
+        if paragraph == "":
+            if lines and (paragraph_index < len(paragraphs) - 1):
+                lines.append("")
+            continue
+        words = paragraph.split()
+        current = ""
+        for word in words:
+            candidate = word if not current else current + " " + word
+            if _text_w(draw, candidate, font) <= max_w:
+                current = candidate
+                continue
+            if current:
+                lines.append(current)
+                current = word
+            else:
+                lines.append(_truncate_to_width(draw, word, font, max_w))
+                current = ""
+        if current:
+            lines.append(current)
+    return lines
 
 
 def _draw_wrapped_text(draw: ImageDraw.ImageDraw, text: str, x: int, y: int, max_w: int, font: ImageFont.ImageFont, fill, *, line_h: int, max_lines: int) -> None:

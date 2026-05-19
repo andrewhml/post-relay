@@ -117,7 +117,7 @@ def test_cli_draft_crop_feedback_command_persists_chat_crop_language(tmp_path: P
         [
             "drafts",
             "crop-feedback",
-            "--draft-id",
+            "--post-id",
             str(draft.id),
             "--shift",
             "3:B2",

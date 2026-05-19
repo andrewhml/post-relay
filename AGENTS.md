@@ -29,7 +29,7 @@ Post Relay is a local-first Instagram travel content workflow for Andrew's `andr
 - Immich/NAS can be added later as secondary enrichment, not as the v1 source of truth.
 - Candidate groups are currently built from indexed photo parent folders.
 - Multi-photo folders recommend `carousel`; one-photo folders recommend `single_image`.
-- Content artifacts should be called posts throughout user/agent-facing copy; `drafting` is a lifecycle status, not the artifact name. The existing `drafts` CLI namespace and `--draft-id` option remain for backward compatibility.
+- Content artifacts should be called posts throughout user/agent-facing copy; `drafting` is a lifecycle status, not the artifact name. The existing `drafts` CLI namespace remains for backward compatibility; `--post-id` is the primary user-facing option, with `--draft-id` retained as a legacy alias.
 - Post records can be created idempotently from candidate groups and start in the `drafting` status.
 - Post preview packages can be rendered locally before Discord delivery exists.
 - Post context questions can be generated/listed locally and included in post previews.
@@ -51,7 +51,7 @@ Post Relay is a local-first Instagram travel content workflow for Andrew's `andr
 - Final publish preview can use `meta final-publish-preview --from-staged-r2` to render the exact Meta-bound caption, selected staged media URLs, publishable fields, and local/review-only metadata without network calls.
 - Publish-ready local exports can be rendered with `drafts publish-exports render`; source media stays immutable, exported files are written under the configured publish export root, mixed-orientation warnings are surfaced, and R2 staging prefers exported publish assets when present.
 - Instagram publish capabilities are explicit: media URLs/carousel children, captions, hashtags-in-caption, and explicitly resolved Facebook Page `location_id` tags are publishable; stored hashtags are merged into the caption sent to Meta; resolved location tags are stored separately from freeform location text, post-aware candidate review can ask for clarification/search Meta Pages without auto-selecting, and setting a tag requires reapproval; post-publish analytics snapshots capture local published payload outcomes and staged export dimensions without network calls; read-only insights fetch/storage is explicit `--execute` and does not mutate post lifecycle/publish state; recommendation feedback summaries are advisory-only from stored local snapshots/insights and must not mutate posts, approvals, schedules, Discord, R2, or Meta state; follower-growth tracking stores read-only account metric snapshots separately from post lifecycle state and defaults to no-network dry-run; `meta token-extend` dry-runs by default and may exchange/update the private `.env` token only with explicit `--execute --update-env` while redacting secrets; alt text, rationale, freeform location text/ideas, collaborators, music, product/story/reel-only metadata stay local/review-only unless a later milestone validates official support.
-- Live Discord delivery should only be added after the local payload harness remains green; next Discord work should be private-DM-first and user-initiated-first. Post Relay now has a no-network `dm intake` harness, a no-network `dm next-action` planner that includes all locally scheduled posts before suggesting another slot, live-capable Discord DM selection/guided-review/scheduling/double-confirmed publish approval loops, a local `opportunities` harness, safe local opportunity trigger checks for agent-initiated suggestion records, proactive opportunity DM plans and mark-sent controls, and DM intake narrowing guardrails for huge weak candidate matches. Do not run live Instagram publish execution from Discord milestones.
+- Live Discord delivery should only be added after the local payload harness remains green; next Discord work should be private-DM-first and user-initiated-first. Post Relay now has a no-network `dm intake` harness, a no-network `dm next-action` planner that includes all locally scheduled posts before suggesting another slot, live-capable Discord DM selection/guided-review/scheduling/final publish approval loops, a local `opportunities` harness, safe local opportunity trigger checks for agent-initiated suggestion records, proactive opportunity DM plans and mark-sent controls, and DM intake narrowing guardrails for huge weak candidate matches. Do not run live Instagram publish execution from Discord milestones.
 
 ## Safety and product constraints
 
@@ -92,73 +92,72 @@ Post Relay is a local-first Instagram travel content workflow for Andrew's `andr
 .venv/bin/post-relay meta validate-readonly --env-file .env --dry-run
 .venv/bin/post-relay meta token-extend --env-file .env
 .venv/bin/post-relay meta token-extend --env-file .env --execute --update-env
-.venv/bin/post-relay meta validate-image-publish --draft-id 1 --from-staged-r2 --config config/photo_sources.yaml --db data/post_relay.sqlite --dry-run
-.venv/bin/post-relay meta validate-carousel-publish --draft-id 1 --from-staged-r2 --config config/photo_sources.yaml --db data/post_relay.sqlite --dry-run
-.venv/bin/post-relay meta final-publish-preview --draft-id 1 --from-staged-r2 --config config/photo_sources.yaml --db data/post_relay.sqlite
-.venv/bin/post-relay meta publish-scheduled --draft-id 1 --from-staged-r2 --config config/photo_sources.yaml --db data/post_relay.sqlite
+.venv/bin/post-relay meta validate-image-publish --post-id 1 --from-staged-r2 --config config/photo_sources.yaml --db data/post_relay.sqlite --dry-run
+.venv/bin/post-relay meta validate-carousel-publish --post-id 1 --from-staged-r2 --config config/photo_sources.yaml --db data/post_relay.sqlite --dry-run
+.venv/bin/post-relay meta final-publish-preview --post-id 1 --from-staged-r2 --config config/photo_sources.yaml --db data/post_relay.sqlite
+.venv/bin/post-relay meta publish-scheduled --post-id 1 --from-staged-r2 --config config/photo_sources.yaml --db data/post_relay.sqlite
 # Execute only when due and explicitly authorized in the active session:
-.venv/bin/post-relay meta publish-scheduled --draft-id 1 --from-staged-r2 --config config/photo_sources.yaml --db data/post_relay.sqlite --env-file .env --execute
-.venv/bin/post-relay analytics snapshot --draft-id 1 --db data/post_relay.sqlite
-.venv/bin/post-relay analytics insights-plan --draft-id 1 --db data/post_relay.sqlite
-.venv/bin/post-relay analytics insights-fetch --draft-id 1 --db data/post_relay.sqlite
-.venv/bin/post-relay analytics feedback-summary --draft-id 1 --db data/post_relay.sqlite
+.venv/bin/post-relay meta publish-scheduled --post-id 1 --from-staged-r2 --config config/photo_sources.yaml --db data/post_relay.sqlite --env-file .env --execute
+.venv/bin/post-relay analytics snapshot --post-id 1 --db data/post_relay.sqlite
+.venv/bin/post-relay analytics insights-plan --post-id 1 --db data/post_relay.sqlite
+.venv/bin/post-relay analytics insights-fetch --post-id 1 --db data/post_relay.sqlite
+.venv/bin/post-relay analytics feedback-summary --post-id 1 --db data/post_relay.sqlite
 .venv/bin/post-relay analytics feedback-summary --limit 10 --db data/post_relay.sqlite
 .venv/bin/post-relay analytics follower-fetch --instagram-account-id 17841400498120050 --db data/post_relay.sqlite
 .venv/bin/post-relay analytics follower-summary --target-followers 5000 --db data/post_relay.sqlite
 # Execute only for read-only insights collection when the token has instagram_manage_insights:
-.venv/bin/post-relay analytics insights-fetch --draft-id 1 --metric reach --metric likes --metric comments --metric saved --metric shares --db data/post_relay.sqlite --env-file .env --execute
+.venv/bin/post-relay analytics insights-fetch --post-id 1 --metric reach --metric likes --metric comments --metric saved --metric shares --db data/post_relay.sqlite --env-file .env --execute
 .venv/bin/post-relay candidates build --db data/post_relay.sqlite
 .venv/bin/post-relay candidates list --db data/post_relay.sqlite
 .venv/bin/post-relay drafts create --candidate-id 1 --db data/post_relay.sqlite
 .venv/bin/post-relay drafts list --db data/post_relay.sqlite
-.venv/bin/post-relay drafts preview --draft-id 1 --db data/post_relay.sqlite
-.venv/bin/post-relay drafts artifacts render --draft-id 1 --stage select --config config/photo_sources.yaml --db data/post_relay.sqlite
-.venv/bin/post-relay drafts media-plan --draft-id 1 --db data/post_relay.sqlite
-.venv/bin/post-relay drafts media-edit --draft-id 1 --lead 3 --keep 1,3,5 --post-type carousel --db data/post_relay.sqlite
-.venv/bin/post-relay drafts artifacts render --draft-id 1 --stage crop --config config/photo_sources.yaml --db data/post_relay.sqlite
-.venv/bin/post-relay drafts crop-feedback --draft-id 1 --shift 3:B2 --center 5 --tighten 6 --db data/post_relay.sqlite
-.venv/bin/post-relay drafts guided-package-plan --draft-id 1 --location "Seoul, South Korea" --story-angle "night market alleys" --mood cinematic --audience-hook "food and light" --db data/post_relay.sqlite
-.venv/bin/post-relay drafts guided-package-accept --draft-id 1 --caption-index 1 --location "Seoul, South Korea" --story-angle "night market alleys" --mood cinematic --audience-hook "food and light" --db data/post_relay.sqlite
-.venv/bin/post-relay drafts final-preview-artifact render --draft-id 1 --config config/photo_sources.yaml --db data/post_relay.sqlite
-.venv/bin/post-relay drafts publish-exports render --draft-id 1 --profile feed_portrait_3x4 --config config/photo_sources.yaml --db data/post_relay.sqlite
-.venv/bin/post-relay drafts location-candidates --draft-id 1 --db data/post_relay.sqlite --dry-run
-.venv/bin/post-relay drafts location-candidates --draft-id 1 --query "Gwangjang Market Seoul" --env-file .env --db data/post_relay.sqlite
-.venv/bin/post-relay drafts location-tag-set --draft-id 1 --page-id <facebook-page-location-id> --name "Seoul, Korea" --source pages/search --db data/post_relay.sqlite
-.venv/bin/post-relay drafts discord-selection-plan --draft-id 1 --target-count 5 --db data/post_relay.sqlite
-.venv/bin/post-relay drafts discord-selection-preview --draft-id 1 --target-count 5 --artifact-path data/review_artifacts/draft-1/contact-sheet-select.png --db data/post_relay.sqlite
-.venv/bin/post-relay drafts discord-selection-apply --draft-id 1 --select 3,1,5,7,8 --lead 3 --target-count 5 --post-type carousel --db data/post_relay.sqlite
+.venv/bin/post-relay drafts preview --post-id 1 --db data/post_relay.sqlite
+.venv/bin/post-relay drafts artifacts render --post-id 1 --stage select --config config/photo_sources.yaml --db data/post_relay.sqlite
+.venv/bin/post-relay drafts media-plan --post-id 1 --db data/post_relay.sqlite
+.venv/bin/post-relay drafts media-edit --post-id 1 --lead 3 --keep 1,3,5 --post-type carousel --db data/post_relay.sqlite
+.venv/bin/post-relay drafts artifacts render --post-id 1 --stage crop --config config/photo_sources.yaml --db data/post_relay.sqlite
+.venv/bin/post-relay drafts crop-feedback --post-id 1 --shift 3:B2 --center 5 --tighten 6 --db data/post_relay.sqlite
+.venv/bin/post-relay drafts guided-package-plan --post-id 1 --location "Seoul, South Korea" --story-angle "night market alleys" --mood cinematic --audience-hook "food and light" --db data/post_relay.sqlite
+.venv/bin/post-relay drafts guided-package-accept --post-id 1 --caption-index 1 --location "Seoul, South Korea" --story-angle "night market alleys" --mood cinematic --audience-hook "food and light" --db data/post_relay.sqlite
+.venv/bin/post-relay drafts final-preview-artifact render --post-id 1 --config config/photo_sources.yaml --db data/post_relay.sqlite
+.venv/bin/post-relay drafts publish-exports render --post-id 1 --profile feed_portrait_3x4 --config config/photo_sources.yaml --db data/post_relay.sqlite
+.venv/bin/post-relay drafts location-candidates --post-id 1 --db data/post_relay.sqlite --dry-run
+.venv/bin/post-relay drafts location-candidates --post-id 1 --query "Gwangjang Market Seoul" --env-file .env --db data/post_relay.sqlite
+.venv/bin/post-relay drafts location-tag-set --post-id 1 --page-id <facebook-page-location-id> --name "Seoul, Korea" --source pages/search --db data/post_relay.sqlite
+.venv/bin/post-relay drafts discord-selection-plan --post-id 1 --target-count 5 --db data/post_relay.sqlite
+.venv/bin/post-relay drafts discord-selection-preview --post-id 1 --target-count 5 --artifact-path data/review_artifacts/draft-1/contact-sheet-select.png --db data/post_relay.sqlite
+.venv/bin/post-relay drafts discord-selection-apply --post-id 1 --select 3,1,5,7,8 --lead 3 --target-count 5 --post-type carousel --db data/post_relay.sqlite
 .venv/bin/post-relay dm intake --message "start a post about Kyoto night market" --discord-channel-id dm-andrew --db data/post_relay.sqlite
 .venv/bin/post-relay dm next-action --discord-channel-id dm-andrew --db data/post_relay.sqlite
-.venv/bin/post-relay dm next-action --draft-id 1 --target-count 5 --db data/post_relay.sqlite
-.venv/bin/post-relay dm intake --message "make this cinematic and less touristy" --draft-id 1 --discord-channel-id dm-andrew --db data/post_relay.sqlite
-.venv/bin/post-relay discord dm-selection-send --draft-id 1 --target-count 5 --db data/post_relay.sqlite
-.venv/bin/post-relay discord dm-selection-poll --draft-id 1 --channel-id <discord-dm-channel-id> --after-message-id <prompt-message-id> --target-count 5 --db data/post_relay.sqlite
-.venv/bin/post-relay discord dm-selection-apply --draft-id 1 --message "select 3,1,5,7,8 lead 3" --target-count 5 --discord-channel-id <discord-dm-channel-id> --db data/post_relay.sqlite
-.venv/bin/post-relay discord dm-guided-review-send --draft-id 1 --mood cinematic --db data/post_relay.sqlite
-.venv/bin/post-relay discord dm-guided-review-poll --draft-id 1 --channel-id <discord-dm-channel-id> --after-message-id <prompt-message-id> --db data/post_relay.sqlite
-.venv/bin/post-relay discord dm-guided-review-apply --draft-id 1 --message "location: Seoul, South Korea; story: night market alleys; mood: cinematic; hook: food and light; caption 1" --discord-channel-id <discord-dm-channel-id> --db data/post_relay.sqlite
-.venv/bin/post-relay discord dm-schedule-send --draft-id 1 --db data/post_relay.sqlite
-.venv/bin/post-relay discord dm-schedule-poll --draft-id 1 --channel-id <discord-dm-channel-id> --after-message-id <prompt-message-id> --db data/post_relay.sqlite
-.venv/bin/post-relay discord dm-schedule-apply --draft-id 1 --message "slot 1" --discord-channel-id <discord-dm-channel-id> --db data/post_relay.sqlite
-.venv/bin/post-relay discord dm-publish-approval-send --draft-id 1 --db data/post_relay.sqlite
-.venv/bin/post-relay discord dm-publish-approval-poll --draft-id 1 --channel-id <discord-dm-channel-id> --after-message-id <prompt-message-id> --db data/post_relay.sqlite
-.venv/bin/post-relay discord dm-publish-approval-poll --draft-id 1 --channel-id <discord-dm-channel-id> --after-message-id <confirmation-prompt-message-id> --db data/post_relay.sqlite
-.venv/bin/post-relay discord dm-publish-approval-apply --draft-id 1 --message "approve publish" --discord-channel-id <discord-dm-channel-id> --db data/post_relay.sqlite
-.venv/bin/post-relay discord dm-publish-approval-apply --draft-id 1 --message "confirm publish approval for post #1" --discord-channel-id <discord-dm-channel-id> --db data/post_relay.sqlite
-.venv/bin/post-relay drafts r2-stage-plan --draft-id 1 --config config/photo_sources.yaml --db data/post_relay.sqlite
-.venv/bin/post-relay drafts r2-stage-upload --draft-id 1 --config config/photo_sources.yaml --db data/post_relay.sqlite
-.venv/bin/post-relay drafts r2-stage-upload --draft-id 1 --config config/photo_sources.yaml --db data/post_relay.sqlite --execute
-.venv/bin/post-relay drafts r2-cleanup --draft-id 1 --config config/photo_sources.yaml --db data/post_relay.sqlite
-.venv/bin/post-relay drafts r2-cleanup --draft-id 1 --config config/photo_sources.yaml --db data/post_relay.sqlite --execute --reason "publish complete"
-.venv/bin/post-relay drafts discord-preview --draft-id 1 --db data/post_relay.sqlite
-.venv/bin/post-relay drafts submit --draft-id 1 --db data/post_relay.sqlite
-.venv/bin/post-relay drafts approve --draft-id 1 --approved-by andrew --notes "Content direction approved" --db data/post_relay.sqlite
-.venv/bin/post-relay drafts edit --draft-id 1 --caption "Draft caption" --db data/post_relay.sqlite
-.venv/bin/post-relay drafts schedule --draft-id 1 --scheduled-for "2026-05-05T09:30:00-07:00" --db data/post_relay.sqlite
-.venv/bin/post-relay drafts request-publish-approval --draft-id 1 --db data/post_relay.sqlite
-.venv/bin/post-relay drafts approve-publish --draft-id 1 --approved-by andrew --notes "Final approval" --db data/post_relay.sqlite
-.venv/bin/post-relay drafts questions generate --draft-id 1 --db data/post_relay.sqlite
-.venv/bin/post-relay drafts questions list --draft-id 1 --db data/post_relay.sqlite
+.venv/bin/post-relay dm next-action --post-id 1 --target-count 5 --db data/post_relay.sqlite
+.venv/bin/post-relay dm intake --message "make this cinematic and less touristy" --post-id 1 --discord-channel-id dm-andrew --db data/post_relay.sqlite
+.venv/bin/post-relay discord dm-selection-send --post-id 1 --target-count 5 --db data/post_relay.sqlite
+.venv/bin/post-relay discord dm-selection-poll --post-id 1 --channel-id <discord-dm-channel-id> --after-message-id <prompt-message-id> --target-count 5 --db data/post_relay.sqlite
+.venv/bin/post-relay discord dm-selection-apply --post-id 1 --message "select 3,1,5,7,8 lead 3" --target-count 5 --discord-channel-id <discord-dm-channel-id> --db data/post_relay.sqlite
+.venv/bin/post-relay discord dm-guided-review-send --post-id 1 --mood cinematic --db data/post_relay.sqlite
+.venv/bin/post-relay discord dm-guided-review-poll --post-id 1 --channel-id <discord-dm-channel-id> --after-message-id <prompt-message-id> --db data/post_relay.sqlite
+.venv/bin/post-relay discord dm-guided-review-apply --post-id 1 --message "location: Seoul, South Korea; story: night market alleys; mood: cinematic; hook: food and light; caption 1" --discord-channel-id <discord-dm-channel-id> --db data/post_relay.sqlite
+.venv/bin/post-relay discord dm-schedule-send --post-id 1 --db data/post_relay.sqlite
+.venv/bin/post-relay discord dm-schedule-poll --post-id 1 --channel-id <discord-dm-channel-id> --after-message-id <prompt-message-id> --db data/post_relay.sqlite
+.venv/bin/post-relay discord dm-schedule-apply --post-id 1 --message "slot 1" --discord-channel-id <discord-dm-channel-id> --db data/post_relay.sqlite
+.venv/bin/post-relay discord dm-publish-approval-send --post-id 1 --db data/post_relay.sqlite
+.venv/bin/post-relay discord dm-publish-approval-poll --post-id 1 --channel-id <discord-dm-channel-id> --after-message-id <prompt-message-id> --db data/post_relay.sqlite
+.venv/bin/post-relay discord dm-publish-approval-poll --post-id 1 --channel-id <discord-dm-channel-id> --after-message-id <confirmation-prompt-message-id> --db data/post_relay.sqlite
+.venv/bin/post-relay discord dm-publish-approval-apply --post-id 1 --message "confirm publish approval for post #1" --discord-channel-id <discord-dm-channel-id> --db data/post_relay.sqlite
+.venv/bin/post-relay discord dm-publish-approval-apply --post-id 1 --message "confirm publish approval for post #1" --discord-channel-id <discord-dm-channel-id> --db data/post_relay.sqlite
+.venv/bin/post-relay drafts r2-stage-plan --post-id 1 --config config/photo_sources.yaml --db data/post_relay.sqlite
+.venv/bin/post-relay drafts r2-stage-upload --post-id 1 --config config/photo_sources.yaml --db data/post_relay.sqlite
+.venv/bin/post-relay drafts r2-stage-upload --post-id 1 --config config/photo_sources.yaml --db data/post_relay.sqlite --execute
+.venv/bin/post-relay drafts r2-cleanup --post-id 1 --config config/photo_sources.yaml --db data/post_relay.sqlite
+.venv/bin/post-relay drafts r2-cleanup --post-id 1 --config config/photo_sources.yaml --db data/post_relay.sqlite --execute --reason "publish complete"
+.venv/bin/post-relay drafts discord-preview --post-id 1 --db data/post_relay.sqlite
+.venv/bin/post-relay drafts submit --post-id 1 --db data/post_relay.sqlite
+.venv/bin/post-relay drafts approve --post-id 1 --approved-by andrew --notes "Content direction approved" --db data/post_relay.sqlite
+.venv/bin/post-relay drafts edit --post-id 1 --caption "Draft caption" --db data/post_relay.sqlite
+.venv/bin/post-relay drafts schedule --post-id 1 --scheduled-for "2026-05-05T09:30:00-07:00" --db data/post_relay.sqlite
+.venv/bin/post-relay drafts approve-publish --post-id 1 --approved-by andrew --notes "Final approval" --db data/post_relay.sqlite
+.venv/bin/post-relay drafts questions generate --post-id 1 --db data/post_relay.sqlite
+.venv/bin/post-relay drafts questions list --post-id 1 --db data/post_relay.sqlite
 .venv/bin/post-relay opportunities check --db data/post_relay.sqlite
 .venv/bin/post-relay opportunities check --execute --now "2026-05-17T09:00:00-07:00" --cadence-due-after-days 3 --db data/post_relay.sqlite
 .venv/bin/post-relay opportunities check --execute --manual-trigger-type life_event --manual-trigger-key andrew-kyoto-memory --manual-title "Kyoto memory" --manual-summary "Andrew mentioned a Kyoto memory" --manual-rationale "Manual trip context can become a post" --manual-suggested-next-action "Ask Andrew whether to turn this into a carousel post" --db data/post_relay.sqlite

@@ -40,11 +40,11 @@ Current local candidate for the smoke test remains:
 .venv/bin/python -m pytest -q
 .venv/bin/post-relay meta validate-readonly --env-file .env --dry-run
 .venv/bin/post-relay drafts list --db data/post_relay.sqlite
-.venv/bin/post-relay drafts preview --draft-id 2 --db data/post_relay.sqlite
-.venv/bin/post-relay drafts media-plan --draft-id 2 --db data/post_relay.sqlite
-.venv/bin/post-relay drafts r2-stage-plan --draft-id 2 --config config/photo_sources.yaml --db data/post_relay.sqlite
-.venv/bin/post-relay meta validate-carousel-publish --draft-id 2 --from-staged-r2 --config config/photo_sources.yaml --db data/post_relay.sqlite --dry-run
-.venv/bin/post-relay meta validate-carousel-publish --draft-id 2 --image-url https://example.com/1.jpg --image-url https://example.com/2.jpg --image-url https://example.com/3.jpg --image-url https://example.com/4.jpg --image-url https://example.com/5.jpg --db data/post_relay.sqlite --dry-run
+.venv/bin/post-relay drafts preview --post-id 2 --db data/post_relay.sqlite
+.venv/bin/post-relay drafts media-plan --post-id 2 --db data/post_relay.sqlite
+.venv/bin/post-relay drafts r2-stage-plan --post-id 2 --config config/photo_sources.yaml --db data/post_relay.sqlite
+.venv/bin/post-relay meta validate-carousel-publish --post-id 2 --from-staged-r2 --config config/photo_sources.yaml --db data/post_relay.sqlite --dry-run
+.venv/bin/post-relay meta validate-carousel-publish --post-id 2 --image-url https://example.com/1.jpg --image-url https://example.com/2.jpg --image-url https://example.com/3.jpg --image-url https://example.com/4.jpg --image-url https://example.com/5.jpg --db data/post_relay.sqlite --dry-run
 ```
 
 Observed safe preflight result:
@@ -74,20 +74,19 @@ The draft does not yet satisfy the required live publish gates:
 ## Expected next command sequence, after approval gates are intentionally completed
 
 ```bash
-.venv/bin/post-relay drafts submit --draft-id 2 --db data/post_relay.sqlite
-.venv/bin/post-relay drafts approve --draft-id 2 --approved-by andrew --notes "Carousel direction approved" --db data/post_relay.sqlite
-.venv/bin/post-relay drafts schedule --draft-id 2 --scheduled-for "<approved-iso-timestamp>" --db data/post_relay.sqlite
-.venv/bin/post-relay drafts request-publish-approval --draft-id 2 --db data/post_relay.sqlite
-.venv/bin/post-relay drafts approve-publish --draft-id 2 --approved-by andrew --notes "Final carousel smoke approval" --db data/post_relay.sqlite
-.venv/bin/post-relay drafts r2-stage-upload --draft-id 2 --config config/photo_sources.yaml --db data/post_relay.sqlite
-.venv/bin/post-relay drafts r2-stage-upload --draft-id 2 --config config/photo_sources.yaml --db data/post_relay.sqlite --execute
-.venv/bin/post-relay meta validate-carousel-publish --draft-id 2 --from-staged-r2 --config config/photo_sources.yaml --db data/post_relay.sqlite --dry-run
+.venv/bin/post-relay drafts submit --post-id 2 --db data/post_relay.sqlite
+.venv/bin/post-relay drafts approve --post-id 2 --approved-by andrew --notes "Carousel direction approved" --db data/post_relay.sqlite
+.venv/bin/post-relay drafts schedule --post-id 2 --scheduled-for "<approved-iso-timestamp>" --db data/post_relay.sqlite
+.venv/bin/post-relay drafts approve-publish --post-id 2 --approved-by andrew --notes "Final carousel smoke approval" --db data/post_relay.sqlite
+.venv/bin/post-relay drafts r2-stage-upload --post-id 2 --config config/photo_sources.yaml --db data/post_relay.sqlite
+.venv/bin/post-relay drafts r2-stage-upload --post-id 2 --config config/photo_sources.yaml --db data/post_relay.sqlite --execute
+.venv/bin/post-relay meta validate-carousel-publish --post-id 2 --from-staged-r2 --config config/photo_sources.yaml --db data/post_relay.sqlite --dry-run
 ```
 
 Only after Andrew explicitly approves the live smoke test in the active session:
 
 ```bash
-.venv/bin/post-relay meta validate-carousel-publish --draft-id 2 --from-staged-r2 --config config/photo_sources.yaml --db data/post_relay.sqlite --env-file .env --execute
+.venv/bin/post-relay meta validate-carousel-publish --post-id 2 --from-staged-r2 --config config/photo_sources.yaml --db data/post_relay.sqlite --env-file .env --execute
 ```
 
 ## Post-execution documentation target

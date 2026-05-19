@@ -1,5 +1,7 @@
 from pathlib import Path
 
+from typing import Optional
+
 import pytest
 from PIL import Image
 from typer.testing import CliRunner
@@ -20,13 +22,19 @@ from post_relay.review_artifacts import render_review_artifacts_for_draft
 runner = CliRunner()
 
 
-def _build_carousel_draft(tmp_path: Path, *, accept_guided_package: bool = True):
+def _build_carousel_draft(tmp_path: Path, *, accept_guided_package: bool = True, photo_count: int = 3, keep: Optional[list[int]] = None):
     root = tmp_path / "processed"
     folder = root / "2025" / "seoul"
     folder.mkdir(parents=True)
-    Image.new("RGB", (400, 300), color="red").save(folder / "01-market.jpg", format="JPEG")
-    Image.new("RGB", (300, 500), color="blue").save(folder / "02-lanterns.jpg", format="JPEG")
-    Image.new("RGB", (500, 400), color="green").save(folder / "03-alley.jpg", format="JPEG")
+    fixture_photos = [
+        ("01-market.jpg", (400, 300), "red"),
+        ("02-lanterns.jpg", (300, 500), "blue"),
+        ("03-alley.jpg", (500, 400), "green"),
+        ("04-crosswalk.jpg", (400, 500), "purple"),
+        ("05-noodles.jpg", (500, 300), "orange"),
+    ]
+    for filename, size, color in fixture_photos[:photo_count]:
+        Image.new("RGB", size, color=color).save(folder / filename, format="JPEG")
     connection = connect_db(tmp_path / "post_relay.sqlite")
     initialize_db(connection)
     config = PostRelayConfig(photo_sources=[PhotoSource(name="processed", root=root, source_type="processed_folder")])
@@ -41,8 +49,9 @@ def _build_carousel_draft(tmp_path: Path, *, accept_guided_package: bool = True)
         hashtags=["#Seoul"],
         location_text="Gwangjang Market, Seoul",
     )
-    apply_draft_media_selection(connection, draft.id, lead=2, keep=[2, 1], post_type="carousel")
-    apply_draft_crop_feedback(connection, draft.id, crop_edits={2: {"anchor": "B2", "ratio": "4:5"}})
+    keep = keep or [2, 1]
+    apply_draft_media_selection(connection, draft.id, lead=keep[0], keep=keep, post_type="carousel")
+    apply_draft_crop_feedback(connection, draft.id, crop_edits={keep[0]: {"anchor": "B2", "ratio": "4:5"}})
     if accept_guided_package:
         package = build_guided_draft_package(
             connection,
@@ -80,6 +89,66 @@ def test_render_final_post_preview_artifact_uses_selected_order_and_dark_design(
         assert image.height >= 800
         assert image.info.get("dpi", (0, 0))[0] >= 190
         assert image.getpixel((16, 16))[0] < 40
+
+
+def test_render_final_post_preview_artifact_expands_to_show_full_caption(tmp_path: Path):
+    connection, draft, _folder = _build_carousel_draft(tmp_path)
+    long_caption = "\n\n".join(
+        [
+            "There is never a dull moment working your way down New Zealand's South Island toward Milford Sound.",
+            "These are a few of the views from the route: Christchurch, Hokitika, Franz Josef, Haast, Wanaka, Te Anau, and the road toward Milford Sound.",
+            "Hit as many of these stops as you can: Hokitika Gorge, Hokitika Beach at sunset, Franz Josef, Haast Pass, Thunder Creek Falls, Blue Pools, Lake Hawea, Wanaka, Te Anau, Kepler Track, Mirror Lakes, and The Chasm.",
+            "Take your time. The journey truly is the destination for this one.",
+            "#newzealand #newzealandtravel #southislandnz #roadtripnz #travelphotography #sonyalpha",
+        ]
+    )
+    update_draft_content(
+        connection,
+        draft.id,
+        caption=long_caption,
+        hashtags=[],
+        location_text="Road to Milford Sound, Fiordland, New Zealand",
+    )
+    config = ReviewArtifactsConfig(root=tmp_path / "review_artifacts", thumbnail_max_px=160, contact_sheet_columns=2)
+    render_review_artifacts_for_draft(connection, draft.id, config, stage="select")
+    render_review_artifacts_for_draft(connection, draft.id, config, stage="crop")
+
+    package = render_final_post_preview_artifact(connection, draft.id, config)
+
+    assert package.caption == long_caption
+    with Image.open(package.preview_path) as image:
+        # The caption section should grow well beyond the old fixed three-line preview.
+        assert image.height >= 1500
+
+
+
+def test_render_final_post_preview_artifact_wraps_many_slides_into_readable_rows_without_dots(tmp_path: Path):
+    connection, draft, _folder = _build_carousel_draft(tmp_path, photo_count=5, keep=[1, 2, 3, 4, 5])
+    config = ReviewArtifactsConfig(root=tmp_path / "review_artifacts", thumbnail_max_px=160, contact_sheet_columns=2)
+    render_review_artifacts_for_draft(connection, draft.id, config, stage="select")
+    render_review_artifacts_for_draft(connection, draft.id, config, stage="crop")
+
+    package = render_final_post_preview_artifact(connection, draft.id, config)
+
+    assert package.ordered_files == [
+        "01-market.jpg",
+        "02-lanterns.jpg",
+        "03-alley.jpg",
+        "04-crosswalk.jpg",
+        "05-noodles.jpg",
+    ]
+    with Image.open(package.preview_path) as image:
+        assert image.width == 1440
+        assert image.height >= 1500
+        amber = (232, 168, 56, 255)
+        # The old pagination control drew an amber dotted/slider line centered below the images.
+        # The final approval sheet should prioritize larger thumbnails instead of that control.
+        lower_half_center_band = [
+            image.getpixel((x, y))
+            for x in range(image.width // 2 - 80, image.width // 2 + 80, 8)
+            for y in range(820, 980, 8)
+        ]
+        assert amber not in lower_half_center_band
 
 
 def test_render_final_post_preview_artifact_blocks_until_crop_sheet_exists(tmp_path: Path):
@@ -133,7 +202,7 @@ review_artifacts:
             "drafts",
             "final-preview-artifact",
             "render",
-            "--draft-id",
+            "--post-id",
             str(draft.id),
             "--config",
             str(config_path),

@@ -348,8 +348,9 @@ Core states:
 - needs_edits -> drafting
 - awaiting_review -> approved_for_queue
 - approved_for_queue -> scheduled
-- scheduled -> awaiting_publish_approval
-- awaiting_publish_approval -> ready_to_publish
+- scheduled -> ready_to_publish (final publish approval)
+- scheduled -> awaiting_publish_approval (legacy compatibility)
+- awaiting_publish_approval -> ready_to_publish (legacy compatibility)
 - ready_to_publish -> posting
 - posting -> posted
 - posting -> failed

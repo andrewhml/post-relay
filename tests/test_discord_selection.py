@@ -69,7 +69,7 @@ def test_build_discord_selection_request_numbers_suggested_photos_and_guidance(t
     assert "Discord Photo Selection Request" in text
     assert "Select 3 of 5 suggested photos" in text
     assert "Lead/cover: choose the strongest attention-grabbing opener" in text
-    assert "discord-selection-apply --draft-id" in text
+    assert "discord-selection-apply --post-id" in text
     assert "--select 1,2,3 --lead 1 --target-count 3 --post-type carousel" in text
     assert (folder / "03-hero.jpg").as_posix() in text
 
@@ -180,7 +180,7 @@ photo_sources:
         [
             "drafts",
             "discord-selection-plan",
-            "--draft-id",
+            "--post-id",
             "1",
             "--target-count",
             "3",
@@ -193,7 +193,7 @@ photo_sources:
         [
             "drafts",
             "discord-selection-apply",
-            "--draft-id",
+            "--post-id",
             "1",
             "--select",
             "3,1,4",
@@ -207,7 +207,7 @@ photo_sources:
             str(db_path),
         ],
     )
-    preview_result = runner.invoke(app, ["drafts", "preview", "--draft-id", "1", "--db", str(db_path)])
+    preview_result = runner.invoke(app, ["drafts", "preview", "--post-id", "1", "--db", str(db_path)])
 
     assert plan_result.exit_code == 0
     assert "Select 3 of 4 suggested photos" in plan_result.output

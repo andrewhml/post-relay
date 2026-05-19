@@ -130,7 +130,7 @@ photo_sources:
     runner.invoke(app, ["index", "scan", "--config", str(config_path), "--db", str(db_path)])
     runner.invoke(app, ["candidates", "build", "--db", str(db_path)])
     runner.invoke(app, ["drafts", "create", "--candidate-id", "1", "--db", str(db_path)])
-    preview_result = runner.invoke(app, ["drafts", "preview", "--draft-id", "1", "--db", str(db_path)])
+    preview_result = runner.invoke(app, ["drafts", "preview", "--post-id", "1", "--db", str(db_path)])
 
     assert preview_result.exit_code == 0
     assert "Post Review Package" in preview_result.output
@@ -143,6 +143,39 @@ photo_sources:
     assert "Caption: <empty>" in preview_result.output
     assert "Unresolved context notes:" in preview_result.output
     assert "Allowed next actions:" in preview_result.output
+
+
+def test_cli_post_id_option_is_primary_and_draft_id_still_works(tmp_path: Path):
+    root = tmp_path / "processed"
+    folder = root / "2023" / "kyoto"
+    folder.mkdir(parents=True)
+    (folder / "temple.jpg").write_bytes(b"fake image")
+    config_path = tmp_path / "photo_sources.yaml"
+    config_path.write_text(
+        f"""
+photo_sources:
+  - name: processed
+    root: {root.as_posix()}
+    source_type: processed_folder
+""".strip()
+    )
+    db_path = tmp_path / "post_relay.sqlite"
+
+    runner.invoke(app, ["index", "scan", "--config", str(config_path), "--db", str(db_path)])
+    runner.invoke(app, ["candidates", "build", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "create", "--candidate-id", "1", "--db", str(db_path)])
+
+    help_result = runner.invoke(app, ["drafts", "preview", "--help"])
+    post_id_result = runner.invoke(app, ["drafts", "preview", "--post-id", "1", "--db", str(db_path)])
+    legacy_result = runner.invoke(app, ["drafts", "preview", "--draft-id", "1", "--db", str(db_path)])
+
+    assert help_result.exit_code == 0
+    assert "--post-id" in help_result.output
+    assert "--draft-id" in help_result.output
+    assert post_id_result.exit_code == 0
+    assert "Post ID: 1" in post_id_result.output
+    assert legacy_result.exit_code == 0
+    assert "Post ID: 1" in legacy_result.output
 
 
 def test_cli_draft_artifacts_render_creates_local_review_artifacts(tmp_path: Path):
@@ -177,7 +210,7 @@ review_artifacts:
             "drafts",
             "artifacts",
             "render",
-            "--draft-id",
+            "--post-id",
             "1",
             "--config",
             str(config_path),
@@ -234,7 +267,7 @@ r2_staging:
             "drafts",
             "artifacts",
             "render",
-            "--draft-id",
+            "--post-id",
             "1",
             "--config",
             str(config_path),
@@ -248,7 +281,7 @@ r2_staging:
         [
             "drafts",
             "r2-stage-plan",
-            "--draft-id",
+            "--post-id",
             "1",
             "--config",
             str(config_path),
@@ -301,19 +334,19 @@ r2_staging:
     runner.invoke(app, ["drafts", "create", "--candidate-id", "1", "--db", str(db_path)])
     runner.invoke(
         app,
-        ["drafts", "artifacts", "render", "--draft-id", "1", "--config", str(config_path), "--db", str(db_path)],
+        ["drafts", "artifacts", "render", "--post-id", "1", "--config", str(config_path), "--db", str(db_path)],
     )
 
     upload_result = runner.invoke(
         app,
-        ["drafts", "r2-stage-upload", "--draft-id", "1", "--config", str(config_path), "--db", str(db_path)],
+        ["drafts", "r2-stage-upload", "--post-id", "1", "--config", str(config_path), "--db", str(db_path)],
     )
     upload_with_artifacts_result = runner.invoke(
         app,
         [
             "drafts",
             "r2-stage-upload",
-            "--draft-id",
+            "--post-id",
             "1",
             "--include-review-artifacts",
             "--config",
@@ -324,7 +357,7 @@ r2_staging:
     )
     cleanup_result = runner.invoke(
         app,
-        ["drafts", "r2-cleanup", "--draft-id", "1", "--config", str(config_path), "--db", str(db_path)],
+        ["drafts", "r2-cleanup", "--post-id", "1", "--config", str(config_path), "--db", str(db_path)],
     )
 
     assert upload_result.exit_code == 0
@@ -360,13 +393,13 @@ photo_sources:
     runner.invoke(app, ["index", "scan", "--config", str(config_path), "--db", str(db_path)])
     runner.invoke(app, ["candidates", "build", "--db", str(db_path)])
     runner.invoke(app, ["drafts", "create", "--candidate-id", "1", "--db", str(db_path)])
-    plan_result = runner.invoke(app, ["drafts", "media-plan", "--draft-id", "1", "--db", str(db_path)])
+    plan_result = runner.invoke(app, ["drafts", "media-plan", "--post-id", "1", "--db", str(db_path)])
     edit_result = runner.invoke(
         app,
         [
             "drafts",
             "media-edit",
-            "--draft-id",
+            "--post-id",
             "1",
             "--lead",
             "3",
@@ -378,7 +411,7 @@ photo_sources:
             str(db_path),
         ],
     )
-    preview_result = runner.invoke(app, ["drafts", "preview", "--draft-id", "1", "--db", str(db_path)])
+    preview_result = runner.invoke(app, ["drafts", "preview", "--post-id", "1", "--db", str(db_path)])
 
     assert plan_result.exit_code == 0
     assert "Post Media Plan" in plan_result.output
@@ -414,13 +447,13 @@ photo_sources:
     runner.invoke(app, ["index", "scan", "--config", str(config_path), "--db", str(db_path)])
     runner.invoke(app, ["candidates", "build", "--db", str(db_path)])
     runner.invoke(app, ["drafts", "create", "--candidate-id", "1", "--db", str(db_path)])
-    submit_result = runner.invoke(app, ["drafts", "submit", "--draft-id", "1", "--db", str(db_path)])
+    submit_result = runner.invoke(app, ["drafts", "submit", "--post-id", "1", "--db", str(db_path)])
     approve_result = runner.invoke(
         app,
         [
             "drafts",
             "approve",
-            "--draft-id",
+            "--post-id",
             "1",
             "--approved-by",
             "andrew",
@@ -435,7 +468,7 @@ photo_sources:
         [
             "drafts",
             "edit",
-            "--draft-id",
+            "--post-id",
             "1",
             "--caption",
             "A quiet morning wandering through Kyoto temple gardens.",
@@ -476,17 +509,17 @@ photo_sources:
     runner.invoke(app, ["index", "scan", "--config", str(config_path), "--db", str(db_path)])
     runner.invoke(app, ["candidates", "build", "--db", str(db_path)])
     runner.invoke(app, ["drafts", "create", "--candidate-id", "1", "--db", str(db_path)])
-    runner.invoke(app, ["drafts", "submit", "--draft-id", "1", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "submit", "--post-id", "1", "--db", str(db_path)])
     runner.invoke(
         app,
-        ["drafts", "approve", "--draft-id", "1", "--approved-by", "andrew", "--db", str(db_path)],
+        ["drafts", "approve", "--post-id", "1", "--approved-by", "andrew", "--db", str(db_path)],
     )
     schedule_result = runner.invoke(
         app,
         [
             "drafts",
             "schedule",
-            "--draft-id",
+            "--post-id",
             "1",
             "--scheduled-for",
             "2026-05-05T09:30:00-07:00",
@@ -495,14 +528,14 @@ photo_sources:
         ],
     )
     request_result = runner.invoke(
-        app, ["drafts", "request-publish-approval", "--draft-id", "1", "--db", str(db_path)]
+        app, ["drafts", "request-publish-approval", "--post-id", "1", "--db", str(db_path)]
     )
     approve_publish_result = runner.invoke(
         app,
         [
             "drafts",
             "approve-publish",
-            "--draft-id",
+            "--post-id",
             "1",
             "--approved-by",
             "andrew",
@@ -517,7 +550,7 @@ photo_sources:
     assert schedule_result.exit_code == 0
     assert "Scheduled post #1 for 2026-05-05T09:30:00-07:00" in schedule_result.output
     assert request_result.exit_code == 0
-    assert "Requested publish approval for post #1" in request_result.output
+    assert "no separate publish-approval request gate is required" in request_result.output
     assert approve_publish_result.exit_code == 0
     assert "Approved post #1 for publishing" in approve_publish_result.output
     assert list_result.exit_code == 0
@@ -549,7 +582,7 @@ photo_sources:
         [
             "meta",
             "validate-image-publish",
-            "--draft-id",
+            "--post-id",
             "1",
             "--image-url",
             "https://example.com/test-image.jpg?token=abc123",
@@ -564,7 +597,7 @@ photo_sources:
         [
             "drafts",
             "edit",
-            "--draft-id",
+            "--post-id",
             "1",
             "--caption",
             "Temple morning.",
@@ -572,17 +605,17 @@ photo_sources:
             str(db_path),
         ],
     )
-    runner.invoke(app, ["drafts", "submit", "--draft-id", "1", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "submit", "--post-id", "1", "--db", str(db_path)])
     runner.invoke(
         app,
-        ["drafts", "approve", "--draft-id", "1", "--approved-by", "andrew", "--db", str(db_path)],
+        ["drafts", "approve", "--post-id", "1", "--approved-by", "andrew", "--db", str(db_path)],
     )
     runner.invoke(
         app,
         [
             "drafts",
             "schedule",
-            "--draft-id",
+            "--post-id",
             "1",
             "--scheduled-for",
             "2026-05-05T09:30:00-07:00",
@@ -590,17 +623,17 @@ photo_sources:
             str(db_path),
         ],
     )
-    runner.invoke(app, ["drafts", "request-publish-approval", "--draft-id", "1", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "request-publish-approval", "--post-id", "1", "--db", str(db_path)])
     runner.invoke(
         app,
-        ["drafts", "approve-publish", "--draft-id", "1", "--approved-by", "andrew", "--db", str(db_path)],
+        ["drafts", "approve-publish", "--post-id", "1", "--approved-by", "andrew", "--db", str(db_path)],
     )
     dry_run_result = runner.invoke(
         app,
         [
             "meta",
             "validate-image-publish",
-            "--draft-id",
+            "--post-id",
             "1",
             "--image-url",
             "https://example.com/test-image.jpg?token=abc123",
@@ -649,19 +682,19 @@ photo_sources:
     runner.invoke(app, ["index", "scan", "--config", str(config_path), "--db", str(db_path)])
     runner.invoke(app, ["candidates", "build", "--db", str(db_path)])
     runner.invoke(app, ["drafts", "create", "--candidate-id", "1", "--db", str(db_path)])
-    runner.invoke(app, ["drafts", "edit", "--draft-id", "1", "--caption", "Temple morning.", "--db", str(db_path)])
-    runner.invoke(app, ["drafts", "submit", "--draft-id", "1", "--db", str(db_path)])
-    runner.invoke(app, ["drafts", "approve", "--draft-id", "1", "--approved-by", "andrew", "--db", str(db_path)])
-    runner.invoke(app, ["drafts", "schedule", "--draft-id", "1", "--scheduled-for", "2026-05-05T09:30:00-07:00", "--db", str(db_path)])
-    runner.invoke(app, ["drafts", "request-publish-approval", "--draft-id", "1", "--db", str(db_path)])
-    runner.invoke(app, ["drafts", "approve-publish", "--draft-id", "1", "--approved-by", "andrew", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "edit", "--post-id", "1", "--caption", "Temple morning.", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "submit", "--post-id", "1", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "approve", "--post-id", "1", "--approved-by", "andrew", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "schedule", "--post-id", "1", "--scheduled-for", "2026-05-05T09:30:00-07:00", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "request-publish-approval", "--post-id", "1", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "approve-publish", "--post-id", "1", "--approved-by", "andrew", "--db", str(db_path)])
 
     result = runner.invoke(
         app,
         [
             "meta",
             "validate-image-publish",
-            "--draft-id",
+            "--post-id",
             "1",
             "--image-url",
             "https://example.com/test-image.jpg",
@@ -706,7 +739,7 @@ photo_sources:
     runner.invoke(app, ["candidates", "build", "--db", str(db_path)])
     runner.invoke(app, ["drafts", "create", "--candidate-id", "1", "--db", str(db_path)])
     payload_result = runner.invoke(
-        app, ["drafts", "discord-preview", "--draft-id", "1", "--db", str(db_path)]
+        app, ["drafts", "discord-preview", "--post-id", "1", "--db", str(db_path)]
     )
 
     assert payload_result.exit_code == 0
@@ -769,10 +802,10 @@ photo_sources:
     runner.invoke(app, ["candidates", "build", "--db", str(db_path)])
     runner.invoke(app, ["drafts", "create", "--candidate-id", "1", "--db", str(db_path)])
     generate_result = runner.invoke(
-        app, ["drafts", "questions", "generate", "--draft-id", "1", "--db", str(db_path)]
+        app, ["drafts", "questions", "generate", "--post-id", "1", "--db", str(db_path)]
     )
     list_result = runner.invoke(
-        app, ["drafts", "questions", "list", "--draft-id", "1", "--db", str(db_path)]
+        app, ["drafts", "questions", "list", "--post-id", "1", "--db", str(db_path)]
     )
 
     assert generate_result.exit_code == 0
@@ -808,7 +841,7 @@ photo_sources:
         [
             "drafts",
             "edit",
-            "--draft-id",
+            "--post-id",
             "1",
             "--caption",
             "Kyoto garden sequence.",
@@ -816,14 +849,14 @@ photo_sources:
             str(db_path),
         ],
     )
-    runner.invoke(app, ["drafts", "submit", "--draft-id", "1", "--db", str(db_path)])
-    runner.invoke(app, ["drafts", "approve", "--draft-id", "1", "--approved-by", "andrew", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "submit", "--post-id", "1", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "approve", "--post-id", "1", "--approved-by", "andrew", "--db", str(db_path)])
     runner.invoke(
         app,
         [
             "drafts",
             "schedule",
-            "--draft-id",
+            "--post-id",
             "1",
             "--scheduled-for",
             "2026-05-05T09:30:00-07:00",
@@ -831,15 +864,15 @@ photo_sources:
             str(db_path),
         ],
     )
-    runner.invoke(app, ["drafts", "request-publish-approval", "--draft-id", "1", "--db", str(db_path)])
-    runner.invoke(app, ["drafts", "approve-publish", "--draft-id", "1", "--approved-by", "andrew", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "request-publish-approval", "--post-id", "1", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "approve-publish", "--post-id", "1", "--approved-by", "andrew", "--db", str(db_path)])
 
     dry_run_result = runner.invoke(
         app,
         [
             "meta",
             "validate-carousel-publish",
-            "--draft-id",
+            "--post-id",
             "1",
             "--image-url",
             "https://example.com/temple.jpg?token=abc123",
@@ -886,12 +919,12 @@ r2_staging:
     runner.invoke(app, ["index", "scan", "--config", str(config_path), "--db", str(db_path)])
     runner.invoke(app, ["candidates", "build", "--db", str(db_path)])
     runner.invoke(app, ["drafts", "create", "--candidate-id", "1", "--db", str(db_path)])
-    runner.invoke(app, ["drafts", "edit", "--draft-id", "1", "--caption", "Kyoto garden sequence.", "--db", str(db_path)])
-    runner.invoke(app, ["drafts", "submit", "--draft-id", "1", "--db", str(db_path)])
-    runner.invoke(app, ["drafts", "approve", "--draft-id", "1", "--approved-by", "andrew", "--db", str(db_path)])
-    runner.invoke(app, ["drafts", "schedule", "--draft-id", "1", "--scheduled-for", "2026-05-05T09:30:00-07:00", "--db", str(db_path)])
-    runner.invoke(app, ["drafts", "request-publish-approval", "--draft-id", "1", "--db", str(db_path)])
-    runner.invoke(app, ["drafts", "approve-publish", "--draft-id", "1", "--approved-by", "andrew", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "edit", "--post-id", "1", "--caption", "Kyoto garden sequence.", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "submit", "--post-id", "1", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "approve", "--post-id", "1", "--approved-by", "andrew", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "schedule", "--post-id", "1", "--scheduled-for", "2026-05-05T09:30:00-07:00", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "request-publish-approval", "--post-id", "1", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "approve-publish", "--post-id", "1", "--approved-by", "andrew", "--db", str(db_path)])
     connection = connect_db(db_path)
     initialize_db(connection)
     selected_paths = list_candidate_group_photo_paths(connection, 1)
@@ -912,7 +945,7 @@ r2_staging:
         [
             "meta",
             "validate-carousel-publish",
-            "--draft-id",
+            "--post-id",
             "1",
             "--from-staged-r2",
             "--config",
@@ -956,12 +989,12 @@ r2_staging:
     runner.invoke(app, ["index", "scan", "--config", str(config_path), "--db", str(db_path)])
     runner.invoke(app, ["candidates", "build", "--db", str(db_path)])
     runner.invoke(app, ["drafts", "create", "--candidate-id", "1", "--db", str(db_path)])
-    runner.invoke(app, ["drafts", "edit", "--draft-id", "1", "--caption", "Kyoto garden sequence.", "--db", str(db_path)])
-    runner.invoke(app, ["drafts", "submit", "--draft-id", "1", "--db", str(db_path)])
-    runner.invoke(app, ["drafts", "approve", "--draft-id", "1", "--approved-by", "andrew", "--db", str(db_path)])
-    runner.invoke(app, ["drafts", "schedule", "--draft-id", "1", "--scheduled-for", "2026-05-05T09:30:00-07:00", "--db", str(db_path)])
-    runner.invoke(app, ["drafts", "request-publish-approval", "--draft-id", "1", "--db", str(db_path)])
-    runner.invoke(app, ["drafts", "approve-publish", "--draft-id", "1", "--approved-by", "andrew", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "edit", "--post-id", "1", "--caption", "Kyoto garden sequence.", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "submit", "--post-id", "1", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "approve", "--post-id", "1", "--approved-by", "andrew", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "schedule", "--post-id", "1", "--scheduled-for", "2026-05-05T09:30:00-07:00", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "request-publish-approval", "--post-id", "1", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "approve-publish", "--post-id", "1", "--approved-by", "andrew", "--db", str(db_path)])
     connection = connect_db(db_path)
     initialize_db(connection)
     selected_paths = list_candidate_group_photo_paths(connection, 1)
@@ -982,7 +1015,7 @@ r2_staging:
         [
             "meta",
             "publish-scheduled",
-            "--draft-id",
+            "--post-id",
             "1",
             "--from-staged-r2",
             "--config",
@@ -1032,7 +1065,7 @@ r2_staging:
         [
             "drafts",
             "edit",
-            "--draft-id",
+            "--post-id",
             "1",
             "--caption",
             "Kyoto garden sequence.",
@@ -1046,11 +1079,11 @@ r2_staging:
             str(db_path),
         ],
     )
-    runner.invoke(app, ["drafts", "submit", "--draft-id", "1", "--db", str(db_path)])
-    runner.invoke(app, ["drafts", "approve", "--draft-id", "1", "--approved-by", "andrew", "--db", str(db_path)])
-    runner.invoke(app, ["drafts", "schedule", "--draft-id", "1", "--scheduled-for", "2026-05-05T09:30:00-07:00", "--db", str(db_path)])
-    runner.invoke(app, ["drafts", "request-publish-approval", "--draft-id", "1", "--db", str(db_path)])
-    runner.invoke(app, ["drafts", "approve-publish", "--draft-id", "1", "--approved-by", "andrew", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "submit", "--post-id", "1", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "approve", "--post-id", "1", "--approved-by", "andrew", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "schedule", "--post-id", "1", "--scheduled-for", "2026-05-05T09:30:00-07:00", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "request-publish-approval", "--post-id", "1", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "approve-publish", "--post-id", "1", "--approved-by", "andrew", "--db", str(db_path)])
     connection = connect_db(db_path)
     initialize_db(connection)
     selected_paths = list_candidate_group_photo_paths(connection, 1)
@@ -1071,7 +1104,7 @@ r2_staging:
         [
             "meta",
             "final-publish-preview",
-            "--draft-id",
+            "--post-id",
             "1",
             "--from-staged-r2",
             "--config",
@@ -1118,12 +1151,12 @@ r2_staging:
     runner.invoke(app, ["index", "scan", "--config", str(config_path), "--db", str(db_path)])
     runner.invoke(app, ["candidates", "build", "--db", str(db_path)])
     runner.invoke(app, ["drafts", "create", "--candidate-id", "1", "--db", str(db_path)])
-    runner.invoke(app, ["drafts", "edit", "--draft-id", "1", "--caption", "Ready caption.", "--db", str(db_path)])
-    runner.invoke(app, ["drafts", "submit", "--draft-id", "1", "--db", str(db_path)])
-    runner.invoke(app, ["drafts", "approve", "--draft-id", "1", "--approved-by", "andrew", "--db", str(db_path)])
-    runner.invoke(app, ["drafts", "schedule", "--draft-id", "1", "--scheduled-for", "2026-05-05T09:30:00-07:00", "--db", str(db_path)])
-    runner.invoke(app, ["drafts", "request-publish-approval", "--draft-id", "1", "--db", str(db_path)])
-    runner.invoke(app, ["drafts", "approve-publish", "--draft-id", "1", "--approved-by", "andrew", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "edit", "--post-id", "1", "--caption", "Ready caption.", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "submit", "--post-id", "1", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "approve", "--post-id", "1", "--approved-by", "andrew", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "schedule", "--post-id", "1", "--scheduled-for", "2026-05-05T09:30:00-07:00", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "request-publish-approval", "--post-id", "1", "--db", str(db_path)])
+    runner.invoke(app, ["drafts", "approve-publish", "--post-id", "1", "--approved-by", "andrew", "--db", str(db_path)])
     connection = connect_db(db_path)
     initialize_db(connection)
     source_path = list_candidate_group_photo_paths(connection, 1)[0]
@@ -1143,7 +1176,7 @@ r2_staging:
         [
             "meta",
             "unattended-publish-plan",
-            "--draft-id",
+            "--post-id",
             "1",
             "--from-staged-r2",
             "--config",

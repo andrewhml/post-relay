@@ -43,17 +43,18 @@ def schedule_draft(connection, draft_id: int, *, scheduled_for: str) -> DraftRec
 
 
 def request_publish_approval(connection, draft_id: int) -> DraftRecord:
+    """Legacy compatibility no-op.
+
+    Final publish approval is now the second and final human gate after content
+    approval. Scheduled posts can be approved directly with
+    ``approve_draft_for_publishing``.
+    """
     draft = _require_draft(connection, draft_id)
-    if draft.status != DraftState.SCHEDULED.value:
+    if draft.status not in {DraftState.SCHEDULED.value, DraftState.READY_TO_PUBLISH.value}:
         raise DraftNotReadyForPublishApproval(
-            f"Post #{draft_id} must be scheduled before publish approval is requested; current status is {draft.status}"
+            f"Post #{draft_id} must be scheduled before final publish approval; current status is {draft.status}"
         )
-    target_state = transition_draft_state(
-        DraftState(draft.status), DraftState.AWAITING_PUBLISH_APPROVAL
-    )
-    updated = update_draft_status(connection, draft.id, target_state.value)
-    connection.commit()
-    return updated
+    return draft
 
 
 def approve_draft_for_publishing(
@@ -65,9 +66,9 @@ def approve_draft_for_publishing(
     notes: Optional[str] = None,
 ) -> ApprovalRecord:
     draft = _require_draft(connection, draft_id)
-    if draft.status != DraftState.AWAITING_PUBLISH_APPROVAL.value:
+    if draft.status != DraftState.SCHEDULED.value:
         raise DraftNotReadyForPublishApproval(
-            f"Post #{draft_id} must be awaiting_publish_approval before publish approval; current status is {draft.status}"
+            f"Post #{draft_id} must be scheduled before final publish approval; current status is {draft.status}"
         )
 
     transition_draft_state(DraftState(draft.status), DraftState.READY_TO_PUBLISH)

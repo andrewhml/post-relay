@@ -75,8 +75,8 @@ def test_dm_next_action_routes_drafting_post_to_photo_selection_and_guided_packa
     assert "contact-sheet-crop.png" in text
     assert "final-post-preview.png" in text
     assert "defer contact-sheet-crop.png and final-post-preview.png until the selection is settled" in text
-    assert f"post-relay drafts artifacts render --draft-id {draft.id} --stage select" in text
-    assert f"post-relay discord dm-selection-send --draft-id {draft.id} --target-count 3" in text
+    assert f"post-relay drafts artifacts render --post-id {draft.id} --stage select" in text
+    assert f"post-relay discord dm-selection-send --post-id {draft.id} --target-count 3" in text
     assert "drafts guided-package-plan" in text
     assert root.as_posix() not in text
 
@@ -103,8 +103,8 @@ def test_dm_next_action_routes_scheduled_post_to_double_confirm_publish_approval
     text = plan.to_text()
 
     assert plan.action == "publish_approval_prompt"
-    assert "double-confirmed final publish approval" in text
-    assert f"post-relay discord dm-publish-approval-send --draft-id {draft.id}" in text
+    assert "final publish approval" in text
+    assert f"post-relay discord dm-publish-approval-send --post-id {draft.id}" in text
     assert "does not publish to Instagram" in text
 
 
@@ -174,7 +174,7 @@ photo_sources:
     runner.invoke(app, ["candidates", "build", "--db", str(db_path)])
     runner.invoke(app, ["drafts", "create", "--candidate-id", "1", "--db", str(db_path)])
 
-    result = runner.invoke(app, ["dm", "next-action", "--draft-id", "1", "--target-count", "2", "--db", str(db_path)])
+    result = runner.invoke(app, ["dm", "next-action", "--post-id", "1", "--target-count", "2", "--db", str(db_path)])
 
     assert result.exit_code == 0
     assert "Post Relay DM next action" in result.output

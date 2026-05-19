@@ -137,7 +137,7 @@ def test_drafts_location_candidates_cli_dry_run_prompts_for_clarification(tmp_pa
         [
             "drafts",
             "location-candidates",
-            "--draft-id",
+            "--post-id",
             str(draft.id),
             "--db",
             str(db_path),
@@ -216,7 +216,7 @@ def test_drafts_location_tag_set_cli_persists_resolved_page_and_warns_reapproval
         [
             "drafts",
             "location-tag-set",
-            "--draft-id",
+            "--post-id",
             str(draft.id),
             "--page-id",
             "110506962309835",

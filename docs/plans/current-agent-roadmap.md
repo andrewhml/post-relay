@@ -4,7 +4,7 @@
 
 **Goal:** Make the Post Relay plan discoverable and executable for future agents across sessions.
 
-**Architecture:** Post Relay is a local-first Python CLI and SQLite workflow. The repo now supports processed-folder indexing, candidate/draft creation, numbered media selection, crop/center feedback, warm-dark local review artifacts, final post preview artifacts, R2 staging, guarded single-image/carousel publish validation, private Discord DM intake/selection/guided review/scheduling/double-confirmed final approval, local opportunity records, safe opportunity trigger checks, DM narrowing guardrails, bounded review artifact planning, semantic local candidate matching, Instagram-optimized export assets, resolved Meta location tags, and scriptless unattended scheduled-publish planning. The first live carousel smoke succeeded; schedule enforcement, final Meta-bound caption/metadata preview, export profiles, guarded `location_id` support, advisory analytics/follower summaries, and contact-sheet chat artifact refresh are now in place.
+**Architecture:** Post Relay is a local-first Python CLI and SQLite workflow. The repo now supports processed-folder indexing, candidate/draft creation, numbered media selection, crop/center feedback, warm-dark local review artifacts, final post preview artifacts, R2 staging, guarded single-image/carousel publish validation, private Discord DM intake/selection/guided review/scheduling/final approval, local opportunity records, safe opportunity trigger checks, DM narrowing guardrails, bounded review artifact planning, semantic local candidate matching, Instagram-optimized export assets, resolved Meta location tags, and scriptless unattended scheduled-publish planning. The first live carousel smoke succeeded; schedule enforcement, final Meta-bound caption/metadata preview, export profiles, guarded `location_id` support, advisory analytics/follower summaries, and contact-sheet chat artifact refresh are now in place.
 
 **Tech Stack:** Python 3.9+, SQLite, Typer, Pydantic, PyYAML, Pillow, pytest, GitHub PR milestone workflow.
 
@@ -90,7 +90,7 @@ Implemented:
 - tests for package content, formatting, missing drafts, and CLI flow
 
 Important behavior:
-- `drafts preview --draft-id N` requires an existing draft.
+- `drafts preview --post-id N` requires an existing draft.
 - Preview output includes draft id, status, candidate title, post type, ordered photo file paths, placeholders for caption/location/hashtags/alt text, unresolved context notes, and allowed next actions.
 - Empty caption/location/hashtags/alt text are rendered as explicit `<empty>` placeholders.
 - Photo paths are ordered by candidate group item sort order.
@@ -123,9 +123,9 @@ Implemented:
 - tests for review submission, approval persistence, approval state guards, material edit invalidation, missing drafts, and the CLI flow
 
 Important behavior:
-- `drafts submit --draft-id N` moves `drafting` or `needs_edits` drafts to `awaiting_review` through the guarded state model.
-- `drafts approve --draft-id N` requires `awaiting_review`, records an approval with type `draft`, and moves the draft to `approved_for_queue`.
-- `drafts edit --draft-id N` can update caption, hashtags, location, and alt text placeholders.
+- `drafts submit --post-id N` moves `drafting` or `needs_edits` drafts to `awaiting_review` through the guarded state model.
+- `drafts approve --post-id N` requires `awaiting_review`, records an approval with type `draft`, and moves the draft to `approved_for_queue`.
+- `drafts edit --post-id N` can update caption, hashtags, location, and alt text placeholders.
 - Material edits after an active approval invalidate active approvals and move the draft to `needs_edits`.
 - This milestone still does not schedule or publish; publish approval remains a later, separate approval type.
 
@@ -138,7 +138,7 @@ Implemented:
 - tests for ordered existing image paths, missing image reporting, stable dry-run rendering, missing drafts, and CLI smoke behavior
 
 Important behavior:
-- `drafts discord-preview --draft-id N` builds a dry-run payload only; it does not call Discord or any external messaging API.
+- `drafts discord-preview --post-id N` builds a dry-run payload only; it does not call Discord or any external messaging API.
 - Payload message text reuses the local draft review package, so Discord-facing text stays aligned with `drafts preview`.
 - Payload image attachments preserve candidate item order and include only files that still exist locally.
 - Missing image files are reported separately and make `ready_to_send` false so live delivery can be blocked later.
@@ -149,13 +149,13 @@ Important behavior:
 Implemented:
 - `src/post_relay/scheduling.py`
 - repository helper for setting `scheduled_for` while updating draft status
-- `drafts schedule`, `drafts request-publish-approval`, and `drafts approve-publish` CLI commands
+- `drafts schedule` and `drafts approve-publish` CLI commands (`drafts request-publish-approval` remains a legacy no-op)
 - tests for scheduling guards, scheduled state persistence, publish approval request, final publish approval persistence, missing drafts, and CLI flow
 
 Important behavior:
-- `drafts schedule --draft-id N --scheduled-for ...` requires `approved_for_queue`, sets `scheduled_for`, and moves the draft to `scheduled`.
-- `drafts request-publish-approval --draft-id N` requires `scheduled` and moves the draft to `awaiting_publish_approval`.
-- `drafts approve-publish --draft-id N` requires `awaiting_publish_approval`, records an approval with type `publish`, and moves the draft to `ready_to_publish`.
+- `drafts schedule --post-id N --scheduled-for ...` requires `approved_for_queue`, sets `scheduled_for`, and moves the draft to `scheduled`.
+- `drafts request-publish-approval --post-id N` is a legacy no-op for scheduled posts; there is no separate request gate.
+- `drafts approve-publish --post-id N` requires `scheduled`, records an approval with type `publish`, and moves the post directly to `ready_to_publish`.
 - This milestone does not call Meta, Discord, or any external publishing API; it only prepares the local state and audit trail.
 - Draft approval and publish approval remain separate active approval records unless a material edit invalidates them.
 
@@ -317,7 +317,7 @@ Agents must preserve these unless Andrew explicitly changes the product directio
 - Contact sheets include the draft id and candidate title header.
 - Originals are opened read-only and never deleted or modified.
 - CLI rendering rejects artifact roots that overlap configured photo source roots.
-- `drafts artifacts render --draft-id N --config ... --db ...` prints the local artifact paths for review handoff.
+- `drafts artifacts render --post-id N --config ... --db ...` prints the local artifact paths for review handoff.
 
 ### Milestone 3: `feat/r2-staging-dry-run` (completed in PR #23)
 
@@ -553,9 +553,9 @@ Current local result: `10 passed` focused; `139 passed` full suite.
 - Added `src/post_relay/dm_scheduling.py` for private-DM schedule guidance and final local publish-approval handling.
 - Added live-capable `discord dm-schedule-send` and `discord dm-schedule-poll` commands for sending schedule options and applying Andrew's first private-DM reply.
 - Added no-network `discord dm-schedule-apply` fallback for copied replies such as `slot 1` or explicit ISO timestamps.
-- Added no-network `discord dm-publish-approval-apply` fallback for recording final local publish approval from an explicit `approve publish` DM reply inside the configured final-approval window.
+- Added no-network `discord dm-publish-approval-apply` fallback for recording final local publish approval from an explicit `confirm publish approval for post #<id>` DM reply inside the configured final-approval window.
 - Schedule guidance uses simple interpretable Tue/Thu/Sun 09:30 slots, a 36-hour lead-time buffer, and skips already scheduled days so posts do not cluster or dump backlog at once.
-- The DM flow reuses the existing local scheduling state machine: schedule choices require `approved_for_queue`, move drafts to `scheduled`, and final approval moves scheduled drafts through `awaiting_publish_approval` to `ready_to_publish` without Meta calls.
+- The DM flow reuses the existing local scheduling state machine: schedule choices require `approved_for_queue`, move drafts to `scheduled`, and final approval moves scheduled posts directly to `ready_to_publish` without Meta calls.
 
 **Safety notes:**
 - Discord credentials are read only from environment/private configuration in live send/poll commands.
@@ -689,7 +689,7 @@ As of the first live carousel smoke, the local-first workflow is past the origin
 
 - Local processed/NAS folders are still the source of truth; generated artifacts and R2 objects are disposable staging/review layers.
 - Candidate groups, drafts, media selection, context questions, guided packages, scheduling, draft approval, and publish approval all exist as local SQLite/CLI workflows.
-- Private Discord DM flows are live-capable for user-initiated intake, X-from-Y media selection, guided review/copy acceptance, scheduling, and double-confirmed final local publish approval.
+- Private Discord DM flows are live-capable for user-initiated intake, X-from-Y media selection, guided review/copy acceptance, scheduling, and final local publish approval.
 - Agent-initiated suggestions are modeled locally through `post_opportunities` and safe trigger checks; proactive outreach now has local DM planning and mark-sent controls, but no live proactive Discord send should happen without explicit active-session authorization.
 - DM intake now avoids the worst broad-request failure mode by asking for narrowing cues before suggesting huge weak matches, matched large sets point operators to bounded artifact planning, and natural request matching uses local folder/year/filename descriptors with explainable rationale.
 - Oversized full contact-sheet renders are blocked by `drafts artifacts render`; instead, the CLI prints a bounded, DM-safe first-pass plan with narrowing/sample guidance and no source paths.
@@ -753,7 +753,7 @@ Focused local result: `12 passed`.
 **Goal:** Make Discord DM final publish approval a two-message confirmation flow backed by the existing active `publish` approval flag/table instead of treating approval as only a draft status.
 
 **Delivered behavior in branch:**
-- Publish approval guidance now states the double-confirm sequence: first `approve publish`, then `confirm publish approval for post #<id>`.
+- Publish approval guidance now uses a single final confirmation phrase: `confirm publish approval for post #<id>`.
 - The first DM reply records no approval flag and leaves the post scheduled while updating the conversation thread to wait for the second confirmation.
 - The second confirmation records the active `publish` approval through the existing approvals table, moves the post through the guarded local publish-approval state machine to `ready_to_publish`, and keeps Meta publish execution separate.
 - A final confirmation phrase without the pending first step is rejected in the Discord DM poll path, preventing a one-message bypass.
@@ -774,7 +774,7 @@ Current local result: `14 passed` focused; `174 passed` full suite.
 **Goal:** Complete the guarded live carousel smoke only after the preflight blockers are resolved and Andrew explicitly authorizes the Meta `--execute` command in the active session.
 
 **Observed live smoke result on 2026-05-18:**
-- Draft `2` was packaged, content-approved, scheduled for `2026-05-19T10:00:00-04:00`, double-confirmed for final publish approval, R2 staged, dry-run reviewed, and explicitly authorized for Meta `--execute` in the active session.
+- Draft `2` was packaged, content-approved, scheduled for `2026-05-19T10:00:00-04:00`, final-approved for publishing, R2 staged, dry-run reviewed, and explicitly authorized for Meta `--execute` in the active session.
 - Read-only Meta validation succeeded for Page `Andrewhml` (`998312870038313`) and linked Instagram account `andrewhml` (`17841400498120050`), with media count `207` before the publish.
 - The first execute attempt failed before publishing because the stored Meta token had expired; the draft moved to `failed`. After a fresh Facebook Graph user token was provided and read-only validation passed, the draft was restored through the allowed `failed -> ready_to_publish` transition and dry-run validation was repeated.
 - The live carousel execute path succeeded for draft `2`: five child containers were created, the parent carousel container reached `FINISHED`, and Meta returned published media id `18103350268949956`. Local draft status moved to `posted`.
@@ -879,8 +879,8 @@ Current local result: `14 passed` focused; `174 passed` full suite.
 **Delivered behavior in branch:**
 - Validated the official `graph.facebook.com` content publishing shape: feed image and carousel parent container creation accept `location_id=<LOCATION_PAGE_ID>`; the official lookup route is read-only `GET /pages/search?q=...&fields=id,name,location,link`.
 - Added resolved draft location tags in SQLite, stored separately from freeform `drafts.location_text` so prose is never converted into an inferred tag id.
-- Added `drafts location-candidates --draft-id ... [--query ...]` so the bot can ask for a more specific place when context is vague, or use read-only Page search to present ranked candidate tags without setting anything.
-- Added `drafts location-tag-set --draft-id ... --page-id ... --name ...` to persist an explicitly selected Facebook Page id; setting/changing the tag invalidates active approvals and moves approved drafts back to `needs_edits`.
+- Added `drafts location-candidates --post-id ... [--query ...]` so the bot can ask for a more specific place when context is vague, or use read-only Page search to present ranked candidate tags without setting anything.
+- Added `drafts location-tag-set --post-id ... --page-id ... --name ...` to persist an explicitly selected Facebook Page id; setting/changing the tag invalidates active approvals and moves approved drafts back to `needs_edits`.
 - Updated final publish preview to render `Location handling: resolved Meta location tag` plus the exact `location_id` payload when a resolved tag exists; otherwise freeform location text remains local/review-only.
 - Updated single-image and carousel publish execution to include `location_id` only from a resolved stored tag. Carousel child containers do not receive location ids; only the image container or carousel parent container does.
 - Updated the Instagram capability matrix from `needs_validation` to `publishable_when_resolved` while keeping arbitrary/freeform `location_tag` metadata out of generic publishable filtering.
@@ -907,8 +907,8 @@ Current local result: `14 passed` focused; `174 passed` full suite.
 **Delivered behavior in branch:**
 - Added `published_post_snapshots`, a local audit table keyed by draft and publish attempt, recording published media id, post type, final Meta-bound caption, ordered media URLs, media dimensions, scheduled time, actual publish time, and resolved location tag fields.
 - Successful guarded single-image/carousel publish execution now records a local post-publish snapshot after Meta returns a published media id and the draft moves to `posted`.
-- Added `analytics snapshot --draft-id ...` to backfill/render the local snapshot from existing successful publish attempts without network calls.
-- Added `analytics insights-plan --draft-id ...` to render the read-only Meta insights endpoint/metric plan for the published media id without network calls; actual insights fetch/storage remains a follow-up.
+- Added `analytics snapshot --post-id ...` to backfill/render the local snapshot from existing successful publish attempts without network calls.
+- Added `analytics insights-plan --post-id ...` to render the read-only Meta insights endpoint/metric plan for the published media id without network calls; actual insights fetch/storage remains a follow-up.
 - Snapshot dimension capture uses local uploaded staged-media records and exported asset files when available; missing/unreadable files are recorded as unknown rather than blocking the audit snapshot.
 - Added tests for snapshot persistence, publish-path auto-capture, read-only insights planning, CLI rendering, and no-extra-network behavior.
 
@@ -933,7 +933,7 @@ Current local result: `14 passed` focused; `174 passed` full suite.
 **Delivered behavior in branch:**
 - Added `media_insight_snapshots`, a local audit table keyed to the published post snapshot, published media id, collection timestamp, parsed metrics, and raw sanitized payload JSON.
 - Added `MetaGraphClient.get_media_insights(...)`, which uses `GET /{ig-media-id}/insights?metric=...` and preserves read-only method semantics.
-- Added `analytics insights-fetch --draft-id ...` with dry-run default that renders the same endpoint/metrics and makes no Meta calls.
+- Added `analytics insights-fetch --post-id ...` with dry-run default that renders the same endpoint/metrics and makes no Meta calls.
 - Added `analytics insights-fetch --execute` to load private Meta config, call only the read-only insights endpoint, parse returned metric values, store the result locally, and render a no-publish safety summary.
 - Kept metrics separate from drafts/publish attempts so insight collection cannot mutate approval, scheduling, or publish state.
 - Added tests for Graph request construction, metrics parsing/storage, dry-run no-network behavior, and execute-mode CLI collection through an injected client.
@@ -957,7 +957,7 @@ Current local result: `14 passed` focused; `174 passed` full suite.
 **Goal:** Turn local published payload snapshots and stored insight metrics into human-readable recommendation feedback for future post planning.
 
 **Delivered behavior in branch:**
-- Added `analytics feedback-summary`, a local-only advisory CLI that reads stored `published_post_snapshots` and latest `media_insight_snapshots` for all recent posts or a specific `--draft-id`.
+- Added `analytics feedback-summary`, a local-only advisory CLI that reads stored `published_post_snapshots` and latest `media_insight_snapshots` for all recent posts or a specific `--post-id`.
 - Summaries include payload features: post type, media count/order, caption character count, hashtag count in final caption, schedule-vs-actual timing delta, resolved location tag presence, and export/aspect-ratio class.
 - Latest stored insight metrics are included when available; when absent, the command renders a payload-only fallback plus the safe `analytics insights-fetch` command to collect metrics later.
 - Renderer copy explicitly avoids causal claims from tiny samples and separates "observed signals" from conservative "next-post suggestions".
@@ -975,7 +975,7 @@ Current local result: `14 passed` focused; `174 passed` full suite.
 
 **Next-session start here:**
 1. First verify the current baseline: `.venv/bin/python -m pytest -q` should report the full suite passing.
-2. Use `analytics feedback-summary --draft-id ...` or `--limit ...` as the deterministic advisory baseline when planning the next post.
+2. Use `analytics feedback-summary --post-id ...` or `--limit ...` as the deterministic advisory baseline when planning the next post.
 3. Choose the next milestone from follower-growth progress tracking, private-DM operating-loop improvements, proactive opportunity DM controls, video/reel validation, or deeper local media discovery/enrichment.
 
 ### PR #57 / Milestone 31: `feat/post-terminology-copy`
@@ -984,7 +984,7 @@ Current local result: `14 passed` focused; `174 passed` full suite.
 
 **Delivered behavior in branch:**
 - Post review, media-plan, guided-review, Discord DM, scheduling, publish approval, R2 staging, publish preview, and analytics output now label the artifact as `Post ID` / `post #...` instead of `Draft ID` / `draft #...`.
-- The existing `drafts` command namespace and `--draft-id` option remain supported, with help text clarifying they identify a post through the legacy option name.
+- The existing `drafts` command namespace and `--post-id` option remain supported, with help text clarifying they identify a post through the legacy option name.
 - Content approval copy now describes approval of post content while the status can still be `drafting`; `draft` remains only in internal model/schema names and lifecycle state values where changing it would be a compatibility migration.
 - README/AGENTS/current-roadmap handoff text now documents the terminology rule for future agents.
 
@@ -999,7 +999,7 @@ Current local result: `14 passed` focused; `174 passed` full suite.
 
 **Next-session start here:**
 1. First verify the current baseline: `.venv/bin/python -m pytest -q` should report the full suite passing.
-2. Use `analytics feedback-summary --draft-id ...` or `--limit ...` as the deterministic advisory baseline when planning the next post.
+2. Use `analytics feedback-summary --post-id ...` or `--limit ...` as the deterministic advisory baseline when planning the next post.
 3. Complete PR #58 / Milestone 32 `feat/follower-growth-tracking`, then use `analytics follower-summary` alongside per-post feedback before selecting the next operating-loop milestone.
 
 ### PR #58 / Milestone 32: `feat/follower-growth-tracking` (current branch)
@@ -1079,8 +1079,8 @@ Current local result: `14 passed` focused; `174 passed` full suite.
 **Goal:** Make the private-DM operating loop less manual by adding a local planner that inspects the active thread/post status and tells the agent the next safe step without sending Discord, R2, or Meta requests.
 
 **Delivered behavior in branch:**
-- Added `dm next-action`, which can plan from `--draft-id`, an active `--discord-channel-id`, or the latest local post when no explicit target is provided.
-- Added status-aware routing for candidate selection, media selection, content review, schedule prompting, double-confirmed publish approval prompting, guarded publish preflight, and post-publish analytics feedback.
+- Added `dm next-action`, which can plan from `--post-id`, an active `--discord-channel-id`, or the latest local post when no explicit target is provided.
+- Added status-aware routing for candidate selection, media selection, content review, schedule prompting, final publish approval prompting, guarded publish preflight, and post-publish analytics feedback.
 - Suggested commands point to the existing gated Discord DM and local Meta/analytics commands while preserving separate content approval, scheduling, final publish approval, and live execution gates.
 - Planner output is source-path-safe and always states that no Discord, Meta, or R2 network calls were made.
 - Added focused tests for open intake threads, drafting posts, queue-approved posts, scheduled posts, ready-to-publish posts, and CLI rendering.
@@ -1096,7 +1096,7 @@ Current local result: `14 passed` focused; `174 passed` full suite.
 
 **Next-session start here:**
 1. First verify the current baseline: `.venv/bin/python -m pytest -q` should report the full suite passing.
-2. Use `dm next-action --draft-id <id>` or `--discord-channel-id <dm-channel>` before choosing/sending the next private-DM prompt.
+2. Use `dm next-action --post-id <id>` or `--discord-channel-id <dm-channel>` before choosing/sending the next private-DM prompt.
 3. After this lands, choose proactive opportunity DM controls, video/reel validation, or deeper local media discovery/enrichment.
 
 ### PR #62 / Milestone 36: `feat/chat-design-refresh` (merged)
