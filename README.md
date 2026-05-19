@@ -18,7 +18,7 @@ Early local-first MVP scaffold with:
 - schedule and publish-approval CLI without live publishing
 - sanitized read-only Meta Graph validation CLI
 - controlled single-image and carousel Meta publish validation CLIs with dry-run planning, approval guards, staged-R2 URL resolution, schedule enforcement, container creation/status polling/publish execution, hashtags merged into the Meta caption payload, and sanitized attempt logging
-- no-network scheduled publish preflight/execute wrapper for due staged-R2 posts that re-validates schedule, approvals, and media completeness before Meta execution
+- no-network scheduled publish preflight/execute wrapper for due staged-R2 posts that re-validates schedule, durable active approvals, and media completeness before Meta execution
 - no-network final publish preview that shows the exact Meta-bound caption, selected staged media URLs, publishable fields, and local/review-only metadata before live execution
 - Instagram-optimized local publish exports for 4:5 portrait feed/carousel assets, including mixed-orientation warnings and contact sheets built from the actual exported files
 - resolved Meta location tags stored separately from freeform location text, with draft-aware candidate search/clarification, explicit `location_id` final preview/publish payloads only after reviewed Page selection and reapproval
@@ -34,7 +34,7 @@ Early local-first MVP scaffold with:
 - live-capable private Discord DM selection sender/poller for Discord-only selection smoke tests, guarded by environment-provided bot credentials
 - live-capable private Discord DM guided review sender/poller plus no-network apply fallback for accepting hook/caption/metadata decisions from DM-style replies
 - live-capable private Discord DM scheduling guidance sender/poller plus double-confirmed final-publish-approval sender/poller and no-network apply fallbacks
-- no-network `dm next-action` planner that chooses the next private-DM operating-loop step from the active thread/post status without sending Discord, R2, or Meta requests
+- no-network `dm next-action` planner that chooses the next private-DM operating-loop step from the active thread/post status, shows all locally scheduled posts before recommending another slot, and treats stored final publish approval as durable until a material edit invalidates it without sending Discord, R2, or Meta requests
 - local post opportunity model and safe trigger checks for agent-initiated suggestions with dry-run planning, dedupe, snooze/dismiss respect, manual seeds, and candidate-to-draft conversion, without sending DMs
 - private DM intake narrowing guardrails that ask for more specific cues before suggesting huge weak candidate matches and warn before rendering contact sheets for large matched sets
 - local semantic DM candidate matching using folder/year/filename descriptors, simple aliases, and source-path-safe match rationale

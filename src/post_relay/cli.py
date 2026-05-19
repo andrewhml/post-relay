@@ -157,6 +157,7 @@ from post_relay.scheduled_publish_runner import (
     execute_due_scheduled_publish,
     preflight_due_scheduled_publish,
 )
+from post_relay.scheduled_posts import build_scheduled_post_feedback
 from post_relay.scheduling import (
     DraftNotFound as SchedulingDraftNotFound,
     DraftNotReadyForPublishApproval,
@@ -1727,6 +1728,9 @@ def drafts_schedule(
     except (SchedulingDraftNotFound, DraftNotReadyForScheduling) as error:
         raise typer.BadParameter(str(error), param_hint="--draft-id") from error
     typer.echo(f"Scheduled post #{draft.id} for {draft.scheduled_for}; status is {draft.status}.")
+    feedback = build_scheduled_post_feedback(connection)
+    if feedback.items:
+        typer.echo(feedback.to_text())
 
 
 @drafts_app.command("request-publish-approval")
