@@ -693,7 +693,7 @@ As of the first live carousel smoke, the local-first workflow is past the origin
 - Agent-initiated suggestions are modeled locally through `post_opportunities` and safe trigger checks, but proactive Discord outreach has not been implemented yet.
 - DM intake now avoids the worst broad-request failure mode by asking for narrowing cues before suggesting huge weak matches, matched large sets point operators to bounded artifact planning, and natural request matching uses local folder/year/filename descriptors with explainable rationale.
 - Oversized full contact-sheet renders are blocked by `drafts artifacts render`; instead, the CLI prints a bounded, DM-safe first-pass plan with narrowing/sample guidance and no source paths.
-- Single-image publish validation has completed one live smoke test. The first live carousel smoke for draft `2` succeeded through the guarded Meta path. Schedule enforcement, final publish caption/metadata preview, publish exports, resolved Meta `location_id` support, local post-publish analytics snapshots, explicit read-only insights storage, and local-only recommendation feedback summaries are implemented through Milestone 30.
+- Single-image publish validation has completed one live smoke test. The first live carousel smoke for draft `2` succeeded through the guarded Meta path. Schedule enforcement, final publish caption/metadata preview, publish exports, resolved Meta `location_id` support, local post-publish analytics snapshots, explicit read-only insights storage, and local-only recommendation feedback summaries are implemented through PR #56.
 
 ## Immediate next plan
 
@@ -946,7 +946,7 @@ Current local result: `14 passed` focused; `174 passed` full suite.
 2. Move next to recommendation feedback summaries from stored `published_post_snapshots` + `media_insight_snapshots`.
 3. Summaries should compare outcomes against caption length/style, carousel count/order, timing, resolved location tag usage, and export format, without auto-changing approved drafts or publishing anything.
 
-### Milestone 30: `feat/recommendation-feedback-summaries` (completed in this branch)
+### PR #56 / Milestone 30: `feat/recommendation-feedback-summaries`
 
 **Goal:** Turn local published payload snapshots and stored insight metrics into human-readable recommendation feedback for future post planning.
 
