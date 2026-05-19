@@ -21,6 +21,7 @@ Early local-first MVP scaffold with:
 - sanitized read-only Meta Graph validation CLI
 - controlled single-image and carousel Meta publish validation CLIs with dry-run planning, approval guards, staged-R2 URL resolution, schedule enforcement, container creation/status polling/publish execution, hashtags merged into the Meta caption payload, and sanitized attempt logging
 - no-network scheduled publish preflight/execute wrapper for due staged-R2 posts that re-validates schedule, durable active approvals, and media completeness before Meta execution
+- scriptless unattended publish planning that verifies a ready approved staged-R2 post before its due time and emits the exact guarded scheduled job command/prompt, avoiding per-post helper scripts
 - no-network final publish preview that shows the exact Meta-bound caption, selected staged media URLs, publishable fields, and local/review-only metadata before live execution
 - Instagram-optimized local publish exports for 4:5 portrait feed/carousel assets, including mixed-orientation warnings and contact sheets built from the actual exported files
 - resolved Meta location tags stored separately from freeform location text, with draft-aware candidate search/clarification, explicit `location_id` final preview/publish payloads only after reviewed Page selection and reapproval
@@ -81,6 +82,7 @@ Use the project virtualenv when running locally:
 .venv/bin/post-relay meta validate-carousel-publish --draft-id 2 --from-staged-r2 --config config/photo_sources.yaml --db data/post_relay.sqlite --dry-run
 .venv/bin/post-relay meta final-publish-preview --draft-id 2 --from-staged-r2 --config config/photo_sources.yaml --db data/post_relay.sqlite
 .venv/bin/post-relay meta publish-scheduled --draft-id 2 --from-staged-r2 --config config/photo_sources.yaml --db data/post_relay.sqlite
+.venv/bin/post-relay meta unattended-publish-plan --draft-id 2 --from-staged-r2 --config config/photo_sources.yaml --db data/post_relay.sqlite --env-file .env
 # Execute only when due and explicitly authorized in the active session:
 .venv/bin/post-relay meta publish-scheduled --draft-id 2 --from-staged-r2 --config config/photo_sources.yaml --db data/post_relay.sqlite --env-file .env --execute
 .venv/bin/post-relay analytics snapshot --draft-id 2 --db data/post_relay.sqlite
