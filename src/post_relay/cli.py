@@ -126,6 +126,8 @@ from post_relay.post_opportunities import (
     convert_post_opportunity_to_draft,
     create_post_opportunity_result,
     dismiss_post_opportunity,
+    mark_post_opportunity_dm_sent,
+    plan_proactive_opportunity_dm,
     snooze_post_opportunity,
 )
 from post_relay.repository import (
@@ -795,6 +797,39 @@ def opportunities_list(
             f"#{opportunity.id} {opportunity.title} — {opportunity.trigger_type}, {opportunity.status}{candidate}{draft}"
         )
     typer.echo("No Discord or Meta network calls were made.")
+
+
+@opportunities_app.command("dm-plan")
+def opportunities_dm_plan(
+    opportunity_id: int = typer.Option(..., "--opportunity-id", help="Opportunity id."),
+    db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
+) -> None:
+    """Render an operator-approved proactive DM plan without sending Discord."""
+    connection = connect_db(db)
+    initialize_db(connection)
+    try:
+        plan = plan_proactive_opportunity_dm(connection, opportunity_id)
+    except PostOpportunityError as error:
+        raise typer.BadParameter(str(error), param_hint="--opportunity-id") from error
+    typer.echo(plan.to_text())
+
+
+@opportunities_app.command("mark-dm-sent")
+def opportunities_mark_dm_sent(
+    opportunity_id: int = typer.Option(..., "--opportunity-id", help="Opportunity id."),
+    db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
+) -> None:
+    """Mark an opportunity as proactively DM-sent after an explicitly authorized send."""
+    connection = connect_db(db)
+    initialize_db(connection)
+    try:
+        opportunity = mark_post_opportunity_dm_sent(connection, opportunity_id)
+    except PostOpportunityError as error:
+        raise typer.BadParameter(str(error), param_hint="--opportunity-id") from error
+    connection.commit()
+    typer.echo(
+        f"Post opportunity #{opportunity.id} marked DM sent. No Discord, R2, or Meta network calls were made."
+    )
 
 
 @opportunities_app.command("dismiss")

@@ -690,19 +690,19 @@ As of the first live carousel smoke, the local-first workflow is past the origin
 - Local processed/NAS folders are still the source of truth; generated artifacts and R2 objects are disposable staging/review layers.
 - Candidate groups, drafts, media selection, context questions, guided packages, scheduling, draft approval, and publish approval all exist as local SQLite/CLI workflows.
 - Private Discord DM flows are live-capable for user-initiated intake, X-from-Y media selection, guided review/copy acceptance, scheduling, and double-confirmed final local publish approval.
-- Agent-initiated suggestions are modeled locally through `post_opportunities` and safe trigger checks, but proactive Discord outreach has not been implemented yet.
+- Agent-initiated suggestions are modeled locally through `post_opportunities` and safe trigger checks; proactive outreach now has local DM planning and mark-sent controls, but no live proactive Discord send should happen without explicit active-session authorization.
 - DM intake now avoids the worst broad-request failure mode by asking for narrowing cues before suggesting huge weak matches, matched large sets point operators to bounded artifact planning, and natural request matching uses local folder/year/filename descriptors with explainable rationale.
 - Oversized full contact-sheet renders are blocked by `drafts artifacts render`; instead, the CLI prints a bounded, DM-safe first-pass plan with narrowing/sample guidance and no source paths.
 - Single-image publish validation has completed one live smoke test. The first live carousel smoke for draft `2` succeeded through the guarded Meta path. Schedule enforcement, final publish caption/metadata preview, publish exports, resolved Meta `location_id` support, local post-publish analytics snapshots, explicit read-only insights storage, local-only recommendation feedback summaries, post terminology cleanup, local follower-growth tracking, Meta token extension, DM next-action planning, durable scheduled publish approvals, and warm-dark chat artifact rendering are implemented on `main`.
 
 ## Immediate next plan
 
-This handoff refresh follows the chat artifact refresh PR #62 and the follow-up contact-sheet design v2 hardening PR #64, both merged to `main`.
+This handoff refresh follows the chat artifact refresh PR #62, contact-sheet design v2 hardening PR #64, and DM operating-loop hardening PR #65, all merged to `main`.
 
 1. Use `analytics feedback-summary` plus `analytics follower-summary` as deterministic advisory baselines when planning the next reviewed post.
 2. Andrew validated the refreshed Stage 1/Stage 2/Stage 3 assets in a real Discord chat against the upcoming post; continue the upcoming-post operation through the Discord agent rather than adding more artifact design work first.
-3. Current engineering branch/PR: `feat/dm-operating-loop-hardening` / PR #65, focused on making the private-DM next-action planner reliably lead with the Stage 1/2/3 artifact loop and keeping advisory DM commands no-network/no-`--execute` by default.
-4. After that, choose between `feat/proactive-opportunity-dm-controls`, `feat/video-reel-validation`, or `feat/local-media-discovery-enrichment`.
+3. Current engineering branch/PR: `feat/proactive-opportunity-dm-controls` / PR #66, focused on rendering safe proactive opportunity DM copy plus explicit local mark-sent controls without sending Discord, R2, or Meta requests.
+4. After that, choose between `feat/video-reel-validation` or `feat/local-media-discovery-enrichment`.
 5. Keep recommendation and follower-growth feedback advisory-only until several real posts and account snapshots provide enough signal.
 6. Keep live-safe defaults: no Discord sends, no R2 `--execute`, and no Meta `--execute` unless explicitly authorized in the active session.
 
@@ -1160,7 +1160,7 @@ Current branch result: `59 passed` focused; `248 passed` full suite.
 3. Current branch/PR `feat/dm-operating-loop-hardening` / PR #65 should make the private-DM user-initiated loop first-class around the Stage 1/2/3 artifacts and no-network advisory commands.
 4. Keep `feat/proactive-opportunity-dm-controls`, `feat/video-reel-validation`, and `feat/local-media-discovery-enrichment` as the following milestone candidates.
 
-### PR #65 / Milestone 38: `feat/dm-operating-loop-hardening` (open)
+### PR #65 / Milestone 38: `feat/dm-operating-loop-hardening` (merged)
 
 **Goal:** Make `dm next-action` safer and more useful as the operator entry point for the private-DM Stage 1/2/3 review loop.
 
@@ -1177,17 +1177,36 @@ Current branch result: `59 passed` focused; `248 passed` full suite.
 .venv/bin/python -m pytest -q
 ```
 
+### PR #66 / Milestone 39: `feat/proactive-opportunity-dm-controls` (open)
+
+**Goal:** Let the operator safely turn local post opportunities into proactive private-DM suggestions without implementing autonomous Discord outreach.
+
+**Delivered behavior in branch so far:**
+- Added local `opportunities dm-plan --opportunity-id ...` output that renders sanitized suggested DM copy, candidate/post linkage, yes/snooze/dismiss reply controls, and exact operator follow-up commands.
+- Added local `opportunities mark-dm-sent --opportunity-id ...` to record that an explicitly authorized proactive send happened outside the no-network planner path; active `dm_sent` opportunities continue to dedupe future trigger checks.
+- `dm-plan` and `mark-dm-sent` make no Discord, R2, or Meta calls and do not convert opportunities or create posts automatically.
+- Terminal opportunities such as dismissed/converted records cannot be marked as DM sent.
+
+**Safety rule:** Proactive opportunity controls are local/operator-facing only. Do not send a proactive Discord DM unless Andrew explicitly authorizes the live send in the active session; after any authorized send, record only the local `dm_sent` status with `opportunities mark-dm-sent`.
+
+**Verification:**
+
+```bash
+.venv/bin/python -m pytest tests/test_post_opportunities.py tests/test_opportunity_trigger_checks.py -q
+.venv/bin/python -m pytest -q
+```
+
 ## Later milestones
 
 - Video/reel validation after feed/carousel path is reliable.
-- Proactive opportunity DM controls after more user-initiated DM sessions prove the workflow.
+- Deeper local media discovery/enrichment for candidate/media narrowing once proactive opportunity controls stay operator-gated.
 - Recommendation improvements using approval, revision, and engagement history after the first deterministic feedback summaries land.
 - Candidate/media narrowing follow-ups for natural DM requests should now build on the completed local descriptor/alias ranking and bounded artifact guardrails: lightweight metadata search, generated tags, or Immich enrichment only if they stay auditable and local-first.
 - Immich/NAS enrichment once the processed-folder MVP works.
 
 ## Known open questions
 
-- Whether proactive agent-initiated Discord opportunity DMs should be enabled after more user-initiated DM sessions prove the workflow.
+- Whether and when to add a live proactive Discord send command on top of the local `opportunities dm-plan`/`mark-dm-sent` controls.
 - How far candidate/media narrowing should go before Immich/NAS enrichment: folder/date/filename tokens only, lightweight local metadata, generated tags, perceptual/semantic embeddings, or Immich metadata once reliable.
 - Exact current Meta permission/token state before the next live publish or read-only insights collection run.
 - Whether reel/video validation should happen immediately after publish hardening or wait until feed/carousel cadence and analytics are stable.
