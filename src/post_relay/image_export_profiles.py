@@ -24,7 +24,7 @@ PROFILES = {
     "feed_square": ImageExportProfile("feed_square", 1080, 1080),
 }
 
-LANDSCAPE_TREATMENTS = {"clean_mat"}
+LANDSCAPE_TREATMENTS = {"clean_mat", "center_crop"}
 
 
 def choose_treatment(source_orientation: str, profile: ImageExportProfile, landscape_treatment: str) -> str:

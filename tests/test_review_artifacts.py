@@ -14,7 +14,6 @@ from post_relay.review_artifacts import (
     DraftNotFound,
     OversizedReviewArtifactSet,
     UnsafeArtifactRoot,
-    _prepare_crop_preview,
     plan_bounded_review_artifacts_for_draft,
     render_review_artifacts_for_draft,
 )
@@ -248,25 +247,21 @@ def test_render_review_artifacts_can_render_crop_after_selection_sheet_exists(tm
     assert Path(package.crop_contact_sheet_path).is_file()
 
 
-def test_crop_preview_uses_final_3x4_export_treatment_for_landscape_sources():
-    from post_relay.media_selection import DraftMediaPlanItem
+def test_crop_stage_keeps_crop_area_overlay_instead_of_export_matte_preview(tmp_path: Path):
+    connection, draft, source_paths = _build_image_fixture_draft(tmp_path, image_count=5)
+    artifact_config = ReviewArtifactsConfig(root=tmp_path / "review_artifacts")
+    render_review_artifacts_for_draft(connection, draft.id, artifact_config, stage="select")
+    apply_draft_media_selection(connection, draft.id, lead=5, keep=[5], post_type="single_image")
 
-    source = Image.new("RGB", (700, 467), "blue")
-    item = DraftMediaPlanItem(
-        review_number=5,
-        photo_id=42,
-        local_file_path="/photos/landscape.jpg",
-        role="primary",
-        include_status="included",
-        crop_ratio=3 / 4,
-    )
+    package = render_review_artifacts_for_draft(connection, draft.id, artifact_config, stage="crop")
 
-    photo, preview = _prepare_crop_preview(item, source)
-
-    assert (photo.w, photo.h) == (1080, 1440)
-    assert preview.size == (1080, 1440)
-    assert preview.getpixel((20, 20)) == (255, 255, 255)
-    assert preview.getpixel((540, 720))[:3] == (0, 0, 255)
+    with Image.open(package.crop_contact_sheet_path) as sheet:
+        assert _count_near_white_pixels(sheet, (32, 212, 478, 658)) > 400
+        # Stage 2 should be a crop/framing decision sheet, not the final
+        # publish-export matte. A landscape source still appears landscape in
+        # the crop cell with the crop rectangle/grid overlaid.
+        assert sheet.getpixel((360, 224))[:3] != (255, 255, 255)
+    assert source_paths[4].name == "05-tokyo.jpg"
 
 
 def test_render_review_artifacts_text_lists_outputs(tmp_path: Path):
@@ -288,6 +283,7 @@ def test_render_review_artifacts_text_lists_outputs(tmp_path: Path):
     assert "contact-sheet-select.png" in text
     assert "selection only; no crop framing" in text
     assert "Stage 2 · Crop:" in text
+    assert "crop/framing only; final export treatment appears in final review" in text
     assert "contact-sheet-crop.png" in text
 
 

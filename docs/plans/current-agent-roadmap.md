@@ -1239,6 +1239,7 @@ Current branch result: `59 passed` focused; `248 passed` full suite.
 ## Later milestones
 
 - Video/reel validation after feed/carousel path is reliable.
+- Per-media carousel alt text validation: model/store one accessibility note per selected media item, render it in final review, validate whether Instagram Graph supports any automated alt-text field for the active API/app combination, and keep unsupported fields review-only/manual without silently sending them to Meta.
 - Generated local tags or perceptual/semantic narrowing on top of the completed no-network dimensions/EXIF enrichment, if kept auditable and local-first.
 - Recommendation improvements using approval, revision, and engagement history after the first deterministic feedback summaries land.
 - Candidate/media narrowing follow-ups for natural DM requests should now build on the completed local descriptor/alias ranking, bounded artifact guardrails, and local metadata enrichment: lightweight metadata search, generated tags, or Immich enrichment only if they stay auditable and local-first.

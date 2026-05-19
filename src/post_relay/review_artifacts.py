@@ -12,8 +12,7 @@ from PIL import Image, ImageDraw, ImageFont, ImageOps
 
 from post_relay.config import ReviewArtifactsConfig
 from post_relay.contact_sheet_design import ContactSheetPhoto, chess_from_anchor, chess_span, crop_box, label_from_index, ratio_label, tightness_label
-from post_relay.image_export_profiles import PROFILES, choose_treatment, export_image_for_profile, orientation
-from post_relay.media_selection import DraftMediaPlanItem, build_draft_media_plan
+from post_relay.media_selection import build_draft_media_plan
 from post_relay.repository import get_candidate_group, get_draft, list_candidate_group_photo_paths
 
 
@@ -127,6 +126,7 @@ class ReviewArtifactsPackage:
                 [
                     "Stage 2 · Crop:",
                     f"  {self.crop_contact_sheet_path}",
+                    "  crop/framing only; final export treatment appears in final review",
                 ]
             )
         return "\n".join(lines)
@@ -233,9 +233,10 @@ def render_review_artifacts_for_draft(
                 tight=item.crop_tightness,
             )
             is_lead = item.role == "primary"
-            contact_sheet_photos.append((contact_photo, full_image.copy(), is_lead))
-            crop_photo, crop_preview = _prepare_crop_preview(item, full_image)
-            crop_contact_sheet_photos.append((crop_photo, crop_preview, is_lead))
+            if render_select:
+                contact_sheet_photos.append((contact_photo, full_image.copy(), is_lead))
+            if render_crop:
+                crop_contact_sheet_photos.append((contact_photo, full_image.copy(), is_lead))
             thumbnails.append(
                 ThumbnailArtifact(
                     source_path=source.as_posix(),
@@ -288,32 +289,6 @@ def render_review_artifacts_for_draft(
         select_contact_sheet_path=rendered_select_contact_sheet_path,
         crop_contact_sheet_path=rendered_crop_contact_sheet_path,
     )
-
-
-def _prepare_crop_preview(item: DraftMediaPlanItem, image: Image.Image) -> tuple[ContactSheetPhoto, Image.Image]:
-    profile = PROFILES["feed_portrait_3x4"]
-    source_orientation = orientation(image.width, image.height)
-    treatment = choose_treatment(source_orientation, profile, "clean_mat")
-    preview = export_image_for_profile(
-        image,
-        profile,
-        treatment,
-        crop_anchor_x=item.crop_anchor_x,
-        crop_anchor_y=item.crop_anchor_y,
-        crop_tightness=item.crop_tightness,
-    )
-    photo = ContactSheetPhoto(
-        n=item.review_number,
-        file=Path(item.local_file_path).name,
-        src=item.local_file_path,
-        w=preview.width,
-        h=preview.height,
-        ratio=profile.ratio,
-        ax=0.5,
-        ay=0.5,
-        tight=1.0,
-    )
-    return photo, preview
 
 
 def _ensure_artifact_root_is_safe(artifact_root: Path, protected_source_roots: Sequence[Path]) -> None:
