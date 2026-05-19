@@ -697,11 +697,11 @@ As of the first live carousel smoke, the local-first workflow is past the origin
 
 ## Immediate next plan
 
-This handoff refresh follows the chat artifact refresh PR #62 and the follow-up contact-sheet design v2 hardening PR #64.
+This handoff refresh follows the chat artifact refresh PR #62 and the follow-up contact-sheet design v2 hardening PR #64, both merged to `main`.
 
 1. Use `analytics feedback-summary` plus `analytics follower-summary` as deterministic advisory baselines when planning the next reviewed post.
 2. Andrew validated the refreshed Stage 1/Stage 2/Stage 3 assets in a real Discord chat against the upcoming post; continue the upcoming-post operation through the Discord agent rather than adding more artifact design work first.
-3. Next engineering milestone recommendation: `feat/dm-operating-loop-hardening`, focused on making the private-DM user-initiated flow reliably send/use the Stage 1 selection asset, apply keep/drop/reorder/lead/crop feedback, regenerate Stage 2 crop review, and present Stage 3 approval while preserving explicit content approval, scheduling, final publish approval, and separate live Meta execution authorization.
+3. Current engineering branch/PR: `feat/dm-operating-loop-hardening` / PR #65, focused on making the private-DM next-action planner reliably lead with the Stage 1/2/3 artifact loop and keeping advisory DM commands no-network/no-`--execute` by default.
 4. After that, choose between `feat/proactive-opportunity-dm-controls`, `feat/video-reel-validation`, or `feat/local-media-discovery-enrichment`.
 5. Keep recommendation and follower-growth feedback advisory-only until several real posts and account snapshots provide enough signal.
 6. Keep live-safe defaults: no Discord sends, no R2 `--execute`, and no Meta `--execute` unless explicitly authorized in the active session.
@@ -1155,10 +1155,27 @@ Current merged-main result: `248 passed` full suite.
 Current branch result: `59 passed` focused; `248 passed` full suite.
 
 **Next-session start here:**
-1. Merge the design v2 branch, sync `main`, and verify `.venv/bin/python -m pytest -q` still reports `248 passed`.
+1. PR #64 is merged and `main` is synced; `.venv/bin/python -m pytest -q` reports `248 passed`.
 2. Andrew will continue the upcoming-post operation in Discord; engineering should not run live R2 or Meta commands for that post unless explicitly authorized in the active session.
-3. Start next branch `feat/dm-operating-loop-hardening` to make the private-DM user-initiated loop first-class around the Stage 1/2/3 artifacts.
+3. Current branch/PR `feat/dm-operating-loop-hardening` / PR #65 should make the private-DM user-initiated loop first-class around the Stage 1/2/3 artifacts and no-network advisory commands.
 4. Keep `feat/proactive-opportunity-dm-controls`, `feat/video-reel-validation`, and `feat/local-media-discovery-enrichment` as the following milestone candidates.
+
+### PR #65 / Milestone 38: `feat/dm-operating-loop-hardening` (open)
+
+**Goal:** Make `dm next-action` safer and more useful as the operator entry point for the private-DM Stage 1/2/3 review loop.
+
+**Delivered behavior in branch so far:**
+- Drafting/needs-edits next-action output now leads with local artifact rendering before the live-capable DM selection send command, so `contact-sheet-select.png`, `contact-sheet-crop.png`, and `final-post-preview.png` stay visible in the operator path.
+- Ready-to-publish next-action output now suggests no-network final preview and scheduled publish preflight commands without `--execute`; live Meta execution remains a separate active-session authorization step.
+
+**Safety rule:** `dm next-action` remains advisory/local-only. It must not send Discord messages, mutate post state, call R2, call Meta, or imply live publish authorization. Any Meta `--execute` command must be typed intentionally only after Andrew explicitly authorizes it in the active session.
+
+**Verification:**
+
+```bash
+.venv/bin/python -m pytest tests/test_dm_operating_loop.py -q
+.venv/bin/python -m pytest -q
+```
 
 ## Later milestones
 
