@@ -148,6 +148,17 @@ class PublishedPostSnapshotRecord:
 
 
 @dataclass(frozen=True)
+class MediaInsightSnapshotRecord:
+    id: int
+    draft_id: int
+    published_post_snapshot_id: int
+    published_media_id: str
+    metrics: dict[str, int | float | str | None]
+    raw_payload: dict
+    collected_at: str
+
+
+@dataclass(frozen=True)
 class DraftLocationTagRecord:
     id: int
     draft_id: int
@@ -1310,6 +1321,64 @@ def get_published_post_snapshot_for_draft(
     return _published_post_snapshot_from_row(row)
 
 
+def create_media_insight_snapshot(
+    connection,
+    *,
+    draft_id: int,
+    published_post_snapshot_id: int,
+    published_media_id: str,
+    metrics: dict[str, int | float | str | None],
+    raw_payload: dict,
+    collected_at: str,
+) -> MediaInsightSnapshotRecord:
+    cursor = connection.execute(
+        """
+        insert into media_insight_snapshots (
+            draft_id, published_post_snapshot_id, published_media_id,
+            metrics_json, raw_payload_json, collected_at
+        ) values (?, ?, ?, ?, ?, ?)
+        """,
+        (
+            draft_id,
+            published_post_snapshot_id,
+            published_media_id,
+            json.dumps(metrics, sort_keys=True),
+            json.dumps(raw_payload, sort_keys=True),
+            collected_at,
+        ),
+    )
+    return get_media_insight_snapshot(connection, int(cursor.lastrowid))
+
+
+def get_media_insight_snapshot(connection, snapshot_id: int) -> Optional[MediaInsightSnapshotRecord]:
+    row = connection.execute(
+        """
+        select id, draft_id, published_post_snapshot_id, published_media_id,
+               metrics_json, raw_payload_json, collected_at
+        from media_insight_snapshots
+        where id = ?
+        """,
+        (snapshot_id,),
+    ).fetchone()
+    if row is None:
+        return None
+    return _media_insight_snapshot_from_row(row)
+
+
+def list_media_insight_snapshots(connection, draft_id: int) -> list[MediaInsightSnapshotRecord]:
+    rows = connection.execute(
+        """
+        select id, draft_id, published_post_snapshot_id, published_media_id,
+               metrics_json, raw_payload_json, collected_at
+        from media_insight_snapshots
+        where draft_id = ?
+        order by id
+        """,
+        (draft_id,),
+    ).fetchall()
+    return [_media_insight_snapshot_from_row(row) for row in rows]
+
+
 def create_r2_staged_object_record(
     connection,
     *,
@@ -1455,6 +1524,18 @@ def _published_post_snapshot_from_row(row) -> PublishedPostSnapshotRecord:
         actual_published_at=row[9],
         location_page_id=row[10],
         location_name=row[11],
+    )
+
+
+def _media_insight_snapshot_from_row(row) -> MediaInsightSnapshotRecord:
+    return MediaInsightSnapshotRecord(
+        id=int(row[0]),
+        draft_id=int(row[1]),
+        published_post_snapshot_id=int(row[2]),
+        published_media_id=row[3],
+        metrics=json.loads(row[4]) if row[4] else {},
+        raw_payload=json.loads(row[5]) if row[5] else {},
+        collected_at=row[6],
     )
 
 

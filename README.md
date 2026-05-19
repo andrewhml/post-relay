@@ -23,6 +23,7 @@ Early local-first MVP scaffold with:
 - Instagram-optimized local publish exports for 4:5 portrait feed/carousel assets, including mixed-orientation warnings and contact sheets built from the actual exported files
 - resolved Meta location tags stored separately from freeform location text, with draft-aware candidate search/clarification, explicit `location_id` final preview/publish payloads only after reviewed Page selection and reapproval
 - local post-publish analytics snapshots that capture published media ids, final Meta-bound caption/media URLs, schedule vs actual publish time, resolved location tag, and export dimensions from staged media records without network calls
+- guarded read-only insights fetch/storage for published media behind explicit `analytics insights-fetch --execute`, with dry-run default and local metric audit records
 - guarded R2 staging upload/cleanup CLI with recorded-object-only deletion and explicit `--execute` safeguards
 - explicit Instagram capability matrix separating publishable fields from local/review-only metadata
 - guarded draft workflow state model
@@ -44,7 +45,7 @@ Early local-first MVP scaffold with:
 - `graph.instagram.com` returned `Invalid platform app` in current setup
 
 ## Immediate goals
-1. Continue post-publish analytics/feedback work by adding actual read-only insights fetch/storage after local snapshots and plans are in place
+1. Add recommendation feedback summaries from stored post-publish snapshots and read-only insight metrics
 2. Keep improving the private-DM-first, user-initiated workflow for selecting photos, accepting hook-first captions/metadata, scheduling, and recording local approvals
 3. Keep agent-initiated suggestions local-only until the user-initiated flow has enough successful sessions; then add proactive Discord DMs behind explicit safe trigger and opt-out controls
 4. After feed/carousel publishing is reliable, add read-only insights collection, recommendation improvements, and later reel/video validation
@@ -74,6 +75,9 @@ Use the project virtualenv when running locally:
 .venv/bin/post-relay meta publish-scheduled --draft-id 2 --from-staged-r2 --config config/photo_sources.yaml --db data/post_relay.sqlite --env-file .env --execute
 .venv/bin/post-relay analytics snapshot --draft-id 2 --db data/post_relay.sqlite
 .venv/bin/post-relay analytics insights-plan --draft-id 2 --db data/post_relay.sqlite
+.venv/bin/post-relay analytics insights-fetch --draft-id 2 --db data/post_relay.sqlite
+# Execute only for read-only insights collection when the token has instagram_manage_insights:
+.venv/bin/post-relay analytics insights-fetch --draft-id 2 --metric reach --metric likes --metric comments --metric saved --metric shares --db data/post_relay.sqlite --env-file .env --execute
 .venv/bin/post-relay candidates build --db data/post_relay.sqlite
 .venv/bin/post-relay candidates list --db data/post_relay.sqlite
 .venv/bin/post-relay drafts create --candidate-id 1 --db data/post_relay.sqlite

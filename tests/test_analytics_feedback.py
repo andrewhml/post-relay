@@ -7,6 +7,7 @@ from typer.testing import CliRunner
 from post_relay.analytics_feedback import (
     PublishedPostSnapshotNotReady,
     build_insights_collection_plan,
+    collect_and_store_media_insights,
     record_published_post_snapshot,
 )
 from post_relay.approvals import approve_draft_content, submit_draft_for_review
@@ -23,6 +24,7 @@ from post_relay.repository import (
     get_draft,
     get_published_post_snapshot_for_draft,
     list_candidate_groups,
+    list_media_insight_snapshots,
 )
 from post_relay.scheduling import approve_draft_for_publishing, request_publish_approval, schedule_draft
 from post_relay.state import DraftState
@@ -254,3 +256,174 @@ def test_analytics_snapshot_cli_renders_local_snapshot_without_network(tmp_path:
     assert "Media dimensions:" in result.output
     assert "1080x1350" in result.output
     assert "No network calls were made" in result.output
+
+
+def _insert_successful_publish_attempt(connection, draft, public_urls):
+    connection.execute(
+        """
+        insert into publish_attempts (
+            draft_id, post_type, image_url, caption, container_id, published_media_id,
+            status, status_code, image_urls_json, child_container_ids_json
+        ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            draft.id,
+            "carousel",
+            public_urls[0],
+            "Night market glow.",
+            "carousel-123",
+            "media-789",
+            "published",
+            "FINISHED",
+            '["https://peddocks.net/post-relay/staging/drafts/1/media/01-market.jpg", "https://peddocks.net/post-relay/staging/drafts/1/media/02-lanterns.jpg"]',
+            '["child-1", "child-2"]',
+        ),
+    )
+    connection.execute("update drafts set status = ? where id = ?", (DraftState.POSTED.value, draft.id))
+    connection.commit()
+    return record_published_post_snapshot(
+        connection,
+        draft.id,
+        actual_published_at="2026-05-19T10:02:30-04:00",
+    )
+
+
+def test_meta_graph_client_fetches_media_insights_with_read_only_get():
+    requested = []
+
+    def fake_transport(method, url, params):
+        requested.append((method, url, dict(params)))
+        return {
+            "data": [
+                {"name": "reach", "period": "lifetime", "values": [{"value": 420}]},
+                {"name": "likes", "period": "lifetime", "values": [{"value": 37}]},
+            ]
+        }
+
+    client = MetaGraphClient(MetaGraphConfig(access_token="secret-token"), transport=fake_transport)
+
+    payload = client.get_media_insights("media-789", metrics=["reach", "likes"])
+
+    assert payload["data"][0]["name"] == "reach"
+    assert requested == [
+        (
+            "GET",
+            "https://graph.facebook.com/v19.0/media-789/insights",
+            {"metric": "reach,likes", "access_token": "secret-token"},
+        )
+    ]
+
+
+def test_collect_and_store_media_insights_persists_read_only_metrics(tmp_path: Path):
+    connection, draft, public_urls = _build_ready_carousel_with_exported_staged_media(tmp_path)
+    _insert_successful_publish_attempt(connection, draft, public_urls)
+    requested = []
+
+    def fake_transport(method, url, params):
+        requested.append((method, url, dict(params)))
+        return {
+            "data": [
+                {"name": "reach", "period": "lifetime", "values": [{"value": 420}]},
+                {"name": "likes", "period": "lifetime", "values": [{"value": 37}]},
+            ]
+        }
+
+    client = MetaGraphClient(MetaGraphConfig(access_token="secret-token"), transport=fake_transport)
+
+    result = collect_and_store_media_insights(
+        connection,
+        draft.id,
+        client=client,
+        metrics=["reach", "likes"],
+        collected_at="2026-05-20T10:00:00-04:00",
+    )
+
+    assert result.draft_id == draft.id
+    assert result.published_media_id == "media-789"
+    assert result.metrics == {"reach": 420, "likes": 37}
+    assert result.collected_at == "2026-05-20T10:00:00-04:00"
+    assert requested[0][0] == "GET"
+    records = list_media_insight_snapshots(connection, draft.id)
+    assert len(records) == 1
+    assert records[0].metrics == {"reach": 420, "likes": 37}
+
+
+def test_analytics_insights_fetch_requires_execute_before_meta_network(tmp_path: Path):
+    connection, draft, public_urls = _build_ready_carousel_with_exported_staged_media(tmp_path)
+    db_path = tmp_path / "post_relay.sqlite"
+    _insert_successful_publish_attempt(connection, draft, public_urls)
+    connection.close()
+
+    result = runner.invoke(
+        app,
+        [
+            "analytics",
+            "insights-fetch",
+            "--draft-id",
+            str(draft.id),
+            "--db",
+            str(db_path),
+            "--env-file",
+            str(tmp_path / "missing.env"),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "Dry run only" in result.output
+    assert "No Meta network calls were made" in result.output
+    assert "--execute" in result.output
+
+
+def test_analytics_insights_fetch_cli_execute_collects_and_stores_with_injected_client(tmp_path: Path, monkeypatch):
+    connection, draft, public_urls = _build_ready_carousel_with_exported_staged_media(tmp_path)
+    db_path = tmp_path / "post_relay.sqlite"
+    _insert_successful_publish_attempt(connection, draft, public_urls)
+    connection.close()
+
+    class FakeClient:
+        def get_media_insights(self, media_id, *, metrics):
+            assert media_id == "media-789"
+            assert list(metrics) == ["reach", "likes"]
+            return {
+                "data": [
+                    {"name": "reach", "period": "lifetime", "values": [{"value": 420}]},
+                    {"name": "likes", "period": "lifetime", "values": [{"value": 37}]},
+                ]
+            }
+
+    monkeypatch.setattr("post_relay.cli.load_meta_graph_config", lambda env_file: MetaGraphConfig(access_token="secret-token"))
+    monkeypatch.setattr("post_relay.cli.MetaGraphClient", lambda config: FakeClient())
+
+    result = runner.invoke(
+        app,
+        [
+            "analytics",
+            "insights-fetch",
+            "--draft-id",
+            str(draft.id),
+            "--metric",
+            "reach",
+            "--metric",
+            "likes",
+            "--collected-at",
+            "2026-05-20T10:00:00-04:00",
+            "--execute",
+            "--db",
+            str(db_path),
+            "--env-file",
+            str(tmp_path / "private.env"),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "Read-only Instagram insights fetched" in result.output
+    assert "Published media ID: media-789" in result.output
+    assert "reach: 420" in result.output
+    assert "likes: 37" in result.output
+    assert "Publishing endpoints called: no" in result.output
+
+    verify_connection = connect_db(db_path)
+    initialize_db(verify_connection)
+    records = list_media_insight_snapshots(verify_connection, draft.id)
+    assert len(records) == 1
+    assert records[0].metrics == {"reach": 420, "likes": 37}
