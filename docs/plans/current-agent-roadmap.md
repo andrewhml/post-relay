@@ -1236,6 +1236,24 @@ Current branch result: `59 passed` focused; `248 passed` full suite.
 .venv/bin/python -m pytest -q
 ```
 
+### PR #73 / Milestone 42: `feat/contact-sheet-two-gate-approval`
+
+**Goal:** Land Andrew's refreshed contact-sheet/final-post review visuals and simplify final scheduling approval back to the intended two-gate model.
+
+**Delivered behavior:**
+- Contact-sheet/final-post artifact rendering uses the updated warm-dark design treatment and keeps final review sheets legible for multi-image carousels.
+- Final publish approval is the second approval gate after content approval; `drafts request-publish-approval` remains only as a legacy no-op compatibility path.
+- `drafts approve-publish --post-id N` can move a scheduled post directly to `ready_to_publish` when content approval remains active.
+- Discord DM final publish approval copy now asks for one final confirmation phrase instead of a request step plus a separate approval step.
+
+**Safety rule:** This milestone changes local review artifacts, CLI/DM copy, and approval state transitions only. It does not send Discord messages, upload to R2, call Meta, create Meta containers, or authorize live publish execution.
+
+**Verification:**
+
+```bash
+.venv/bin/python -m pytest -q
+```
+
 ## Later milestones
 
 - Video/reel validation after feed/carousel path is reliable.
