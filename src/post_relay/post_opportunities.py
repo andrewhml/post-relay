@@ -67,6 +67,41 @@ class PostOpportunityCommandResult:
         return "\n".join(lines)
 
 
+@dataclass(frozen=True)
+class ProactiveOpportunityDmPlan:
+    opportunity: PostOpportunityRecord
+    suggested_dm_copy: str
+    requires_explicit_send_authorization: bool = True
+
+    def to_text(self) -> str:
+        lines = [
+            f"Proactive opportunity DM plan for opportunity #{self.opportunity.id}: {self.opportunity.title}",
+            f"Status: {self.opportunity.status}",
+            f"Trigger: {self.opportunity.trigger_type} / {self.opportunity.trigger_key}",
+        ]
+        if self.opportunity.candidate_group_id is not None:
+            lines.append(f"Candidate group: #{self.opportunity.candidate_group_id}")
+        if self.opportunity.draft_id is not None:
+            lines.append(f"Linked post: #{self.opportunity.draft_id}")
+        lines.extend(
+            [
+                f"Summary: {self.opportunity.summary}",
+                f"Rationale: {self.opportunity.rationale}",
+                "Suggested DM copy:",
+                self.suggested_dm_copy,
+                "Reply with one of: yes / snooze / dismiss",
+                "Operator controls:",
+                f"  - Convert if Andrew says yes: post-relay opportunities convert-to-draft --opportunity-id {self.opportunity.id} --db data/post_relay.sqlite",
+                f"  - Snooze if timing is wrong: post-relay opportunities snooze --opportunity-id {self.opportunity.id} --until <ISO_TIME> --db data/post_relay.sqlite",
+                f"  - Dismiss if not relevant: post-relay opportunities dismiss --opportunity-id {self.opportunity.id} --reason <REASON> --db data/post_relay.sqlite",
+                f"  - After an explicitly authorized live send, record it locally: post-relay opportunities mark-dm-sent --opportunity-id {self.opportunity.id} --db data/post_relay.sqlite",
+                "Requires explicit operator authorization before any Discord send.",
+                "No Discord, R2, or Meta network calls were made.",
+            ]
+        )
+        return "\n".join(lines)
+
+
 def create_post_opportunity(
     connection,
     *,
@@ -176,6 +211,44 @@ def convert_post_opportunity_to_draft(connection, opportunity_id: int) -> PostOp
         opportunity_id,
         status="converted_to_draft",
         draft_id=draft.id,
+    )
+
+
+def plan_proactive_opportunity_dm(connection, opportunity_id: int) -> ProactiveOpportunityDmPlan:
+    opportunity = _require_opportunity(connection, opportunity_id)
+    if opportunity.status not in {"new", "dm_sent"}:
+        raise PostOpportunityError(
+            f"Opportunity #{opportunity_id} is {opportunity.status} and cannot be planned for proactive DM"
+        )
+    suggested_dm_copy = _build_proactive_dm_copy(opportunity)
+    return ProactiveOpportunityDmPlan(opportunity=opportunity, suggested_dm_copy=suggested_dm_copy)
+
+
+def mark_post_opportunity_dm_sent(connection, opportunity_id: int) -> PostOpportunityRecord:
+    opportunity = _require_opportunity(connection, opportunity_id)
+    if opportunity.status == "dm_sent":
+        return opportunity
+    if opportunity.status != "new":
+        raise PostOpportunityError(
+            f"Opportunity #{opportunity_id} is {opportunity.status} and cannot be marked DM sent"
+        )
+    marked = update_post_opportunity_status(connection, opportunity_id, status="dm_sent")
+    if marked is None:
+        raise PostOpportunityError(f"Opportunity #{opportunity_id} was not found")
+    return marked
+
+
+def _build_proactive_dm_copy(opportunity: PostOpportunityRecord) -> str:
+    lead = f"Potential post idea: {opportunity.title}."
+    summary = opportunity.summary.rstrip(".") + "."
+    next_action = opportunity.suggested_next_action.rstrip(".") + "."
+    return " ".join(
+        [
+            lead,
+            summary,
+            next_action,
+            "Want me to start this, snooze it, or dismiss it?",
+        ]
     )
 
 

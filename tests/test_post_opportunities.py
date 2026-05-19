@@ -12,6 +12,8 @@ from post_relay.post_opportunities import (
     dismiss_post_opportunity,
     snooze_post_opportunity,
     convert_post_opportunity_to_draft,
+    mark_post_opportunity_dm_sent,
+    plan_proactive_opportunity_dm,
 )
 from post_relay.repository import get_draft, list_post_opportunities
 
@@ -137,6 +139,74 @@ def test_convert_opportunity_to_draft_links_candidate_and_preserves_double_appro
     assert draft.candidate_group_id == candidate_id
 
 
+def test_plan_proactive_opportunity_dm_renders_safe_operator_controls_without_sending(tmp_path: Path):
+    connection, root = _build_fixture_library(tmp_path)
+    candidate_id = connection.execute("select id from candidate_groups").fetchone()[0]
+    opportunity = create_post_opportunity(
+        connection,
+        trigger_type="new_media",
+        trigger_key="processed/2025/kyoto-night-market",
+        title="Kyoto night market candidate",
+        summary="Fresh processed set from token=fake-token.",
+        rationale="Enough images for carousel planning at https://signed.example/photo.jpg.",
+        suggested_next_action="Ask Andrew whether to pick 5 for a carousel.",
+        candidate_group_id=candidate_id,
+    )
+
+    plan = plan_proactive_opportunity_dm(connection, opportunity.id)
+    text = plan.to_text()
+
+    assert plan.opportunity.id == opportunity.id
+    assert plan.requires_explicit_send_authorization is True
+    assert "Proactive opportunity DM plan" in text
+    assert "Suggested DM copy:" in text
+    assert "Kyoto night market candidate" in text
+    assert "Reply with one of:" in text
+    assert "yes / snooze / dismiss" in text
+    assert "post-relay opportunities convert-to-draft --opportunity-id" in text
+    assert "post-relay opportunities mark-dm-sent --opportunity-id" in text
+    assert "Requires explicit operator authorization before any Discord send." in text
+    assert "No Discord, R2, or Meta network calls were made." in text
+    assert root.as_posix() not in text
+    assert "fake-token" not in text
+    assert "signed.example" not in text
+
+
+def test_mark_opportunity_dm_sent_is_explicit_local_state_only_and_blocks_terminal_statuses(tmp_path: Path):
+    connection, _root = _build_fixture_library(tmp_path)
+    opportunity = create_post_opportunity(
+        connection,
+        trigger_type="cadence_due",
+        trigger_key="weekly-2026-05-19",
+        title="Weekly posting window",
+        summary="Queue a reviewed travel set.",
+        rationale="Maintain posting cadence.",
+        suggested_next_action="Ask Andrew whether to review one backlog option.",
+    )
+
+    marked = mark_post_opportunity_dm_sent(connection, opportunity.id)
+    second_mark = mark_post_opportunity_dm_sent(connection, opportunity.id)
+    dismissed = create_post_opportunity(
+        connection,
+        trigger_type="life_event",
+        trigger_key="already-dismissed",
+        title="Dismissed memory",
+        summary="A dismissed memory.",
+        rationale="Not relevant anymore.",
+        suggested_next_action="Do not send.",
+    )
+    dismiss_post_opportunity(connection, dismissed.id, reason="not relevant")
+
+    assert marked.status == "dm_sent"
+    assert second_mark.status == "dm_sent"
+    try:
+        mark_post_opportunity_dm_sent(connection, dismissed.id)
+    except ValueError as error:
+        assert "cannot be marked DM sent" in str(error)
+    else:
+        raise AssertionError("dismissed opportunities must not be markable as sent")
+
+
 def test_cli_opportunities_create_list_dismiss_and_convert_without_network_calls(tmp_path: Path):
     connection, _root = _build_fixture_library(tmp_path)
     db_path = tmp_path / "post_relay.sqlite"
@@ -166,6 +236,14 @@ def test_cli_opportunities_create_list_dismiss_and_convert_without_network_calls
         ],
     )
     list_result = runner.invoke(app, ["opportunities", "list", "--db", str(db_path)])
+    dm_plan_result = runner.invoke(
+        app,
+        ["opportunities", "dm-plan", "--opportunity-id", "1", "--db", str(db_path)],
+    )
+    mark_sent_result = runner.invoke(
+        app,
+        ["opportunities", "mark-dm-sent", "--opportunity-id", "1", "--db", str(db_path)],
+    )
     convert_result = runner.invoke(
         app,
         ["opportunities", "convert-to-draft", "--opportunity-id", "1", "--db", str(db_path)],
@@ -182,6 +260,13 @@ def test_cli_opportunities_create_list_dismiss_and_convert_without_network_calls
     assert list_result.exit_code == 0
     assert "Kyoto memory" in list_result.output
     assert "No Discord or Meta network calls were made." in list_result.output
+    assert dm_plan_result.exit_code == 0
+    assert "Proactive opportunity DM plan" in dm_plan_result.output
+    assert "Requires explicit operator authorization before any Discord send." in dm_plan_result.output
+    assert "No Discord, R2, or Meta network calls were made." in dm_plan_result.output
+    assert mark_sent_result.exit_code == 0
+    assert "marked DM sent" in mark_sent_result.output
+    assert "No Discord, R2, or Meta network calls were made." in mark_sent_result.output
     assert convert_result.exit_code == 0
     assert "converted to post #" in convert_result.output
     assert dismiss_result.exit_code == 0
