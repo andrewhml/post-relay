@@ -87,6 +87,12 @@ from post_relay.publishing import (
     resolve_staged_r2_publish_image_urls,
 )
 from post_relay.opportunity_checks import execute_opportunity_checks, plan_opportunity_checks
+from post_relay.publish_exports import (
+    DraftNotFound as PublishExportDraftNotFound,
+    UnsupportedLandscapeTreatment,
+    UnsupportedPublishExportProfile,
+    render_publish_exports_for_draft,
+)
 from post_relay.post_opportunities import (
     PostOpportunityError,
     convert_post_opportunity_to_draft,
@@ -146,6 +152,7 @@ discord_app = typer.Typer(help="Discord DM integration commands.")
 opportunities_app = typer.Typer(help="Local post opportunity commands.")
 draft_questions_app = typer.Typer(help="Draft context question commands.")
 draft_artifacts_app = typer.Typer(help="Draft review artifact commands.")
+draft_publish_exports_app = typer.Typer(help="Draft publish export commands.")
 app.add_typer(db_app, name="db")
 app.add_typer(index_app, name="index")
 app.add_typer(library_app, name="library")
@@ -157,6 +164,7 @@ app.add_typer(discord_app, name="discord")
 app.add_typer(opportunities_app, name="opportunities")
 drafts_app.add_typer(draft_questions_app, name="questions")
 drafts_app.add_typer(draft_artifacts_app, name="artifacts")
+drafts_app.add_typer(draft_publish_exports_app, name="publish-exports")
 
 DEFAULT_DB_PATH = Path("data/post_relay.sqlite")
 
@@ -1068,6 +1076,34 @@ def drafts_media_edit(
     typer.echo(result.to_text())
 
 
+@draft_publish_exports_app.command("render")
+def drafts_publish_exports_render(
+    draft_id: int = typer.Option(..., "--draft-id", help="Draft id."),
+    profile: str = typer.Option("feed_portrait_4x5", "--profile", help="Publish export profile."),
+    landscape_treatment: str = typer.Option("clean_mat", "--landscape-treatment", help="Landscape-in-portrait treatment."),
+    config_path: Path = typer.Option(Path("config/photo_sources.yaml"), "--config", help="Photo source and publish export config path."),
+    db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
+) -> None:
+    """Render Instagram-optimized publish assets without mutating source media."""
+    config = load_config(config_path)
+    connection = connect_db(db)
+    initialize_db(connection)
+    try:
+        package = render_publish_exports_for_draft(
+            connection,
+            draft_id,
+            config.publish_exports,
+            profile_name=profile,
+            landscape_treatment=landscape_treatment,
+            protected_source_roots=[source.root for source in config.photo_sources],
+        )
+    except PublishExportDraftNotFound as error:
+        raise typer.BadParameter(str(error), param_hint="--draft-id") from error
+    except (UnsupportedPublishExportProfile, UnsupportedLandscapeTreatment, UnsafeArtifactRoot) as error:
+        raise typer.BadParameter(str(error), param_hint="--profile/--landscape-treatment/--config") from error
+    typer.echo(package.to_text())
+
+
 @drafts_app.command("guided-package-plan")
 def drafts_guided_package_plan(
     draft_id: int = typer.Option(..., "--draft-id", help="Draft id."),
@@ -1237,6 +1273,7 @@ def drafts_r2_stage_plan(
             draft_id,
             config.r2_staging,
             review_artifact_root=config.review_artifacts.root,
+            publish_export_root=config.publish_exports.root,
         )
     except R2StagingDraftNotFound as error:
         raise typer.BadParameter(str(error), param_hint="--draft-id") from error
@@ -1263,6 +1300,7 @@ def drafts_r2_stage_upload(
             draft_id,
             config.r2_staging,
             review_artifact_root=config.review_artifacts.root,
+            publish_export_root=config.publish_exports.root,
             include_review_artifacts=include_review_artifacts,
             execute=execute,
         )

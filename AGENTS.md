@@ -46,6 +46,7 @@ Post Relay is a local-first Instagram travel content workflow for Andrew's `andr
 - Guarded single-image/carousel publish validation can use either explicit public HTTPS `--image-url` values or recorded uploaded R2 staged media via `--from-staged-r2`, preserving dry-run defaults, double approval, schedule enforcement, and explicit `--execute` publish safeguards.
 - Scheduled publish runner preflight can use `meta publish-scheduled --from-staged-r2` to re-check due time, active draft/publish approvals, selected staged R2 media completeness, caption/post type, and safe Meta-bound URLs without network calls before execute mode.
 - Final publish preview can use `meta final-publish-preview --from-staged-r2` to render the exact Meta-bound caption, selected staged media URLs, publishable fields, and local/review-only metadata without network calls.
+- Publish-ready local exports can be rendered with `drafts publish-exports render`; source media stays immutable, exported files are written under the configured publish export root, mixed-orientation warnings are surfaced, and R2 staging prefers exported publish assets when present.
 - Instagram publish capabilities are explicit: media URLs/carousel children, captions, and hashtags-in-caption are publishable; stored hashtags are merged into the caption sent to Meta; alt text, rationale, location ideas, collaborators, music, product/story/reel-only metadata stay local/review-only unless a later milestone validates official support.
 - Live Discord delivery should only be added after the local payload harness remains green; next Discord work should be private-DM-first and user-initiated-first. Post Relay now has a no-network `dm intake` harness, live-capable Discord DM selection/guided-review/scheduling/double-confirmed publish approval loops, a local `opportunities` harness, safe local opportunity trigger checks for agent-initiated suggestion records, and DM intake narrowing guardrails for huge weak candidate matches. Do not run live Instagram publish execution from Discord milestones.
 
@@ -98,6 +99,7 @@ Post Relay is a local-first Instagram travel content workflow for Andrew's `andr
 .venv/bin/post-relay drafts list --db data/post_relay.sqlite
 .venv/bin/post-relay drafts preview --draft-id 1 --db data/post_relay.sqlite
 .venv/bin/post-relay drafts artifacts render --draft-id 1 --config config/photo_sources.yaml --db data/post_relay.sqlite
+.venv/bin/post-relay drafts publish-exports render --draft-id 1 --profile feed_portrait_4x5 --config config/photo_sources.yaml --db data/post_relay.sqlite
 .venv/bin/post-relay drafts media-plan --draft-id 1 --db data/post_relay.sqlite
 .venv/bin/post-relay drafts media-edit --draft-id 1 --lead 3 --keep 1,3,5 --post-type carousel --db data/post_relay.sqlite
 .venv/bin/post-relay drafts guided-package-plan --draft-id 1 --location "Seoul, South Korea" --story-angle "night market alleys" --mood cinematic --audience-hook "food and light" --db data/post_relay.sqlite
@@ -147,4 +149,4 @@ Post Relay is a local-first Instagram travel content workflow for Andrew's `andr
 
 ## Current next milestone
 
-See `docs/plans/current-agent-roadmap.md`. The first guarded live carousel smoke for draft `2` succeeded; schedule hardening now blocks early Meta `--execute`; and final publish preview/metadata hardening now shows exact Meta-bound captions, merges stored hashtags into the caption payload, and labels local-only metadata. The next planned work is `feat/publish-export-profiles`, followed by `feat/post-publish-analytics-feedback`. Do not publish another real post before the approved scheduled time unless Andrew explicitly bypasses the schedule in the active session.
+See `docs/plans/current-agent-roadmap.md`. The first guarded live carousel smoke for draft `2` succeeded; schedule hardening blocks early Meta `--execute`; final publish preview/metadata hardening shows exact Meta-bound captions; and publish export profiles now render 4:5 publish assets before R2 staging. The next planned work is `feat/post-publish-analytics-feedback`. Do not publish another real post before the approved scheduled time unless Andrew explicitly bypasses the schedule in the active session.

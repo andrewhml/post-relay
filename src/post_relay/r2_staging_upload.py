@@ -89,6 +89,7 @@ def upload_r2_staging_for_draft(
     config: R2StagingConfig,
     *,
     review_artifact_root: Optional[Path] = None,
+    publish_export_root: Optional[Path] = None,
     include_review_artifacts: bool = False,
     execute: bool = False,
     client: Optional[R2StorageClient] = None,
@@ -98,6 +99,7 @@ def upload_r2_staging_for_draft(
         draft_id,
         config,
         review_artifact_root=review_artifact_root,
+        publish_export_root=publish_export_root,
     )
     items = plan.media_items + (plan.artifact_items if include_review_artifacts else [])
     object_keys = [item.object_key for item in items]

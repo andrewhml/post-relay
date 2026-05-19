@@ -26,6 +26,14 @@ class ReviewArtifactsConfig(BaseModel):
     mode: Literal["local", "r2", "both"] = "local"
 
 
+class PublishExportsConfig(BaseModel):
+    """Local publish-ready export generation settings."""
+
+    root: Path = Path("data/publish_exports")
+    contact_sheet_thumbnail_max_px: int = Field(default=360, ge=1)
+    contact_sheet_columns: int = Field(default=3, ge=1)
+
+
 class R2StagingConfig(BaseModel):
     """Cloudflare R2 staging settings for temporary publish/review objects."""
 
@@ -49,6 +57,7 @@ class PostRelayConfig(BaseModel):
         default_factory=lambda: [".jpg", ".jpeg", ".png", ".heic", ".tif", ".tiff"]
     )
     review_artifacts: ReviewArtifactsConfig = Field(default_factory=ReviewArtifactsConfig)
+    publish_exports: PublishExportsConfig = Field(default_factory=PublishExportsConfig)
     r2_staging: R2StagingConfig = Field(default_factory=R2StagingConfig)
 
 
@@ -66,6 +75,9 @@ def load_config(path: Path) -> PostRelayConfig:
     if "review_artifacts" in data and "root" in data["review_artifacts"]:
         data["review_artifacts"] = dict(data["review_artifacts"])
         data["review_artifacts"]["root"] = Path(str(data["review_artifacts"]["root"])).expanduser()
+    if "publish_exports" in data and "root" in data["publish_exports"]:
+        data["publish_exports"] = dict(data["publish_exports"])
+        data["publish_exports"]["root"] = Path(str(data["publish_exports"]["root"])).expanduser()
     return PostRelayConfig(**data)
 
 

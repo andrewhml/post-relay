@@ -20,6 +20,7 @@ Early local-first MVP scaffold with:
 - controlled single-image and carousel Meta publish validation CLIs with dry-run planning, approval guards, staged-R2 URL resolution, schedule enforcement, container creation/status polling/publish execution, hashtags merged into the Meta caption payload, and sanitized attempt logging
 - no-network scheduled publish preflight/execute wrapper for due staged-R2 posts that re-validates schedule, approvals, and media completeness before Meta execution
 - no-network final publish preview that shows the exact Meta-bound caption, selected staged media URLs, publishable fields, and local/review-only metadata before live execution
+- Instagram-optimized local publish exports for 4:5 portrait feed/carousel assets, including mixed-orientation warnings and contact sheets built from the actual exported files
 - guarded R2 staging upload/cleanup CLI with recorded-object-only deletion and explicit `--execute` safeguards
 - explicit Instagram capability matrix separating publishable fields from local/review-only metadata
 - guarded draft workflow state model
@@ -41,10 +42,10 @@ Early local-first MVP scaffold with:
 - `graph.instagram.com` returned `Invalid platform app` in current setup
 
 ## Immediate goals
-1. Add Instagram-optimized publish export profiles, especially 4:5 portrait carousel assets, mixed-orientation warnings, and preview contact sheets built from the actual exported files
+1. Add post-publish analytics/feedback capture so recommendations improve from actual published media outcomes
 2. Keep improving the private-DM-first, user-initiated workflow for selecting photos, accepting hook-first captions/metadata, scheduling, and recording local approvals
 3. Keep agent-initiated suggestions local-only until the user-initiated flow has enough successful sessions; then add proactive Discord DMs behind explicit safe trigger and opt-out controls
-4. After feed/carousel publishing is reliable, add analytics/insights collection, recommendation improvements, and later reel/video validation
+4. After feed/carousel publishing is reliable, add read-only insights collection, recommendation improvements, and later reel/video validation
 
 ## Agent handoff
 Future agents should start with `AGENTS.md`, then `docs/plans/current-agent-roadmap.md`. The durable plan for local/NAS sources, review artifacts, and Cloudflare R2 staging is `docs/plans/content-pipeline-r2-staging-plan.md`. The specialized agent baseline is `docs/plans/postrelay-agent-operating-baseline.md`. The current private-DM conversation plan is `docs/plans/discord-dm-conversation-orchestration.md`, and the Discord-before-live-publish selection/review plan is `docs/plans/discord-photo-selection-before-carousel-smoke.md`.
@@ -75,6 +76,7 @@ Use the project virtualenv when running locally:
 .venv/bin/post-relay drafts list --db data/post_relay.sqlite
 .venv/bin/post-relay drafts preview --draft-id 1 --db data/post_relay.sqlite
 .venv/bin/post-relay drafts artifacts render --draft-id 1 --config config/photo_sources.yaml --db data/post_relay.sqlite
+.venv/bin/post-relay drafts publish-exports render --draft-id 1 --profile feed_portrait_4x5 --config config/photo_sources.yaml --db data/post_relay.sqlite
 .venv/bin/post-relay drafts media-plan --draft-id 1 --db data/post_relay.sqlite
 .venv/bin/post-relay drafts media-edit --draft-id 1 --lead 3 --keep 1,3,5 --post-type carousel --db data/post_relay.sqlite
 .venv/bin/post-relay drafts guided-package-plan --draft-id 1 --location "Seoul, South Korea" --story-angle "night market alleys" --mood cinematic --audience-hook "food and light" --db data/post_relay.sqlite
