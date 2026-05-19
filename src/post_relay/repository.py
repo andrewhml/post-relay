@@ -1321,6 +1321,27 @@ def get_published_post_snapshot_for_draft(
     return _published_post_snapshot_from_row(row)
 
 
+def list_published_post_snapshots(
+    connection,
+    *,
+    limit: Optional[int] = None,
+) -> list[PublishedPostSnapshotRecord]:
+    limit_clause = "limit ?" if limit is not None else ""
+    params: tuple[object, ...] = (limit,) if limit is not None else ()
+    rows = connection.execute(
+        f"""
+        select id, draft_id, publish_attempt_id, published_media_id, post_type,
+               final_caption, media_urls_json, media_dimensions_json,
+               scheduled_for, actual_published_at, location_page_id, location_name
+        from published_post_snapshots
+        order by actual_published_at desc, id desc
+        {limit_clause}
+        """,
+        params,
+    ).fetchall()
+    return [_published_post_snapshot_from_row(row) for row in rows]
+
+
 def create_media_insight_snapshot(
     connection,
     *,
@@ -1377,6 +1398,23 @@ def list_media_insight_snapshots(connection, draft_id: int) -> list[MediaInsight
         (draft_id,),
     ).fetchall()
     return [_media_insight_snapshot_from_row(row) for row in rows]
+
+
+def get_latest_media_insight_snapshot(connection, draft_id: int) -> Optional[MediaInsightSnapshotRecord]:
+    row = connection.execute(
+        """
+        select id, draft_id, published_post_snapshot_id, published_media_id,
+               metrics_json, raw_payload_json, collected_at
+        from media_insight_snapshots
+        where draft_id = ?
+        order by collected_at desc, id desc
+        limit 1
+        """,
+        (draft_id,),
+    ).fetchone()
+    if row is None:
+        return None
+    return _media_insight_snapshot_from_row(row)
 
 
 def create_r2_staged_object_record(

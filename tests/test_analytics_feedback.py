@@ -6,9 +6,11 @@ from typer.testing import CliRunner
 
 from post_relay.analytics_feedback import (
     PublishedPostSnapshotNotReady,
+    build_feedback_summary,
     build_insights_collection_plan,
     collect_and_store_media_insights,
     record_published_post_snapshot,
+    render_feedback_summary,
 )
 from post_relay.approvals import approve_draft_content, submit_draft_for_review
 from post_relay.candidates import build_candidate_groups
@@ -427,3 +429,99 @@ def test_analytics_insights_fetch_cli_execute_collects_and_stores_with_injected_
     records = list_media_insight_snapshots(verify_connection, draft.id)
     assert len(records) == 1
     assert records[0].metrics == {"reach": 420, "likes": 37}
+
+
+def test_feedback_summary_combines_latest_insights_with_payload_features(tmp_path: Path):
+    connection, draft, public_urls = _build_ready_carousel_with_exported_staged_media(tmp_path)
+    _insert_successful_publish_attempt(connection, draft, public_urls)
+
+    class FakeClient:
+        def __init__(self, reach, likes):
+            self.reach = reach
+            self.likes = likes
+
+        def get_media_insights(self, media_id, *, metrics):
+            assert media_id == "media-789"
+            return {
+                "data": [
+                    {"name": "reach", "period": "lifetime", "values": [{"value": self.reach}]},
+                    {"name": "likes", "period": "lifetime", "values": [{"value": self.likes}]},
+                ]
+            }
+
+    collect_and_store_media_insights(
+        connection,
+        draft.id,
+        client=FakeClient(reach=300, likes=20),
+        metrics=["reach", "likes"],
+        collected_at="2026-05-20T09:00:00-04:00",
+    )
+    collect_and_store_media_insights(
+        connection,
+        draft.id,
+        client=FakeClient(reach=420, likes=37),
+        metrics=["reach", "likes"],
+        collected_at="2026-05-20T10:00:00-04:00",
+    )
+
+    summary = build_feedback_summary(connection, draft_id=draft.id)
+    rendered = render_feedback_summary(summary)
+
+    assert len(summary.entries) == 1
+    entry = summary.entries[0]
+    assert entry.draft_id == draft.id
+    assert entry.insight_metrics == {"reach": 420, "likes": 37}
+    assert entry.media_count == 2
+    assert entry.caption_character_count == len("Night market glow.")
+    assert entry.hashtag_count == 0
+    assert entry.aspect_ratio_class == "portrait_4x5"
+    assert entry.minutes_from_schedule == 2
+    assert entry.has_location_tag is False
+    assert "Observed signals" in rendered
+    assert "reach: 420" in rendered
+    assert "Caption length: 18 characters" in rendered
+    assert "Next-post suggestions" in rendered
+    assert "advisory, not causal" in rendered
+
+
+def test_feedback_summary_renders_payload_only_fallback_without_insights(tmp_path: Path):
+    connection, draft, public_urls = _build_ready_carousel_with_exported_staged_media(tmp_path)
+    _insert_successful_publish_attempt(connection, draft, public_urls)
+
+    summary = build_feedback_summary(connection, draft_id=draft.id)
+    rendered = render_feedback_summary(summary)
+
+    assert summary.entries[0].insight_metrics == {}
+    assert "No stored insight metrics yet" in rendered
+    assert "analytics insights-fetch --draft-id 1 --db data/post_relay.sqlite" in rendered
+    assert "No Discord, R2, or Meta calls were made" in rendered
+
+
+def test_feedback_summary_cli_is_local_only_and_does_not_mutate_state(tmp_path: Path):
+    connection, draft, public_urls = _build_ready_carousel_with_exported_staged_media(tmp_path)
+    db_path = tmp_path / "post_relay.sqlite"
+    _insert_successful_publish_attempt(connection, draft, public_urls)
+    before_draft_status = get_draft(connection, draft.id).status
+    connection.close()
+
+    result = runner.invoke(
+        app,
+        [
+            "analytics",
+            "feedback-summary",
+            "--draft-id",
+            str(draft.id),
+            "--db",
+            str(db_path),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "Recommendation feedback summary" in result.output
+    assert "Observed signals" in result.output
+    assert "No Discord, R2, or Meta calls were made" in result.output
+
+    verify_connection = connect_db(db_path)
+    initialize_db(verify_connection)
+    assert get_draft(verify_connection, draft.id).status == before_draft_status
+    assert list_media_insight_snapshots(verify_connection, draft.id) == []
