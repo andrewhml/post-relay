@@ -913,7 +913,7 @@ Current local result: `14 passed` focused; `174 passed` full suite.
 2. Move next to read-only insights fetch/storage for published media, using `instagram_manage_insights` only if available and keeping no-network planning as the default safe path.
 3. Then add recommendation feedback summaries that compare outcomes against caption length/style, carousel count/order, timing, location tag, and export format.
 
-### Milestone 29: `feat/read-only-insights-feedback` (current branch)
+### PR #55 / Milestone 29: `feat/read-only-insights-feedback`
 
 **Goal:** Add actual read-only insights fetch/storage for published media after confirming the current token has the required supported insight permission/scope. Keep the no-network `analytics insights-plan` command as the safe default and add explicit `--execute` only for read-only collection.
 
