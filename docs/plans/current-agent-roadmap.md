@@ -823,7 +823,7 @@ Current local result: `14 passed` focused; `174 passed` full suite.
 .venv/bin/python -m pytest -q
 ```
 
-### Milestone 26: `feat/publish-export-profiles` (completed in this branch)
+### Milestone 26: `feat/publish-export-profiles` (completed in PR #51)
 
 **Goal:** Generate Instagram-optimized publish assets from immutable source media before R2 staging/Meta publish, especially for portrait carousel posts.
 
