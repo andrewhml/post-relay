@@ -29,7 +29,7 @@ class DiscordPreviewPayload:
     def to_text(self) -> str:
         lines = [
             "Discord Preview Payload (dry run)",
-            f"Draft ID: {self.draft_id}",
+            f"Post ID: {self.draft_id}",
             f"Ready to send: {'yes' if self.ready_to_send else 'no'}",
             "Image attachments:",
         ]
@@ -77,7 +77,7 @@ class DiscordSelectionPayload:
     def to_text(self) -> str:
         lines = [
             "Discord Selection Payload (dry run)",
-            f"Draft ID: {self.draft_id}",
+            f"Post ID: {self.draft_id}",
             f"Dry run: {'yes' if self.dry_run else 'no'}",
             "No Discord messages were sent.",
             f"Ready to send: {'yes' if self.ready_to_send else 'no'}",
@@ -109,7 +109,7 @@ class DiscordSelectionPayload:
                 "Interaction semantics:",
                 f"  - Accept exactly {self.target_count} selected photo numbers.",
                 "  - Lead/cover must be one of the selected numbers.",
-                "  - Preserve Andrew's selected order; the lead/cover is first in the final draft media order.",
+                "  - Preserve Andrew's selected order; the lead/cover is first in the final post media order.",
                 "  - Reject incomplete, duplicate, or out-of-range selections with actionable feedback.",
                 "Command fallback:",
                 _command_fallback(self.draft_id, self.target_count, self.post_type),

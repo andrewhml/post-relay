@@ -50,9 +50,9 @@ class DmGuidedReviewResult:
     def to_text(self, *, no_network: bool = True) -> str:
         lines = [
             (
-                f"Accepted DM guided review for draft #{self.draft_id}"
+                f"Accepted DM guided review for post #{self.draft_id}"
                 if self.accepted_package is not None
-                else f"DM guided review package for draft #{self.draft_id}"
+                else f"DM guided review package for post #{self.draft_id}"
             ),
             f"Post type recommendation: {self.package.post_type_recommendation}",
             f"Rationale: {self.package.post_type_rationale}",
@@ -104,7 +104,7 @@ def handle_dm_guided_review_reply(
     if not sanitized_message:
         raise DmGuidedReviewError("DM guided review message must not be empty")
     if get_draft(connection, draft_id) is None:
-        raise DmGuidedReviewError(f"Draft #{draft_id} was not found")
+        raise DmGuidedReviewError(f"Post #{draft_id} was not found")
 
     parsed = parse_guided_review_reply(sanitized_message)
     package = build_guided_draft_package(
@@ -175,9 +175,9 @@ def _upsert_thread(
 ) -> ConversationThreadRecord:
     status = "active"
     summary = (
-        f"Accepted guided review package for draft #{draft_id}."
+        f"Accepted guided review package for post #{draft_id}."
         if accepted
-        else f"Generated guided review package for draft #{draft_id}."
+        else f"Generated guided review package for post #{draft_id}."
     )
     thread = get_active_conversation_thread_for_channel(connection, discord_channel_id)
     if thread is None:

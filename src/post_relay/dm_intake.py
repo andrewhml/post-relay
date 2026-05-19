@@ -46,7 +46,7 @@ class DmIntakeResult:
         if self.continuing_existing_thread:
             lines.append("Continuing active thread for this DM channel.")
         if self.thread.draft_id is not None:
-            lines.append(f"Linked draft: #{self.thread.draft_id}")
+            lines.append(f"Linked post: #{self.thread.draft_id}")
         if self.context_note is not None:
             lines.append(f"Recorded context note: {self.context_note.summary}")
         if self.narrowing_question is not None:
@@ -85,7 +85,7 @@ def handle_dm_intake(
         raise DmIntakeError("DM message must not be empty")
 
     if draft_id is not None and get_draft(connection, draft_id) is None:
-        raise DmIntakeError(f"Draft #{draft_id} was not found")
+        raise DmIntakeError(f"Post #{draft_id} was not found")
 
     chosen_candidate_id = _chosen_candidate_id(sanitized_message)
     if draft_id is None and chosen_candidate_id is not None:

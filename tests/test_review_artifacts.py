@@ -91,7 +91,7 @@ def test_render_review_artifacts_text_lists_outputs(tmp_path: Path):
 
     text = package.to_text()
     assert "Review Artifacts" in text
-    assert f"Draft ID: {draft.id}" in text
+    assert f"Post ID: {draft.id}" in text
     assert "Candidate: 2025 / tokyo" in text
     assert "Thumbnails:" in text
     assert "01-01-shibuya.jpg" in text

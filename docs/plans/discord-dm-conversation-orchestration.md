@@ -118,7 +118,7 @@ Keep raw Discord message content minimal in the database. Persist durable decisi
 
 ## Milestone B: `feat/discord-dm-user-intake-harness`
 
-**Goal:** Add a no-network local harness that turns Andrew's DM-style text into a user-initiated post conversation or draft-context update.
+**Goal:** Add a no-network local harness that turns Andrew's DM-style text into a user-initiated post conversation or post-context update.
 
 **Expected behavior:**
 - A local command can simulate Andrew saying: "start a post about my Kyoto night market photos. Make it cinematic and less touristy."

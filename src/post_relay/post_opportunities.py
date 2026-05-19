@@ -50,7 +50,7 @@ class PostOpportunityCommandResult:
         if self.opportunity.candidate_group_id is not None:
             lines.append(f"Candidate group: #{self.opportunity.candidate_group_id}")
         if self.opportunity.draft_id is not None:
-            lines.append(f"Linked draft: #{self.opportunity.draft_id}")
+            lines.append(f"Linked post: #{self.opportunity.draft_id}")
         if self.opportunity.snoozed_until is not None:
             lines.append(f"Snoozed until: {self.opportunity.snoozed_until}")
         if self.opportunity.dismissed_reason is not None:

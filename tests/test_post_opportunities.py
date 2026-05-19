@@ -183,6 +183,6 @@ def test_cli_opportunities_create_list_dismiss_and_convert_without_network_calls
     assert "Kyoto memory" in list_result.output
     assert "No Discord or Meta network calls were made." in list_result.output
     assert convert_result.exit_code == 0
-    assert "converted to draft #" in convert_result.output
+    assert "converted to post #" in convert_result.output
     assert dismiss_result.exit_code == 0
     assert "dismissed" in dismiss_result.output

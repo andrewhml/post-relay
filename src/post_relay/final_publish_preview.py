@@ -26,7 +26,7 @@ class FinalPublishPreview:
     def to_text(self) -> str:
         lines = [
             "Final publish preview",
-            f"Draft ID: {self.draft_id}",
+            f"Post ID: {self.draft_id}",
             f"Post type: {self.post_type}",
             f"Scheduled for: {self.scheduled_for or '<not scheduled>'}",
             "Selected media URLs in Meta order:",
@@ -80,7 +80,7 @@ def build_final_publish_preview(
 ) -> FinalPublishPreview:
     draft = get_draft(connection, draft_id)
     if draft is None:
-        raise DraftNotFound(f"Draft {draft_id} was not found")
+        raise DraftNotFound(f"Post {draft_id} was not found")
     image_urls = resolve_staged_r2_publish_image_urls(connection, draft_id, r2_config)
     hashtags = parse_hashtags(draft.hashtags_json)
     review_only_fields: dict[str, str] = {}

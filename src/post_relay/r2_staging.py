@@ -47,7 +47,7 @@ class R2StagingPlan:
     def to_text(self) -> str:
         lines = [
             "R2 Staging Plan (dry run)",
-            f"Draft ID: {self.draft_id}",
+            f"Post ID: {self.draft_id}",
             f"Candidate: {self.candidate_title}",
             f"Bucket: {self.bucket}",
             f"Prefix: {self.prefix}",
@@ -82,7 +82,7 @@ def plan_r2_staging_for_draft(
     _validate_r2_staging_config(config)
     draft = get_draft(connection, draft_id)
     if draft is None:
-        raise DraftNotFound(f"Draft {draft_id} was not found.")
+        raise DraftNotFound(f"Post {draft_id} was not found.")
 
     candidate = get_candidate_group(connection, draft.candidate_group_id)
     candidate_title = candidate.title if candidate is not None else f"candidate #{draft.candidate_group_id}"

@@ -39,7 +39,7 @@ class DmScheduleGuidanceResult:
     def to_text(self, *, no_network: bool = True) -> str:
         lines = [
             "Post Relay schedule guidance",
-            f"Draft #{self.draft_id}",
+            f"Post #{self.draft_id}",
             "Recommended slots:",
         ]
         lines.extend(f"  {index}. {slot}" for index, slot in enumerate(self.recommended_slots, start=1))
@@ -64,7 +64,7 @@ class DmScheduleReplyResult:
 
     def to_text(self, *, no_network: bool = True) -> str:
         lines = [
-            f"Scheduled draft #{self.draft_id}",
+            f"Scheduled post #{self.draft_id}",
             f"Scheduled for: {self.scheduled_for}",
             "Next safe step: request final publish approval near the scheduled window, then run guarded publish validation only after explicit approval.",
         ]
@@ -87,7 +87,7 @@ class DmPublishApprovalGuidanceResult:
     def to_text(self, *, no_network: bool = True) -> str:
         lines = [
             "Post Relay final publish approval request",
-            f"Draft #{self.draft_id}",
+            f"Post #{self.draft_id}",
             f"Scheduled for: {self.scheduled_for}",
             "Exact Meta-bound caption:",
             self.meta_caption or "<empty>",
@@ -104,7 +104,7 @@ class DmPublishApprovalGuidanceResult:
         lines.extend(
             [
                 "Double confirm required: first reply `approve publish`, then reply with the exact confirmation phrase I send back.",
-                f"Final confirmation phrase: `confirm publish approval for draft #{self.draft_id}`.",
+                f"Final confirmation phrase: `confirm publish approval for post #{self.draft_id}`.",
                 "This only records local publish approval; it does not publish to Instagram.",
             ]
         )
@@ -124,9 +124,9 @@ class DmPublishApprovalReplyResult:
     def to_text(self, *, no_network: bool = True) -> str:
         if not self.approved:
             lines = [
-                f"Publish approval confirmation requested for draft #{self.draft_id}",
-                f"Draft status: {self.status}",
-                f"Confirm by replying `confirm publish approval for draft #{self.draft_id}`.",
+                f"Publish approval confirmation requested for post #{self.draft_id}",
+                f"Post status: {self.status}",
+                f"Confirm by replying `confirm publish approval for post #{self.draft_id}`.",
                 "No approval flag was recorded yet.",
             ]
             if no_network:
@@ -134,8 +134,8 @@ class DmPublishApprovalReplyResult:
             lines.append("No Meta publishing endpoints were called.")
             return "\n".join(lines)
         lines = [
-            f"Publish approval recorded for draft #{self.draft_id}",
-            f"Draft status: {self.status}",
+            f"Publish approval recorded for post #{self.draft_id}",
+            f"Post status: {self.status}",
             "Next safe step: run guarded dry-run publish validation before any explicit live `--execute` publish.",
         ]
         if no_network:
@@ -155,7 +155,7 @@ class DmSchedulePromptResult:
         return "\n".join(
             [
                 "Discord DM schedule prompt sent",
-                f"Draft ID: {self.draft_id}",
+                f"Post ID: {self.draft_id}",
                 f"DM channel: {self.channel_id}",
                 f"Discord message: {self.message_id}",
                 f"Conversation thread: #{self.thread.id} ({self.thread.status})",
@@ -175,7 +175,7 @@ class DmPublishApprovalPromptResult:
         return "\n".join(
             [
                 "Discord DM publish approval prompt sent",
-                f"Draft ID: {self.draft_id}",
+                f"Post ID: {self.draft_id}",
                 f"DM channel: {self.channel_id}",
                 f"Discord message: {self.message_id}",
                 f"Conversation thread: #{self.thread.id} ({self.thread.status})",
@@ -199,10 +199,10 @@ def build_dm_schedule_guidance(
 ) -> DmScheduleGuidanceResult:
     draft = get_draft(connection, draft_id)
     if draft is None:
-        raise DmSchedulingError(f"Draft #{draft_id} was not found")
+        raise DmSchedulingError(f"Post #{draft_id} was not found")
     if draft.status != DraftState.APPROVED_FOR_QUEUE.value:
         raise DmSchedulingError(
-            f"Draft #{draft_id} must be approved_for_queue before schedule guidance; current status is {draft.status}"
+            f"Post #{draft_id} must be approved_for_queue before schedule guidance; current status is {draft.status}"
         )
     slots = _recommended_slots(connection, now=_parse_now(now))
     rationale = (
@@ -230,7 +230,7 @@ def handle_dm_schedule_reply(
     thread: Optional[ConversationThreadRecord] = None
     if discord_channel_id:
         thread = get_active_conversation_thread_for_channel(connection, discord_channel_id)
-        summary = f"Scheduled draft #{draft_id} for {scheduled.scheduled_for}."
+        summary = f"Scheduled post #{draft_id} for {scheduled.scheduled_for}."
         if thread is None:
             thread = create_conversation_thread(
                 connection,
@@ -264,17 +264,17 @@ def build_dm_publish_approval_guidance(
 ) -> DmPublishApprovalGuidanceResult:
     draft = get_draft(connection, draft_id)
     if draft is None:
-        raise DmSchedulingError(f"Draft #{draft_id} was not found")
+        raise DmSchedulingError(f"Post #{draft_id} was not found")
     if draft.status != DraftState.SCHEDULED.value or not draft.scheduled_for:
         raise DmSchedulingError(
-            f"Draft #{draft_id} must be scheduled before final publish approval can be requested; current status is {draft.status}"
+            f"Post #{draft_id} must be scheduled before final publish approval can be requested; current status is {draft.status}"
         )
     current_time = _parse_now(now)
     scheduled_time = _parse_datetime(draft.scheduled_for)
     hours_until = (scheduled_time - current_time).total_seconds() / 3600
     if hours_until > approval_window_hours:
         raise DmSchedulingError(
-            f"Draft #{draft_id} is scheduled outside the {approval_window_hours}-hour final approval window"
+            f"Post #{draft_id} is scheduled outside the {approval_window_hours}-hour final approval window"
         )
     return DmPublishApprovalGuidanceResult(
         draft_id=draft_id,
@@ -298,7 +298,7 @@ def handle_dm_publish_approval_reply(
 ) -> DmPublishApprovalReplyResult:
     draft = get_draft(connection, draft_id)
     guidance = build_dm_publish_approval_guidance(connection, draft_id, now=now)
-    if re.search(rf"(?i)\bconfirm\s+publish\s+approval\s+for\s+draft\s+#?{draft_id}\b", message):
+    if re.search(rf"(?i)\bconfirm\s+publish\s+approval\s+for\s+(?:post|draft)\s+#?{draft_id}\b", message):
         if discord_channel_id and not _has_pending_publish_approval_confirmation(
             connection,
             draft_id=draft_id,
@@ -319,7 +319,7 @@ def handle_dm_publish_approval_reply(
             draft_id=draft_id,
             discord_channel_id=discord_channel_id,
             status="waiting_for_user",
-            summary=f"Requested second confirmation for final publish approval for draft #{draft_id}.",
+            summary=f"Requested second confirmation for final publish approval for post #{draft_id}.",
         )
         connection.commit()
         return DmPublishApprovalReplyResult(
@@ -356,7 +356,7 @@ def _record_dm_publish_approval(
         draft_id=draft_id,
         discord_channel_id=discord_channel_id,
         status="active",
-        summary=f"Recorded final publish approval for draft #{draft_id}.",
+        summary=f"Recorded final publish approval for post #{draft_id}.",
     )
     connection.commit()
     return DmPublishApprovalReplyResult(
@@ -368,7 +368,7 @@ def _record_dm_publish_approval(
 
 
 def _publish_confirmation_phrase(draft_id: int) -> str:
-    return f"confirm publish approval for draft #{draft_id}"
+    return f"confirm publish approval for post #{draft_id}"
 
 
 def send_dm_schedule_prompt(
@@ -388,7 +388,7 @@ def send_dm_schedule_prompt(
     content = _dm_schedule_prompt_text(guidance)
     message_id = selected_transport.send_message(channel_id, content)
     thread = get_active_conversation_thread_for_channel(connection, channel_id)
-    summary = f"Sent private DM schedule prompt for draft #{draft_id}."
+    summary = f"Sent private DM schedule prompt for post #{draft_id}."
     if thread is None:
         thread = create_conversation_thread(
             connection,
@@ -435,7 +435,7 @@ def send_dm_publish_approval_prompt(
         draft_id=draft_id,
         discord_channel_id=channel_id,
         status="waiting_for_user",
-        summary=f"Sent private DM publish approval prompt for draft #{draft_id}.",
+        summary=f"Sent private DM publish approval prompt for post #{draft_id}.",
     )
     connection.commit()
     return DmPublishApprovalPromptResult(
@@ -574,7 +574,7 @@ def _parse_schedule_choice(message: str, slots: list[str]) -> str:
 
 
 def _dm_schedule_prompt_text(guidance: DmScheduleGuidanceResult) -> str:
-    return guidance.to_text(no_network=False) + "\nThis DM step only schedules the local draft after your reply; it never publishes to Instagram."
+    return guidance.to_text(no_network=False) + "\nThis DM step only schedules the local post after your reply; it never publishes to Instagram."
 
 
 def _dm_publish_approval_prompt_text(guidance: DmPublishApprovalGuidanceResult) -> str:
@@ -596,7 +596,7 @@ def _publish_approval_feedback_text(detail: str, *, draft_id: int) -> str:
         [
             f"I couldn't apply that publish approval reply: {detail}.",
             "Double confirm required: first reply `approve publish`, then reply with "
-            f"`confirm publish approval for draft #{draft_id}`.",
+            f"`confirm publish approval for post #{draft_id}`.",
             "No Meta publishing endpoints were called.",
         ]
     )

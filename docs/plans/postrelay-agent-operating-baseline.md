@@ -71,7 +71,7 @@ Keep private DM content private. Persist durable decisions and sanitized summari
 The runtime implementation should expose or encode these focused skills. They can be implemented as Hermes skills, product prompt modules, deterministic services, or adapter-level tools depending on the final Discord runtime.
 
 1. Media curation skill
-   - Read candidate/draft media plans.
+   - Read candidate/post media plans.
    - Explain visual variety, sequence, lead/cover tradeoffs, and carousel cohesion.
    - Reuse `drafts media-plan`, `drafts discord-selection-plan`, and selection services.
 
@@ -97,7 +97,7 @@ The runtime implementation should expose or encode these focused skills. They ca
    - Keep recommendations explainable and taste-preserving.
 
 6. Approval and safety skill
-   - Track draft approval and publish approval separately.
+   - Track content approval and publish approval separately.
    - Explain when edits invalidate approvals.
    - Refuse live publish execution unless the guarded workflow requirements are satisfied.
 
@@ -113,7 +113,7 @@ The next implementation work should not start with agent-initiated opportunity t
 
 - Andrew DMs the agent to start a post.
 - The agent creates or links local draft/conversation state.
-- The agent guides candidate selection or draft media selection.
+- The agent guides candidate selection or post media selection.
 - The agent produces DM-safe next-step copy.
 - All behavior is testable without sending live Discord messages first.
 

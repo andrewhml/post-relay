@@ -7,7 +7,7 @@ This runbook is for the first live Post Relay publish through the official Meta 
 - Use only the official `graph.facebook.com` route.
 - Do not paste tokens or app secrets into chat, commits, logs, or screenshots.
 - Do not run the live command unless Andrew explicitly authorizes it in the active session.
-- The draft must already be `ready_to_publish`, which means it passed both draft approval and publish approval.
+- The post must already be `ready_to_publish`, which means it passed both content approval and publish approval.
 - Start with `--dry-run`; only run `--execute` after the dry-run output is reviewed.
 
 ## Required local setup

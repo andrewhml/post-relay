@@ -94,7 +94,7 @@ caption 2""",
     assert "Accepted guided review package" in thread.last_prompt_summary
     assert notes[-1].summary.startswith("location: Kyoto, Japan")
     text = result.to_text()
-    assert "Accepted DM guided review for draft #" in text
+    assert "Accepted DM guided review for post #" in text
     assert "Caption option: 2" in text
     assert "Publishable through Meta v1: media, caption text, hashtags in caption." in text
     assert "Review-only/local" in text
@@ -190,7 +190,7 @@ photo_sources:
     )
 
     assert result.exit_code == 0
-    assert "Accepted DM guided review for draft #1" in result.output
+    assert "Accepted DM guided review for post #1" in result.output
     assert "No Discord or Meta network calls were made." in result.output
     assert root.as_posix() not in result.output
 
@@ -216,7 +216,7 @@ def test_send_dm_guided_review_prompt_sends_private_dm_and_records_waiting_threa
     assert "guided review prompt" in thread.last_prompt_summary
     sent_text = transport.sent_messages[0][1]
     assert "Post Relay guided review" in sent_text
-    assert "Draft #" in sent_text
+    assert "Post #" in sent_text
     assert "Caption options:" in sent_text
     assert "Reply with" in sent_text
     assert "never publishes to Instagram" in sent_text

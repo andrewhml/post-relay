@@ -30,13 +30,13 @@ _CAPABILITIES: dict[str, InstagramCapability] = {
         field_name="carousel_children",
         status="publishable",
         publish_note="Ordered carousel child containers are sent to the parent carousel container.",
-        review_note="Order must match Andrew's approved draft media order.",
+        review_note="Order must match Andrew's approved post media order.",
     ),
     "caption": InstagramCapability(
         field_name="caption",
         status="publishable",
         publish_note="Approved caption text is sent to Meta media container creation.",
-        review_note="Caption is canonical draft content after approval.",
+        review_note="Caption is canonical post content after approval.",
     ),
     "hashtags_in_caption": InstagramCapability(
         field_name="hashtags_in_caption",

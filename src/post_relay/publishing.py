@@ -51,7 +51,7 @@ class SingleImagePublishValidationResult:
     def to_text(self) -> str:
         lines = [
             "Single-image publish validation",
-            f"Draft ID: {self.draft_id}",
+            f"Post ID: {self.draft_id}",
             f"Status: {self.status}",
             f"Image URL: {self.image_url}",
             f"Caption: {self.caption}",
@@ -79,7 +79,7 @@ class CarouselPublishValidationResult:
     def to_text(self) -> str:
         lines = [
             "Carousel publish validation",
-            f"Draft ID: {self.draft_id}",
+            f"Post ID: {self.draft_id}",
             f"Status: {self.status}",
             "Image URLs:",
         ]
@@ -108,7 +108,7 @@ def resolve_staged_r2_publish_image_urls(
 ) -> list[str]:
     draft = get_draft(connection, draft_id)
     if draft is None:
-        raise DraftNotFound(f"Draft {draft_id} was not found")
+        raise DraftNotFound(f"Post {draft_id} was not found")
     selected_paths = list_candidate_group_photo_paths(connection, draft.candidate_group_id)
     records = [
         record
@@ -138,7 +138,7 @@ def resolve_staged_r2_publish_image_urls(
         resolved_urls.append(record.public_url)
     if missing_paths:
         raise UnsupportedPublishDraft(
-            "Publish from staged R2 requires uploaded staged R2 media for each selected draft image: "
+            "Publish from staged R2 requires uploaded staged R2 media for each selected post image: "
             + ", ".join(missing_paths)
         )
     return resolved_urls
@@ -464,7 +464,7 @@ def _enforce_publish_schedule(draft, *, now: Optional[str], publish_now: bool) -
     current_time = _parse_publish_timestamp(now, label="current time") if now else datetime.now().astimezone()
     if current_time < scheduled_at:
         raise PublishValidationError(
-            f"Draft {draft.id} is scheduled for {draft.scheduled_for}; refusing to publish before the scheduled time. "
+            f"Post {draft.id} is scheduled for {draft.scheduled_for}; refusing to publish before the scheduled time. "
             f"Current time: {_format_timestamp(current_time)}. "
             "Next safe action: wait until the scheduled time and rerun the command, or use --publish-now only with explicit active-session authorization."
         )
@@ -487,10 +487,10 @@ def _format_timestamp(value: datetime) -> str:
 def _validate_single_image_ready_draft(connection, draft_id: int):
     draft = get_draft(connection, draft_id)
     if draft is None:
-        raise DraftNotFound(f"Draft {draft_id} was not found")
+        raise DraftNotFound(f"Post {draft_id} was not found")
     if draft.status != DraftState.READY_TO_PUBLISH.value:
         raise DraftNotReadyForImagePublish(
-            f"Draft {draft_id} must be {DraftState.READY_TO_PUBLISH.value} before controlled publishing"
+            f"Post {draft_id} must be {DraftState.READY_TO_PUBLISH.value} before controlled publishing"
         )
     if draft.post_type != "single_image":
         raise UnsupportedPublishDraft("Controlled image publish validation only supports single_image drafts")
@@ -498,17 +498,17 @@ def _validate_single_image_ready_draft(connection, draft_id: int):
         raise UnsupportedPublishDraft("Controlled image publish validation requires a non-empty caption")
     photo_paths = list_candidate_group_photo_paths(connection, draft.candidate_group_id)
     if len(photo_paths) != 1:
-        raise UnsupportedPublishDraft("Controlled image publish validation requires exactly one selected draft image")
+        raise UnsupportedPublishDraft("Controlled image publish validation requires exactly one selected post image")
     return draft
 
 
 def _validate_carousel_ready_draft(connection, draft_id: int, image_urls: Sequence[str]):
     draft = get_draft(connection, draft_id)
     if draft is None:
-        raise DraftNotFound(f"Draft {draft_id} was not found")
+        raise DraftNotFound(f"Post {draft_id} was not found")
     if draft.status != DraftState.READY_TO_PUBLISH.value:
         raise DraftNotReadyForImagePublish(
-            f"Draft {draft_id} must be {DraftState.READY_TO_PUBLISH.value} before controlled publishing"
+            f"Post {draft_id} must be {DraftState.READY_TO_PUBLISH.value} before controlled publishing"
         )
     if draft.post_type != "carousel":
         raise UnsupportedPublishDraft("Controlled carousel publish validation only supports carousel drafts")
@@ -516,10 +516,10 @@ def _validate_carousel_ready_draft(connection, draft_id: int, image_urls: Sequen
         raise UnsupportedPublishDraft("Controlled carousel publish validation requires a non-empty caption")
     photo_paths = list_candidate_group_photo_paths(connection, draft.candidate_group_id)
     if len(photo_paths) < 2:
-        raise UnsupportedPublishDraft("Controlled carousel publish validation requires at least two selected draft images")
+        raise UnsupportedPublishDraft("Controlled carousel publish validation requires at least two selected post images")
     if len(image_urls) != len(photo_paths):
         raise UnsupportedPublishDraft(
-            "Controlled carousel publish validation requires one public image URL per selected draft image"
+            "Controlled carousel publish validation requires one public image URL per selected post image"
         )
     if len(image_urls) > 10:
         raise UnsupportedPublishDraft("Controlled carousel publish validation supports at most ten images")

@@ -25,7 +25,7 @@ class UnsafeArtifactRoot(ValueError):
 class OversizedReviewArtifactSet(ValueError):
     def __init__(self, plan: "BoundedReviewArtifactPlan") -> None:
         super().__init__(
-            f"Draft {plan.draft_id} has {plan.media_count} included photos; "
+            f"Post {plan.draft_id} has {plan.media_count} included photos; "
             "use a bounded review plan before rendering a full contact sheet."
         )
         self.plan = plan
@@ -52,14 +52,14 @@ class BoundedReviewArtifactPlan:
     def to_text(self) -> str:
         lines = [
             "Bounded Review Artifact Plan",
-            f"Draft ID: {self.draft_id}",
+            f"Post ID: {self.draft_id}",
             f"Candidate: {self.candidate_title}",
             f"Media volume: {self.media_count} included photos ({self.classification})",
         ]
         if self.full_render_safe:
             lines.extend(
                 [
-                    "Full contact sheet render is safe for this draft.",
+                    "Full contact sheet render is safe for this post.",
                     f"Next command: drafts artifacts render --draft-id {self.draft_id}",
                 ]
             )
@@ -97,7 +97,7 @@ class ReviewArtifactsPackage:
     def to_text(self) -> str:
         lines = [
             "Review Artifacts",
-            f"Draft ID: {self.draft_id}",
+            f"Post ID: {self.draft_id}",
             f"Candidate: {self.candidate_title}",
             f"Artifact root: {self.artifact_root.as_posix()}",
             "Thumbnails:",
@@ -122,7 +122,7 @@ def plan_bounded_review_artifacts_for_draft(
 ) -> BoundedReviewArtifactPlan:
     draft = get_draft(connection, draft_id)
     if draft is None:
-        raise DraftNotFound(f"Draft {draft_id} was not found.")
+        raise DraftNotFound(f"Post {draft_id} was not found.")
 
     source_paths = list_candidate_group_photo_paths(connection, draft.candidate_group_id)
     candidate = get_candidate_group(connection, draft.candidate_group_id)
@@ -146,7 +146,7 @@ def render_review_artifacts_for_draft(
 ) -> ReviewArtifactsPackage:
     draft = get_draft(connection, draft_id)
     if draft is None:
-        raise DraftNotFound(f"Draft {draft_id} was not found.")
+        raise DraftNotFound(f"Post {draft_id} was not found.")
 
     source_paths = list_candidate_group_photo_paths(connection, draft.candidate_group_id)
     candidate = get_candidate_group(connection, draft.candidate_group_id)
@@ -191,7 +191,7 @@ def render_review_artifacts_for_draft(
     _save_contact_sheet(
         thumbnail_images,
         contact_sheet_path,
-        title=f"Draft {draft.id}: {candidate_title}",
+        title=f"Post {draft.id}: {candidate_title}",
         max_px=config.thumbnail_max_px,
         columns=config.contact_sheet_columns,
     )

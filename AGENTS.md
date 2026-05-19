@@ -29,25 +29,26 @@ Post Relay is a local-first Instagram travel content workflow for Andrew's `andr
 - Immich/NAS can be added later as secondary enrichment, not as the v1 source of truth.
 - Candidate groups are currently built from indexed photo parent folders.
 - Multi-photo folders recommend `carousel`; one-photo folders recommend `single_image`.
-- Draft records can be created idempotently from candidate groups.
-- Draft preview packages can be rendered locally before Discord delivery exists.
-- Draft context questions can be generated/listed locally and included in draft previews.
-- Draft content direction can be submitted for review, approved for queueing, and invalidated by material edits.
+- Content artifacts should be called posts throughout user/agent-facing copy; `drafting` is a lifecycle status, not the artifact name. The existing `drafts` CLI namespace and `--draft-id` option remain for backward compatibility.
+- Post records can be created idempotently from candidate groups and start in the `drafting` status.
+- Post preview packages can be rendered locally before Discord delivery exists.
+- Post context questions can be generated/listed locally and included in post previews.
+- Post content direction can be submitted for review, approved for queueing, and invalidated by material edits.
 - Dry-run Discord preview payloads can be generated locally with ordered existing image paths and missing-file reporting.
-- Local draft review artifacts can be rendered with `drafts artifacts render`; generated thumbnails/contact sheets are written under the configured artifact root without modifying source media.
-- Oversized draft review artifact renders are blocked by a bounded planning layer that classifies large media sets and returns DM-safe narrowing/sample guidance before a full contact sheet is rendered.
+- Local post review artifacts can be rendered with `drafts artifacts render`; generated thumbnails/contact sheets are written under the configured artifact root without modifying source media.
+- Oversized post review artifact renders are blocked by a bounded planning layer that classifies large media sets and returns DM-safe narrowing/sample guidance before a full contact sheet is rendered.
 - DM intake candidate matching uses local folder/year/filename descriptors and simple aliases to prefer specific matched sets over generic large folders while keeping rationale source-path-safe.
-- No-network R2 staging plans can be generated with `drafts r2-stage-plan`; plans use sanitized object keys/public URLs, preserve included draft media order, and report missing local files before upload exists.
+- No-network R2 staging plans can be generated with `drafts r2-stage-plan`; plans use sanitized object keys/public URLs, preserve included post media order, and report missing local files before upload exists.
 - R2 staging upload/cleanup can be dry-run locally; `drafts r2-stage-upload --execute` uploads and records planned objects, while `drafts r2-cleanup --execute` deletes only recorded uploaded objects under the configured Post Relay prefix.
-- Numbered draft media plans and edits can be applied locally with `drafts media-plan` and `drafts media-edit`; lead/cover, keep/remove, and post-type changes update candidate media ordering/roles/inclusion and invalidate active approvals.
-- Local guided draft packages can be generated and accepted with `drafts guided-package-plan`/`drafts guided-package-accept`; accepted packages persist caption, hashtags, confirmed location text, local alt text/accessibility notes, and audited rationale without fabricating unconfirmed facts.
+- Numbered post media plans and edits can be applied locally with `drafts media-plan` and `drafts media-edit`; lead/cover, keep/remove, and post-type changes update candidate media ordering/roles/inclusion and invalidate active approvals.
+- Local guided post packages can be generated and accepted with `drafts guided-package-plan`/`drafts guided-package-accept`; accepted packages persist caption, hashtags, confirmed location text, local alt text/accessibility notes, and audited rationale without fabricating unconfirmed facts.
 - Local Discord-style X-from-Y photo selection can be modeled without network calls using `drafts discord-selection-plan`/`drafts discord-selection-preview`/`drafts discord-selection-apply`; selection application reuses the same media-selection rules and approval invalidation as `drafts media-edit`.
-- Queue-approved drafts can be scheduled locally and moved through final publish approval without live API calls.
+- Queue-approved posts can be scheduled locally and moved through final publish approval without live API calls.
 - Guarded single-image/carousel publish validation can use either explicit public HTTPS `--image-url` values or recorded uploaded R2 staged media via `--from-staged-r2`, preserving dry-run defaults, double approval, schedule enforcement, and explicit `--execute` publish safeguards.
-- Scheduled publish runner preflight can use `meta publish-scheduled --from-staged-r2` to re-check due time, active draft/publish approvals, selected staged R2 media completeness, caption/post type, and safe Meta-bound URLs without network calls before execute mode.
+- Scheduled publish runner preflight can use `meta publish-scheduled --from-staged-r2` to re-check due time, active content/publish approvals, selected staged R2 media completeness, caption/post type, and safe Meta-bound URLs without network calls before execute mode.
 - Final publish preview can use `meta final-publish-preview --from-staged-r2` to render the exact Meta-bound caption, selected staged media URLs, publishable fields, and local/review-only metadata without network calls.
 - Publish-ready local exports can be rendered with `drafts publish-exports render`; source media stays immutable, exported files are written under the configured publish export root, mixed-orientation warnings are surfaced, and R2 staging prefers exported publish assets when present.
-- Instagram publish capabilities are explicit: media URLs/carousel children, captions, hashtags-in-caption, and explicitly resolved Facebook Page `location_id` tags are publishable; stored hashtags are merged into the caption sent to Meta; resolved location tags are stored separately from freeform location text, draft-aware candidate review can ask for clarification/search Meta Pages without auto-selecting, and setting a tag requires reapproval; post-publish analytics snapshots capture local published payload outcomes and staged export dimensions without network calls; read-only insights fetch/storage is explicit `--execute` and does not mutate draft/publish state; recommendation feedback summaries are advisory-only from stored local snapshots/insights and must not mutate drafts, approvals, schedules, Discord, R2, or Meta state; alt text, rationale, freeform location text/ideas, collaborators, music, product/story/reel-only metadata stay local/review-only unless a later milestone validates official support.
+- Instagram publish capabilities are explicit: media URLs/carousel children, captions, hashtags-in-caption, and explicitly resolved Facebook Page `location_id` tags are publishable; stored hashtags are merged into the caption sent to Meta; resolved location tags are stored separately from freeform location text, post-aware candidate review can ask for clarification/search Meta Pages without auto-selecting, and setting a tag requires reapproval; post-publish analytics snapshots capture local published payload outcomes and staged export dimensions without network calls; read-only insights fetch/storage is explicit `--execute` and does not mutate post lifecycle/publish state; recommendation feedback summaries are advisory-only from stored local snapshots/insights and must not mutate posts, approvals, schedules, Discord, R2, or Meta state; alt text, rationale, freeform location text/ideas, collaborators, music, product/story/reel-only metadata stay local/review-only unless a later milestone validates official support.
 - Live Discord delivery should only be added after the local payload harness remains green; next Discord work should be private-DM-first and user-initiated-first. Post Relay now has a no-network `dm intake` harness, live-capable Discord DM selection/guided-review/scheduling/double-confirmed publish approval loops, a local `opportunities` harness, safe local opportunity trigger checks for agent-initiated suggestion records, and DM intake narrowing guardrails for huge weak candidate matches. Do not run live Instagram publish execution from Discord milestones.
 
 ## Safety and product constraints
@@ -58,10 +59,10 @@ Post Relay is a local-first Instagram travel content workflow for Andrew's `andr
 - Do not use browser automation, password scraping, or unofficial posting methods.
 - Treat `graph.facebook.com` as the validated primary Graph route for this account unless a later milestone documents a better supported route.
 - Enforce double approval before live publishing:
-  1. draft approval
+  1. content approval while the post is in/reviewed from `drafting`
   2. publish approval
 - Never implement autonomous live posting without explicit publish approval.
-- If a draft changes materially after approval, invalidate prior approvals.
+- If a post changes materially after approval, invalidate prior approvals.
 
 ## Workflow rules for agents
 
@@ -132,7 +133,7 @@ Post Relay is a local-first Instagram travel content workflow for Andrew's `andr
 .venv/bin/post-relay discord dm-publish-approval-poll --draft-id 1 --channel-id <discord-dm-channel-id> --after-message-id <prompt-message-id> --db data/post_relay.sqlite
 .venv/bin/post-relay discord dm-publish-approval-poll --draft-id 1 --channel-id <discord-dm-channel-id> --after-message-id <confirmation-prompt-message-id> --db data/post_relay.sqlite
 .venv/bin/post-relay discord dm-publish-approval-apply --draft-id 1 --message "approve publish" --discord-channel-id <discord-dm-channel-id> --db data/post_relay.sqlite
-.venv/bin/post-relay discord dm-publish-approval-apply --draft-id 1 --message "confirm publish approval for draft #1" --discord-channel-id <discord-dm-channel-id> --db data/post_relay.sqlite
+.venv/bin/post-relay discord dm-publish-approval-apply --draft-id 1 --message "confirm publish approval for post #1" --discord-channel-id <discord-dm-channel-id> --db data/post_relay.sqlite
 .venv/bin/post-relay drafts r2-stage-plan --draft-id 1 --config config/photo_sources.yaml --db data/post_relay.sqlite
 .venv/bin/post-relay drafts r2-stage-upload --draft-id 1 --config config/photo_sources.yaml --db data/post_relay.sqlite
 .venv/bin/post-relay drafts r2-stage-upload --draft-id 1 --config config/photo_sources.yaml --db data/post_relay.sqlite --execute
@@ -149,7 +150,7 @@ Post Relay is a local-first Instagram travel content workflow for Andrew's `andr
 .venv/bin/post-relay drafts questions list --draft-id 1 --db data/post_relay.sqlite
 .venv/bin/post-relay opportunities check --db data/post_relay.sqlite
 .venv/bin/post-relay opportunities check --execute --now "2026-05-17T09:00:00-07:00" --cadence-due-after-days 3 --db data/post_relay.sqlite
-.venv/bin/post-relay opportunities check --execute --manual-trigger-type life_event --manual-trigger-key andrew-kyoto-memory --manual-title "Kyoto memory" --manual-summary "Andrew mentioned a Kyoto memory" --manual-rationale "Manual trip context can become a post" --manual-suggested-next-action "Ask Andrew whether to turn this into a carousel draft" --db data/post_relay.sqlite
+.venv/bin/post-relay opportunities check --execute --manual-trigger-type life_event --manual-trigger-key andrew-kyoto-memory --manual-title "Kyoto memory" --manual-summary "Andrew mentioned a Kyoto memory" --manual-rationale "Manual trip context can become a post" --manual-suggested-next-action "Ask Andrew whether to turn this into a carousel post" --db data/post_relay.sqlite
 .venv/bin/post-relay opportunities create --trigger-type cadence_due --trigger-key weekly-2026-05-17 --title "Weekly posting window" --summary "Queue a reviewed travel set" --rationale "Maintain posting cadence" --next-action "Pick a candidate and create a draft" --db data/post_relay.sqlite
 .venv/bin/post-relay opportunities list --db data/post_relay.sqlite
 .venv/bin/post-relay opportunities snooze --opportunity-id 1 --until "2026-05-18T09:00:00-07:00" --db data/post_relay.sqlite

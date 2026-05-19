@@ -173,7 +173,7 @@ def _run_opportunity_checks(
                     trigger_type="inactivity",
                     trigger_key="no-local-scheduled-or-post-history",
                     title="No recent local posting history",
-                    summary="No scheduled or posted draft history is recorded locally yet.",
+                    summary="No scheduled or posted post history is recorded locally yet.",
                     rationale=f"Local inactivity check found no scheduled/posted history; threshold is {inactivity_after_days} days.",
                     suggested_next_action="Offer one reviewed backlog candidate before sending any proactive DM.",
                 ),
@@ -246,7 +246,7 @@ def _planned_new_media_opportunity(candidate: CandidateGroupRecord) -> PlannedOp
         trigger_key=f"candidate:{candidate.id}",
         title=f"New candidate media: {candidate.title}",
         summary=f"Candidate group #{candidate.id} has {candidate.photo_count} processed photo{photo_plural} ready for review.",
-        rationale=f"Indexed processed media exists without a draft yet; recommended post type is {candidate.post_type_recommendation}.",
+        rationale=f"Indexed processed media exists without a post yet; recommended post type is {candidate.post_type_recommendation}.",
         suggested_next_action="Ask Andrew whether to start a post conversation from this candidate before sending any proactive DM.",
         candidate_group_id=candidate.id,
     )
@@ -316,7 +316,7 @@ def _skip_reason_for_prior_opportunity(opportunity: PostOpportunityRecord, now_d
     if opportunity.status == "dismissed":
         return f"dismissed as opportunity #{opportunity.id}"
     if opportunity.status == "converted_to_draft":
-        return f"already converted to draft #{opportunity.draft_id}"
+        return f"already converted to post #{opportunity.draft_id}"
     return None
 
 

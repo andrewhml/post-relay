@@ -27,7 +27,7 @@ class QuestionTemplate:
 def generate_context_questions_for_draft(connection, draft_id: int) -> List[ContextQuestionRecord]:
     draft = get_draft(connection, draft_id)
     if draft is None:
-        raise DraftNotFound(f"Draft #{draft_id} was not found")
+        raise DraftNotFound(f"Post #{draft_id} was not found")
 
     candidate = get_candidate_group(connection, draft.candidate_group_id)
     for template in _missing_context_templates(draft, candidate):

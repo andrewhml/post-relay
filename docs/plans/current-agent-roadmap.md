@@ -697,10 +697,11 @@ As of the first live carousel smoke, the local-first workflow is past the origin
 
 ## Immediate next plan
 
-1. Use `analytics feedback-summary` as the deterministic advisory baseline when planning the next reviewed post.
-2. Choose the next rollback-safe milestone: follower-growth progress tracking, more private-DM operating-loop practice, proactive opportunity DM controls, video/reel validation, or deeper local media discovery/enrichment.
-3. Keep recommendation feedback advisory-only until several real posts provide enough signal.
-4. Keep live-safe defaults: no Discord sends, no R2 `--execute`, and no Meta `--execute` unless explicitly authorized in the active session.
+1. Complete Milestone 31 `feat/post-terminology-copy`: user/agent-facing copy should refer to lifecycle artifacts as posts, while `drafting` remains a status and existing `drafts`/`--draft-id` CLI names remain compatibility shims.
+2. Use `analytics feedback-summary` as the deterministic advisory baseline when planning the next reviewed post.
+3. Choose the next rollback-safe milestone after terminology cleanup: follower-growth progress tracking, more private-DM operating-loop practice, proactive opportunity DM controls, video/reel validation, or deeper local media discovery/enrichment.
+4. Keep recommendation feedback advisory-only until several real posts provide enough signal.
+5. Keep live-safe defaults: no Discord sends, no R2 `--execute`, and no Meta `--execute` unless explicitly authorized in the active session.
 
 ## Recent completed milestones and current roadmap
 
@@ -749,9 +750,9 @@ Focused local result: `12 passed`.
 **Goal:** Make Discord DM final publish approval a two-message confirmation flow backed by the existing active `publish` approval flag/table instead of treating approval as only a draft status.
 
 **Delivered behavior in branch:**
-- Publish approval guidance now states the double-confirm sequence: first `approve publish`, then `confirm publish approval for draft #<id>`.
-- The first DM reply records no approval flag and leaves the draft scheduled while updating the conversation thread to wait for the second confirmation.
-- The second confirmation records the active `publish` approval through the existing approvals table, moves the draft through the guarded local publish-approval state machine to `ready_to_publish`, and keeps Meta publish execution separate.
+- Publish approval guidance now states the double-confirm sequence: first `approve publish`, then `confirm publish approval for post #<id>`.
+- The first DM reply records no approval flag and leaves the post scheduled while updating the conversation thread to wait for the second confirmation.
+- The second confirmation records the active `publish` approval through the existing approvals table, moves the post through the guarded local publish-approval state machine to `ready_to_publish`, and keeps Meta publish execution separate.
 - A final confirmation phrase without the pending first step is rejected in the Discord DM poll path, preventing a one-message bypass.
 - Added live-capable `discord dm-publish-approval-send` and `discord dm-publish-approval-poll` commands plus no-network apply support for the same two-step local state transition.
 - Updated README/AGENTS command references and the Post Relay content workflow skill so future agents preserve the two-step approval semantics.
@@ -958,12 +959,36 @@ Current local result: `14 passed` focused; `174 passed` full suite.
 - Repository helpers list published snapshots and select the latest insight snapshot per draft without adding any network calls.
 - Added tests for single-draft summaries, missing-insights fallback, latest-metric selection, and CLI no-network/no-state-mutation behavior.
 
-**Safety rule:** `analytics feedback-summary` is advisory only. It makes no Discord, R2, or Meta calls and must not mutate drafts, approvals, schedules, publish attempts, snapshots, or insight records.
+**Safety rule:** `analytics feedback-summary` is advisory only. It makes no Discord, R2, or Meta calls and must not mutate posts, approvals, schedules, publish attempts, snapshots, or insight records.
 
 **Verification:**
 
 ```bash
 .venv/bin/python -m pytest tests/test_analytics_feedback.py -q
+.venv/bin/python -m pytest -q
+```
+
+**Next-session start here:**
+1. First verify the current baseline: `.venv/bin/python -m pytest -q` should report the full suite passing.
+2. Use `analytics feedback-summary --draft-id ...` or `--limit ...` as the deterministic advisory baseline when planning the next post.
+3. Choose the next milestone from follower-growth progress tracking, private-DM operating-loop improvements, proactive opportunity DM controls, video/reel validation, or deeper local media discovery/enrichment.
+
+### PR #57 / Milestone 31: `feat/post-terminology-copy`
+
+**Goal:** Make agent/user-facing output refer to each lifecycle artifact as a post instead of a draft; keep `drafting` as a lifecycle status and retain existing CLI/storage names for compatibility.
+
+**Delivered behavior in branch:**
+- Post review, media-plan, guided-review, Discord DM, scheduling, publish approval, R2 staging, publish preview, and analytics output now label the artifact as `Post ID` / `post #...` instead of `Draft ID` / `draft #...`.
+- The existing `drafts` command namespace and `--draft-id` option remain supported, with help text clarifying they identify a post through the legacy option name.
+- Content approval copy now describes approval of post content while the status can still be `drafting`; `draft` remains only in internal model/schema names and lifecycle state values where changing it would be a compatibility migration.
+- README/AGENTS/current-roadmap handoff text now documents the terminology rule for future agents.
+
+**Safety rule:** This is a copy/terminology milestone only. It must not change persistence schema, approval guards, scheduling behavior, R2 execution behavior, Discord send behavior, or Meta publishing behavior.
+
+**Verification:**
+
+```bash
+.venv/bin/python -m pytest tests/test_cli.py tests/test_discord_dm.py tests/test_dm_scheduling.py tests/test_draft_review_package.py tests/test_discord_preview_payload.py -q
 .venv/bin/python -m pytest -q
 ```
 

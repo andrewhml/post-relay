@@ -29,7 +29,7 @@ def schedule_draft(connection, draft_id: int, *, scheduled_for: str) -> DraftRec
     draft = _require_draft(connection, draft_id)
     if draft.status != DraftState.APPROVED_FOR_QUEUE.value:
         raise DraftNotReadyForScheduling(
-            f"Draft #{draft_id} must be approved_for_queue before scheduling; current status is {draft.status}"
+            f"Post #{draft_id} must be approved_for_queue before scheduling; current status is {draft.status}"
         )
     target_state = transition_draft_state(DraftState(draft.status), DraftState.SCHEDULED)
     updated = update_draft_schedule(
@@ -46,7 +46,7 @@ def request_publish_approval(connection, draft_id: int) -> DraftRecord:
     draft = _require_draft(connection, draft_id)
     if draft.status != DraftState.SCHEDULED.value:
         raise DraftNotReadyForPublishApproval(
-            f"Draft #{draft_id} must be scheduled before publish approval is requested; current status is {draft.status}"
+            f"Post #{draft_id} must be scheduled before publish approval is requested; current status is {draft.status}"
         )
     target_state = transition_draft_state(
         DraftState(draft.status), DraftState.AWAITING_PUBLISH_APPROVAL
@@ -67,7 +67,7 @@ def approve_draft_for_publishing(
     draft = _require_draft(connection, draft_id)
     if draft.status != DraftState.AWAITING_PUBLISH_APPROVAL.value:
         raise DraftNotReadyForPublishApproval(
-            f"Draft #{draft_id} must be awaiting_publish_approval before publish approval; current status is {draft.status}"
+            f"Post #{draft_id} must be awaiting_publish_approval before publish approval; current status is {draft.status}"
         )
 
     transition_draft_state(DraftState(draft.status), DraftState.READY_TO_PUBLISH)
@@ -87,5 +87,5 @@ def approve_draft_for_publishing(
 def _require_draft(connection, draft_id: int) -> DraftRecord:
     draft = get_draft(connection, draft_id)
     if draft is None:
-        raise DraftNotFound(f"Draft #{draft_id} was not found")
+        raise DraftNotFound(f"Post #{draft_id} was not found")
     return draft

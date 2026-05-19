@@ -68,7 +68,7 @@ def test_build_guided_draft_package_recommends_post_type_and_questions_without_f
     assert any("Confirm the trip name" in question for question in package.context_questions)
     assert any("Confirm the date" in question for question in package.context_questions)
     rendered = package.to_text()
-    assert "Guided Draft Package" in rendered
+    assert "Guided Post Package" in rendered
     assert "Do not fabricate" in rendered
     assert "Needs Andrew confirmation" in rendered
 
@@ -197,8 +197,8 @@ photo_sources:
     )
 
     assert plan_result.exit_code == 0
-    assert "Guided Draft Package" in plan_result.output
+    assert "Guided Post Package" in plan_result.output
     assert "Post type recommendation: carousel" in plan_result.output
     assert accept_result.exit_code == 0
-    assert "Accepted guided draft package for draft #1" in accept_result.output
+    assert "Accepted guided post package for post #1" in accept_result.output
     assert "Caption:" in accept_result.output
