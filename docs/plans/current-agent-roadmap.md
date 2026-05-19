@@ -693,13 +693,13 @@ As of the first live carousel smoke, the local-first workflow is past the origin
 - Agent-initiated suggestions are modeled locally through `post_opportunities` and safe trigger checks, but proactive Discord outreach has not been implemented yet.
 - DM intake now avoids the worst broad-request failure mode by asking for narrowing cues before suggesting huge weak matches, matched large sets point operators to bounded artifact planning, and natural request matching uses local folder/year/filename descriptors with explainable rationale.
 - Oversized full contact-sheet renders are blocked by `drafts artifacts render`; instead, the CLI prints a bounded, DM-safe first-pass plan with narrowing/sample guidance and no source paths.
-- Single-image publish validation has completed one live smoke test. The first live carousel smoke for draft `2` succeeded through the guarded Meta path. Schedule enforcement, final publish caption/metadata preview, publish exports, resolved Meta `location_id` support, local post-publish analytics snapshots, explicit read-only insights storage, local-only recommendation feedback summaries, post terminology cleanup, and local follower-growth tracking are implemented through the current `feat/follower-growth-tracking` branch.
+- Single-image publish validation has completed one live smoke test. The first live carousel smoke for draft `2` succeeded through the guarded Meta path. Schedule enforcement, final publish caption/metadata preview, publish exports, resolved Meta `location_id` support, local post-publish analytics snapshots, explicit read-only insights storage, local-only recommendation feedback summaries, post terminology cleanup, local follower-growth tracking, Meta token extension, DM next-action planning, durable scheduled publish approvals, and warm-dark chat artifact rendering are implemented on `main`.
 
 ## Immediate next plan
 
-1. Complete and merge Milestone 32 `feat/follower-growth-tracking`: read-only follower/account metric snapshots, dry-run default fetch, local summary toward 5,000 followers, and docs/handoff updates.
-2. Use `analytics feedback-summary` plus `analytics follower-summary` as deterministic advisory baselines when planning the next reviewed post.
-3. Choose the next rollback-safe milestone after follower-growth tracking: more private-DM operating-loop practice, proactive opportunity DM controls, video/reel validation, or deeper local media discovery/enrichment.
+1. Use `analytics feedback-summary` plus `analytics follower-summary` as deterministic advisory baselines when planning the next reviewed post.
+2. Practice the private-DM-first, user-initiated operating loop with the refreshed contact-sheet/final-preview artifacts before changing live Discord send behavior.
+3. Choose the next rollback-safe engineering milestone from private-DM operating-loop hardening, proactive opportunity DM controls, video/reel validation, or deeper local media discovery/enrichment.
 4. Keep recommendation and follower-growth feedback advisory-only until several real posts and account snapshots provide enough signal.
 5. Keep live-safe defaults: no Discord sends, no R2 `--execute`, and no Meta `--execute` unless explicitly authorized in the active session.
 
@@ -1094,7 +1094,7 @@ Current local result: `14 passed` focused; `174 passed` full suite.
 2. Use `dm next-action --draft-id <id>` or `--discord-channel-id <dm-channel>` before choosing/sending the next private-DM prompt.
 3. After this lands, choose proactive opportunity DM controls, video/reel validation, or deeper local media discovery/enrichment.
 
-### Milestone 36: `feat/chat-design-refresh` (PR #62)
+### PR #62 / Milestone 36: `feat/chat-design-refresh` (merged)
 
 **Goal:** Integrate the new `assets/contact sheet/` contact-sheet and carousel-preview designs into Post Relay's local artifacts and chat/Discord preview surfaces.
 
@@ -1108,7 +1108,7 @@ Current local result: `14 passed` focused; `174 passed` full suite.
 - `assets/contact sheet/crop-helpers.js`
 - `assets/contact sheet/contact-sheet-final.css`
 
-**Expected behavior implemented on this branch:**
+**Delivered behavior:**
 - The deterministic crop-helper contract (`fitCrop`, `cropBox`, `chessFromAnchor`, `chessSpan`, `ratioLabel`, `tightnessLabel`) is ported into tested Python helpers.
 - The simple white contact sheet is replaced with a warm-dark/amber numbered contact sheet artifact that includes the A1-E5 crop grid vocabulary, visible number chips, filenames/meta below images, and lead/cover markers.
 - Local final post preview artifacts show selected media in confirmed order, one locked Instagram aspect ratio, a lead marker, pagination dots, and caption preview.
@@ -1123,6 +1123,14 @@ Current local result: `14 passed` focused; `174 passed` full suite.
 .venv/bin/python -m pytest tests/test_contact_sheet_design.py tests/test_review_artifacts.py tests/test_final_post_artifacts.py tests/test_discord_selection_payload.py tests/test_dm_operating_loop.py -q
 .venv/bin/python -m pytest -q
 ```
+
+Current merged-main result: `248 passed` full suite.
+
+**Next-session start here:**
+1. First verify the current baseline: `.venv/bin/python -m pytest -q` should report `248 passed`.
+2. Use `analytics feedback-summary` plus `analytics follower-summary` as advisory baselines when planning a reviewed post.
+3. Use `dm next-action --draft-id <id>` or `--discord-channel-id <dm-channel>` before choosing/sending the next private-DM prompt, and verify the refreshed local artifacts before any live Discord change.
+4. Choose the next rollback-safe milestone from private-DM operating-loop hardening, proactive opportunity DM controls, video/reel validation, or deeper local media discovery/enrichment.
 
 ## Later milestones
 
