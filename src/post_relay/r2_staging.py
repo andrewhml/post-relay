@@ -182,6 +182,8 @@ def _plan_review_artifact_items(
     ]
     if draft_artifact_root.exists():
         for kind, contact_sheet in contact_sheets:
+            if not contact_sheet.is_file():
+                continue
             items.append(
                 _plan_item(
                     kind=kind,

@@ -9,7 +9,7 @@ from post_relay.config import ReviewArtifactsConfig
 from post_relay.contact_sheet_design import ContactSheetPhoto, crop_box, label_from_index, ratio_label
 from post_relay.final_publish_preview import compose_final_meta_caption
 from post_relay.media_selection import build_draft_media_plan
-from post_relay.repository import get_draft, get_draft_location_tag
+from post_relay.repository import get_draft, get_draft_location_tag, get_guided_draft_package
 
 BG = (12, 11, 9)
 PAPER = (20, 18, 15)
@@ -70,6 +70,18 @@ def render_final_post_preview_artifact(
     plan = build_draft_media_plan(connection, draft_id)
     items = [item for item in plan.items if item.include_status == "included"]
     artifact_root = config.root / f"draft-{draft_id}"
+    crop_contact_sheet_path = artifact_root / "contact-sheet-crop.png"
+    if not crop_contact_sheet_path.exists():
+        raise ValueError(
+            "Stage 2 crop review must be completed before rendering the final post preview; "
+            "run drafts artifacts render --stage crop after selection is settled."
+        )
+    guided_package = get_guided_draft_package(connection, draft_id)
+    if guided_package is None or guided_package.accepted_at is None:
+        raise ValueError(
+            "An accepted guided post package is required before rendering the final post preview; "
+            "finish copy, hashtags, and local metadata with drafts guided-package-accept first."
+        )
     artifact_root.mkdir(parents=True, exist_ok=True)
     path = artifact_root / "final-post-preview.png"
     caption = compose_final_meta_caption(draft)

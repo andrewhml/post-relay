@@ -79,6 +79,7 @@ SCHEMA_STATEMENTS = [
         alt_text text,
         status text not null default 'drafting',
         scheduled_for text,
+        media_selection_confirmed_at text,
         created_at text not null default current_timestamp,
         updated_at text not null default current_timestamp,
         foreign key(candidate_group_id) references candidate_groups(id)
@@ -293,6 +294,7 @@ def initialize_db(connection: sqlite3.Connection) -> None:
     _ensure_column(connection, "photos", "height", "integer")
     _ensure_column(connection, "photos", "perceptual_hash", "text")
     _ensure_column(connection, "photos", "thumbnail_path", "text")
+    _ensure_column(connection, "drafts", "media_selection_confirmed_at", "text")
     _ensure_column(connection, "publish_attempts", "image_urls_json", "text")
     _ensure_column(connection, "publish_attempts", "child_container_ids_json", "text")
     _ensure_column(connection, "candidate_group_items", "role", "text not null default 'support'")

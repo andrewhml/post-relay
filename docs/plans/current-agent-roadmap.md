@@ -1136,9 +1136,9 @@ Current merged-main result: `248 passed` full suite.
 **Goal:** Refine the uploaded contact-sheet/final-approval design integration after direct visual feedback, then provide a local browser preview for review.
 
 **Delivered behavior in branch:**
-- Stage 1 now renders `contact-sheet-select.png` as a selection-only artifact: letter stickers and filenames only, with no crop frame, no A1-E5 grid, and no lead marker so the UI cannot imply crop decisions are already in play.
-- Stage 2 renders `contact-sheet-crop.png` for selected media only, with crop framing, A1-E5 grid vocabulary, crop metadata, and lead marker.
-- Stage 3 renders `final-post-preview.png` for approval, with ordered selected media, caption preview, and centered metadata tags.
+- Stage 1 now renders `contact-sheet-select.png` as a selection-only artifact: letter stickers and filenames only, with no crop frame, no A1-E5 grid, and no lead marker so the UI cannot imply crop decisions are already in play. It is the default `drafts artifacts render` stage.
+- Stage 2 renders `contact-sheet-crop.png` for confirmed selected media only, with crop framing, A1-E5 grid vocabulary, crop metadata, and lead marker; it is blocked until a media selection has been explicitly applied with `drafts media-edit` or Discord selection apply.
+- Stage 3 renders `final-post-preview.png` for approval, with ordered selected media, caption preview, and centered metadata tags; it is blocked until Stage 2 exists and a guided post package has been accepted so copy/metadata are not skipped.
 - Review/final artifacts now render as high-DPI PNGs at 1440px wide with 192 DPI metadata to reduce text grain in Discord/browser previews.
 - Tag/chip text centering accounts for font bounding boxes, fixing the prior top-heavy vertical padding.
 - README, AGENTS, historical plan references, R2 staging expectations, and tests were cleaned up to use the new `contact-sheet-select.png`, `contact-sheet-crop.png`, and `final-post-preview.png` artifact names.
@@ -1167,7 +1167,7 @@ Current branch result: `59 passed` focused; `248 passed` full suite.
 **Goal:** Make `dm next-action` safer and more useful as the operator entry point for the private-DM Stage 1/2/3 review loop.
 
 **Delivered behavior in branch so far:**
-- Drafting/needs-edits next-action output now leads with local artifact rendering before the live-capable DM selection send command, so `contact-sheet-select.png`, `contact-sheet-crop.png`, and `final-post-preview.png` stay visible in the operator path.
+- Drafting/needs-edits next-action output now leads with local Stage 1 selection artifact rendering (`drafts artifacts render --stage select`) before the live-capable DM selection send command, and explicitly defers crop/final artifacts until selection and copy/metadata gates are satisfied.
 - Ready-to-publish next-action output now suggests no-network final preview and scheduled publish preflight commands without `--execute`; live Meta execution remains a separate active-session authorization step.
 
 **Safety rule:** `dm next-action` remains advisory/local-only. It must not send Discord messages, mutate post state, call R2, call Meta, or imply live publish authorization. Any Meta `--execute` command must be typed intentionally only after Andrew explicitly authorizes it in the active session.

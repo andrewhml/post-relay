@@ -1897,9 +1897,10 @@ def drafts_approve_publish(
 def draft_artifacts_render(
     draft_id: int = typer.Option(..., "--draft-id", help="Post id (existing --draft-id option)."),
     config_path: Path = typer.Option(Path("config/photo_sources.yaml"), "--config", help="Photo source and artifact config path."),
+    stage: str = typer.Option("select", "--stage", help="Artifact stage to render: select, crop, or all."),
     db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
 ) -> None:
-    """Render local thumbnails and a contact sheet for post review."""
+    """Render local thumbnails and staged contact sheets for post review."""
     config = load_config(config_path)
     connection = connect_db(db)
     initialize_db(connection)
@@ -1909,6 +1910,7 @@ def draft_artifacts_render(
             draft_id,
             config.review_artifacts,
             protected_source_roots=[source.root for source in config.photo_sources],
+            stage=stage,
         )
     except ArtifactDraftNotFound as error:
         raise typer.BadParameter(str(error), param_hint="--draft-id") from error
@@ -1917,6 +1919,8 @@ def draft_artifacts_render(
         return
     except UnsafeArtifactRoot as error:
         raise typer.BadParameter(str(error), param_hint="--config") from error
+    except ValueError as error:
+        raise typer.BadParameter(str(error), param_hint="--stage") from error
     typer.echo(package.to_text())
 
 

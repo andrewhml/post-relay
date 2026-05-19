@@ -8,6 +8,7 @@ from post_relay.config import PhotoSource, PostRelayConfig, R2StagingConfig, Rev
 from post_relay.db import connect_db, initialize_db
 from post_relay.drafts import create_draft_from_candidate
 from post_relay.indexer import index_photo_sources
+from post_relay.media_selection import apply_draft_media_selection
 from post_relay.repository import list_candidate_groups
 from post_relay.review_artifacts import render_review_artifacts_for_draft
 from post_relay.r2_staging import DraftNotFound, R2StagingConfigError, plan_r2_staging_for_draft
@@ -43,7 +44,9 @@ def test_plan_r2_staging_for_draft_preserves_media_and_artifact_order_without_ab
 ):
     connection, draft, _root, source_paths = _build_carousel_draft(tmp_path)
     artifact_config = ReviewArtifactsConfig(root=tmp_path / "review_artifacts", thumbnail_max_px=120)
-    artifacts = render_review_artifacts_for_draft(connection, draft.id, artifact_config)
+    render_review_artifacts_for_draft(connection, draft.id, artifact_config, stage="select")
+    apply_draft_media_selection(connection, draft.id, lead=1, keep=[1, 2], post_type="carousel")
+    artifacts = render_review_artifacts_for_draft(connection, draft.id, artifact_config, stage="crop")
     r2_config = R2StagingConfig(
         enabled=False,
         bucket="post-relay-publish",
