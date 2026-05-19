@@ -137,6 +137,7 @@ def _plan_for_draft(
             action="media_selection",
             summary=summary,
             command=(
+                f"post-relay drafts artifacts render --draft-id {draft.id} --config config/photo_sources.yaml --db data/post_relay.sqlite && "
                 f"post-relay discord dm-selection-send --draft-id {draft.id} "
                 f"--target-count {min(max(target_count, 1), max(media_count, 1))} --db data/post_relay.sqlite"
             ),
@@ -146,6 +147,7 @@ def _plan_for_draft(
             rationale=[
                 f"Post has {media_count} included candidate photo(s).",
                 "Photo ordering/lead choice should be reviewed before final copy and content approval.",
+                "Stage artifacts should be kept aligned: contact-sheet-select.png for Stage 1 selection, contact-sheet-crop.png for Stage 2 crop feedback, and final-post-preview.png for Stage 3 approval.",
                 f"After selection, draft copy locally with: post-relay drafts guided-package-plan --draft-id {draft.id} --db data/post_relay.sqlite",
             ],
             safety_notes=_base_safety_notes(),
@@ -199,7 +201,7 @@ def _plan_for_draft(
             summary="Render the final Meta-bound preview and let the due scheduled-publish runner execute from stored final approval when the schedule arrives.",
             command=(
                 f"post-relay meta final-publish-preview --draft-id {draft.id} --from-staged-r2 --config config/photo_sources.yaml --db data/post_relay.sqlite && "
-                f"post-relay meta publish-scheduled --draft-id {draft.id} --from-staged-r2 --config config/photo_sources.yaml --db data/post_relay.sqlite --execute"
+                f"post-relay meta publish-scheduled --draft-id {draft.id} --from-staged-r2 --config config/photo_sources.yaml --db data/post_relay.sqlite"
             ),
             draft_id=draft.id,
             thread_id=thread.id if thread else None,
@@ -211,7 +213,7 @@ def _plan_for_draft(
                 "Schedule enforcement and staged-media completeness still need preflight checks.",
             ],
             safety_notes=_base_safety_notes()
-            + ["The --execute runner may publish only after the stored schedule is due and active double approval is still present."],
+            + ["The publish runner may publish only with explicit active-session authorization, after the stored schedule is due and active double approval is still present."],
         )
 
     if status == DraftState.POSTED.value:

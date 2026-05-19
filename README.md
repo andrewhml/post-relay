@@ -36,7 +36,7 @@ Early local-first MVP scaffold with:
 - live-capable private Discord DM selection sender/poller for Discord-only selection smoke tests, guarded by environment-provided bot credentials
 - live-capable private Discord DM guided review sender/poller plus no-network apply fallback for accepting hook/caption/metadata decisions from DM-style replies
 - live-capable private Discord DM scheduling guidance sender/poller plus double-confirmed final-publish-approval sender/poller and no-network apply fallbacks
-- no-network `dm next-action` planner that chooses the next private-DM operating-loop step from the active thread/post status, shows all locally scheduled posts before recommending another slot, and treats stored final publish approval as durable until a material edit invalidates it without sending Discord, R2, or Meta requests
+- no-network `dm next-action` planner that chooses the next private-DM operating-loop step from the active thread/post status, shows all locally scheduled posts before recommending another slot, treats stored final publish approval as durable until a material edit invalidates it, leads drafting/needs-edits posts through the Stage 1/2/3 local artifact loop, and keeps ready-to-publish guidance no-`--execute` by default without sending Discord, R2, or Meta requests
 - local post opportunity model and safe trigger checks for agent-initiated suggestions with dry-run planning, dedupe, snooze/dismiss respect, manual seeds, and candidate-to-draft conversion, without sending DMs
 - private DM intake narrowing guardrails that ask for more specific cues before suggesting huge weak candidate matches and warn before rendering contact sheets for large matched sets
 - local semantic DM candidate matching using folder/year/filename descriptors, simple aliases, and source-path-safe match rationale
@@ -53,9 +53,9 @@ Early local-first MVP scaffold with:
 ## Immediate goals
 1. Use recommendation feedback summaries and follower-growth snapshots as local advisory baselines for the next reviewed travel post; keep improving deterministic suggestions as more real posts collect data
 2. Practice the private-DM-first, user-initiated operating loop with the refreshed warm-dark review/final-preview artifacts before changing live Discord send behavior
-3. Keep improving the private-DM workflow for selecting photos, accepting hook-first captions/metadata, scheduling, and recording local approvals
+3. Keep improving the private-DM workflow for selecting photos, accepting hook-first captions/metadata, scheduling, and recording local approvals; `dm next-action` should lead with local Stage 1/2/3 artifacts and no-network preflights before any live-capable Discord or Meta command
 4. Keep agent-initiated suggestions local-only until the user-initiated flow has enough successful sessions; then add proactive Discord DMs behind explicit safe trigger and opt-out controls
-5. Choose the next rollback-safe engineering milestone from private-DM operating-loop hardening, proactive opportunity DM controls, video/reel validation, or deeper local media discovery/enrichment
+5. Choose the next rollback-safe engineering milestone from proactive opportunity DM controls, video/reel validation, or deeper local media discovery/enrichment after `feat/dm-operating-loop-hardening` lands
 
 ## Agent handoff
 Future agents should start with `AGENTS.md`, then `docs/plans/current-agent-roadmap.md`. The durable plan for local/NAS sources, review artifacts, and Cloudflare R2 staging is `docs/plans/content-pipeline-r2-staging-plan.md`. The specialized agent baseline is `docs/plans/postrelay-agent-operating-baseline.md`. The current private-DM conversation plan is `docs/plans/discord-dm-conversation-orchestration.md`, and the Discord-before-live-publish selection/review plan is `docs/plans/discord-photo-selection-before-carousel-smoke.md`.

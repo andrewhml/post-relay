@@ -71,6 +71,10 @@ def test_dm_next_action_routes_drafting_post_to_photo_selection_and_guided_packa
     assert plan.action == "media_selection"
     assert plan.draft_id == draft.id
     assert "Send/prepare a private DM photo selection prompt" in text
+    assert "contact-sheet-select.png" in text
+    assert "contact-sheet-crop.png" in text
+    assert "final-post-preview.png" in text
+    assert f"post-relay drafts artifacts render --draft-id {draft.id}" in text
     assert f"post-relay discord dm-selection-send --draft-id {draft.id} --target-count 3" in text
     assert "drafts guided-package-plan" in text
     assert root.as_posix() not in text
@@ -119,8 +123,8 @@ def test_dm_next_action_routes_ready_post_to_final_preview_and_guarded_publish(t
     assert "meta publish-scheduled" in text
     assert "Stored final publish approval is durable" in text
     assert "No reapproval is needed inside Meta's 24-hour container window" in text
-    assert "--execute" in text
-    assert "only with explicit active-session authorization" not in text
+    assert "--execute" not in text
+    assert "only with explicit active-session authorization" in text
 
 
 def test_dm_next_action_includes_all_scheduled_posts_for_agent_awareness(tmp_path: Path):
