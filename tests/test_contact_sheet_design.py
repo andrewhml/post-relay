@@ -69,6 +69,7 @@ def test_chess_span_uses_floor_ceil_cells():
 
 def test_ratio_and_tightness_labels_match_design_contract():
     assert ratio_label(1) == "1:1"
+    assert ratio_label(3 / 4) == "3:4"
     assert ratio_label(0.8) == "4:5"
     assert ratio_label(1.91) == "1.91:1"
     assert ratio_label(9 / 16) == "9:16"

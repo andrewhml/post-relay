@@ -14,6 +14,7 @@ from post_relay.review_artifacts import (
     DraftNotFound,
     OversizedReviewArtifactSet,
     UnsafeArtifactRoot,
+    _prepare_crop_preview,
     plan_bounded_review_artifacts_for_draft,
     render_review_artifacts_for_draft,
 )
@@ -211,6 +212,17 @@ def test_render_review_artifacts_blocks_crop_until_media_selection_is_confirmed(
     assert not (artifact_dir / "contact-sheet-crop.png").exists()
 
 
+def test_render_review_artifacts_allows_single_media_crop_without_selection_process(tmp_path: Path):
+    connection, draft, _source_paths = _build_image_fixture_draft(tmp_path, image_count=1)
+    artifact_config = ReviewArtifactsConfig(root=tmp_path / "review_artifacts")
+
+    package = render_review_artifacts_for_draft(connection, draft.id, artifact_config, stage="crop")
+
+    assert package.select_contact_sheet_path is None
+    assert package.crop_contact_sheet_path is not None
+    assert Path(package.crop_contact_sheet_path).is_file()
+
+
 def test_render_review_artifacts_blocks_all_stage_from_skipping_selection(tmp_path: Path):
     connection, draft, _source_paths = _build_image_fixture_draft(tmp_path)
     artifact_config = ReviewArtifactsConfig(root=tmp_path / "review_artifacts")
@@ -234,6 +246,27 @@ def test_render_review_artifacts_can_render_crop_after_selection_sheet_exists(tm
     assert package.select_contact_sheet_path is None
     assert package.crop_contact_sheet_path is not None
     assert Path(package.crop_contact_sheet_path).is_file()
+
+
+def test_crop_preview_uses_final_3x4_export_treatment_for_landscape_sources():
+    from post_relay.media_selection import DraftMediaPlanItem
+
+    source = Image.new("RGB", (700, 467), "blue")
+    item = DraftMediaPlanItem(
+        review_number=5,
+        photo_id=42,
+        local_file_path="/photos/landscape.jpg",
+        role="primary",
+        include_status="included",
+        crop_ratio=3 / 4,
+    )
+
+    photo, preview = _prepare_crop_preview(item, source)
+
+    assert (photo.w, photo.h) == (1080, 1440)
+    assert preview.size == (1080, 1440)
+    assert preview.getpixel((20, 20)) == (255, 255, 255)
+    assert preview.getpixel((540, 720))[:3] == (0, 0, 255)
 
 
 def test_render_review_artifacts_text_lists_outputs(tmp_path: Path):

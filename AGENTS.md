@@ -35,7 +35,7 @@ Post Relay is a local-first Instagram travel content workflow for Andrew's `andr
 - Post context questions can be generated/listed locally and included in post previews.
 - Post content direction can be submitted for review, approved for queueing, and invalidated by material edits.
 - Dry-run Discord preview payloads can be generated locally with ordered existing image paths and missing-file reporting.
-- Local post review artifacts can be rendered in gated stages with `drafts artifacts render --stage select|crop`; generated thumbnails/contact sheets are written under the configured artifact root without modifying source media. Crop artifacts require explicit media selection first, and final preview artifacts require accepted copy/metadata.
+- Local post review artifacts can be rendered in gated stages with `drafts artifacts render --stage select|crop`; generated thumbnails/contact sheets are written under the configured artifact root without modifying source media. Crop artifacts require explicit media selection first for multi-media posts, while single-image/video posts can skip selection and go straight to crop. Final preview artifacts require accepted copy/metadata.
 - Oversized post review artifact renders are blocked by a bounded planning layer that classifies large media sets and returns DM-safe narrowing/sample guidance before a full contact sheet is rendered.
 - DM intake candidate matching uses local folder/year/filename descriptors and simple aliases to prefer specific matched sets over generic large folders while keeping rationale source-path-safe.
 - No-network R2 staging plans can be generated with `drafts r2-stage-plan`; plans use sanitized object keys/public URLs, preserve included post media order, and report missing local files before upload exists.
@@ -120,7 +120,7 @@ Post Relay is a local-first Instagram travel content workflow for Andrew's `andr
 .venv/bin/post-relay drafts guided-package-plan --draft-id 1 --location "Seoul, South Korea" --story-angle "night market alleys" --mood cinematic --audience-hook "food and light" --db data/post_relay.sqlite
 .venv/bin/post-relay drafts guided-package-accept --draft-id 1 --caption-index 1 --location "Seoul, South Korea" --story-angle "night market alleys" --mood cinematic --audience-hook "food and light" --db data/post_relay.sqlite
 .venv/bin/post-relay drafts final-preview-artifact render --draft-id 1 --config config/photo_sources.yaml --db data/post_relay.sqlite
-.venv/bin/post-relay drafts publish-exports render --draft-id 1 --profile feed_portrait_4x5 --config config/photo_sources.yaml --db data/post_relay.sqlite
+.venv/bin/post-relay drafts publish-exports render --draft-id 1 --profile feed_portrait_3x4 --config config/photo_sources.yaml --db data/post_relay.sqlite
 .venv/bin/post-relay drafts location-candidates --draft-id 1 --db data/post_relay.sqlite --dry-run
 .venv/bin/post-relay drafts location-candidates --draft-id 1 --query "Gwangjang Market Seoul" --env-file .env --db data/post_relay.sqlite
 .venv/bin/post-relay drafts location-tag-set --draft-id 1 --page-id <facebook-page-location-id> --name "Seoul, Korea" --source pages/search --db data/post_relay.sqlite

@@ -77,7 +77,7 @@ def plan_r2_staging_for_draft(
     *,
     review_artifact_root: Optional[Path] = None,
     publish_export_root: Optional[Path] = None,
-    publish_export_profile: str = "feed_portrait_4x5",
+    publish_export_profile: str = "feed_portrait_3x4",
 ) -> R2StagingPlan:
     _validate_r2_staging_config(config)
     draft = get_draft(connection, draft_id)

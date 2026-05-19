@@ -1137,7 +1137,7 @@ Current merged-main result: `248 passed` full suite.
 
 **Delivered behavior in branch:**
 - Stage 1 now renders `contact-sheet-select.png` as a selection-only artifact: letter stickers and filenames only, with no crop frame, no A1-E5 grid, and no lead marker so the UI cannot imply crop decisions are already in play. It is the default `drafts artifacts render` stage.
-- Stage 2 renders `contact-sheet-crop.png` for confirmed selected media only, with crop framing, A1-E5 grid vocabulary, crop metadata, and lead marker; it is blocked until a media selection has been explicitly applied with `drafts media-edit` or Discord selection apply.
+- Stage 2 renders `contact-sheet-crop.png` for confirmed selected media only, with crop framing, A1-E5 grid vocabulary, crop metadata, and lead marker; it is blocked until a media selection has been explicitly applied with `drafts media-edit` or Discord selection apply, except when the post has exactly one included image/video and no selection process is needed.
 - Stage 3 renders `final-post-preview.png` for approval, with ordered selected media, caption preview, and centered metadata tags; it is blocked until Stage 2 exists and a guided post package has been accepted so copy/metadata are not skipped.
 - Review/final artifacts now render as high-DPI PNGs at 1440px wide with 192 DPI metadata to reduce text grain in Discord/browser previews.
 - Tag/chip text centering accounts for font bounding boxes, fixing the prior top-heavy vertical padding.

@@ -38,10 +38,13 @@ def _build_mixed_carousel_draft(tmp_path: Path):
     return connection, draft, root, [portrait, landscape]
 
 
-def test_render_publish_exports_creates_4x5_assets_contact_sheet_and_preserves_sources(tmp_path: Path):
+def test_render_publish_exports_creates_4x5_assets_without_extra_contact_sheet_and_preserves_sources(tmp_path: Path):
     connection, draft, source_root, source_paths = _build_mixed_carousel_draft(tmp_path)
     original_bytes = {path: path.read_bytes() for path in source_paths}
     config = PublishExportsConfig(root=tmp_path / "publish_exports")
+    stale_sheet = config.root / f"draft-{draft.id}" / "feed_portrait_4x5" / "publish-contact-sheet.jpg"
+    stale_sheet.parent.mkdir(parents=True, exist_ok=True)
+    stale_sheet.write_bytes(b"stale publish sheet")
 
     package = render_publish_exports_for_draft(
         connection,
@@ -64,13 +67,37 @@ def test_render_publish_exports_creates_4x5_assets_contact_sheet_and_preserves_s
     for item in package.media_items:
         with Image.open(item.local_path) as exported:
             assert exported.size == (1080, 1350)
-    with Image.open(package.contact_sheet_path) as contact_sheet:
-        assert contact_sheet.width > 0
-        assert contact_sheet.height > 0
+    assert package.contact_sheet_path is None
+    assert not (config.root / f"draft-{draft.id}" / "feed_portrait_4x5" / "publish-contact-sheet.jpg").exists()
     for path in source_paths:
         assert path.read_bytes() == original_bytes[path]
     assert source_root.as_posix() not in "\n".join(item.object_key_hint for item in package.media_items)
     assert "No Discord, R2, or Meta network calls were made." in package.to_text()
+
+
+def test_render_publish_exports_creates_3x4_feed_profile_assets(tmp_path: Path):
+    connection, draft, source_root, _source_paths = _build_mixed_carousel_draft(tmp_path)
+    config = PublishExportsConfig(root=tmp_path / "publish_exports")
+
+    package = render_publish_exports_for_draft(
+        connection,
+        draft.id,
+        config,
+        profile_name="feed_portrait_3x4",
+        landscape_treatment="clean_mat",
+        protected_source_roots=[source_root],
+    )
+
+    assert package.profile_name == "feed_portrait_3x4"
+    assert package.width == 1080
+    assert package.height == 1440
+    assert [item.treatment for item in package.media_items] == ["center_crop", "clean_mat"]
+    for item in package.media_items:
+        with Image.open(item.local_path) as exported:
+            assert exported.size == (1080, 1440)
+    assert package.contact_sheet_path is None
+    assert "Profile: feed_portrait_3x4 (1080x1440)" in package.to_text()
+    assert "Publish preview contact sheet" not in package.to_text()
 
 
 def test_r2_staging_prefers_publish_exports_when_available(tmp_path: Path):
@@ -88,15 +115,15 @@ def test_r2_staging_prefers_publish_exports_when_available(tmp_path: Path):
         draft.id,
         r2_config,
         publish_export_root=export_config.root,
-        publish_export_profile="feed_portrait_4x5",
+        publish_export_profile="feed_portrait_3x4",
     )
 
     assert [item.source_path for item in plan.media_items] == [item.local_path for item in package.media_items]
-    assert all("publish-exports/feed_portrait_4x5/media" in item.object_key for item in plan.media_items)
+    assert all("publish-exports/feed_portrait_3x4/media" in item.object_key for item in plan.media_items)
     assert all(item.kind == "draft_media" for item in plan.media_items)
     assert all(Path(item.source_path).is_file() for item in plan.media_items)
     assert all(path.as_posix() not in [item.source_path for item in plan.media_items] for path in source_paths)
-    assert "Publish exports: feed_portrait_4x5" in plan.to_text()
+    assert "Publish exports: feed_portrait_3x4" in plan.to_text()
 
 
 def test_cli_publish_exports_render_prints_exported_dimensions_and_warnings(tmp_path: Path):
@@ -141,4 +168,5 @@ publish_exports:
     assert "02-02-landscape.jpg (1080x1350, clean_mat)" in result.output
     assert "Mixed media orientations detected" in result.output
     assert "No Discord, R2, or Meta network calls were made." in result.output
-    assert (export_root / f"draft-{draft.id}" / "feed_portrait_4x5" / "publish-contact-sheet.jpg").is_file()
+    assert "Publish preview contact sheet" not in result.output
+    assert not (export_root / f"draft-{draft.id}" / "feed_portrait_4x5" / "publish-contact-sheet.jpg").exists()

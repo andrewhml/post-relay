@@ -10,7 +10,7 @@ Early local-first MVP scaffold with:
 - library statistics CLI
 - candidate group builder/list CLI
 - post create/list/preview CLI (currently under the existing `drafts` command namespace)
-- local post review artifact CLI for staged ordered thumbnails/contact sheets without source mutation: Stage 1 selection by default, Stage 2 crop only after confirmed media selection, Stage 3 final preview only after accepted copy/metadata
+- local post review artifact CLI for staged ordered thumbnails/contact sheets without source mutation: Stage 1 selection by default, Stage 2 crop after confirmed media selection except for single-media posts, Stage 3 final preview only after accepted copy/metadata
 - post context question generate/list CLI
 - post content approval/edit CLI with approval invalidation on material edits
 - explicit post media selection CLI for numbered contact-sheet keep/remove/lead/post-type edits
@@ -107,7 +107,7 @@ Use the project virtualenv when running locally:
 .venv/bin/post-relay drafts guided-package-plan --draft-id 1 --location "Seoul, South Korea" --story-angle "night market alleys" --mood cinematic --audience-hook "food and light" --db data/post_relay.sqlite
 .venv/bin/post-relay drafts guided-package-accept --draft-id 1 --caption-index 1 --location "Seoul, South Korea" --story-angle "night market alleys" --mood cinematic --audience-hook "food and light" --db data/post_relay.sqlite
 .venv/bin/post-relay drafts final-preview-artifact render --draft-id 1 --config config/photo_sources.yaml --db data/post_relay.sqlite
-.venv/bin/post-relay drafts publish-exports render --draft-id 1 --profile feed_portrait_4x5 --config config/photo_sources.yaml --db data/post_relay.sqlite
+.venv/bin/post-relay drafts publish-exports render --draft-id 1 --profile feed_portrait_3x4 --config config/photo_sources.yaml --db data/post_relay.sqlite
 .venv/bin/post-relay drafts location-candidates --draft-id 1 --db data/post_relay.sqlite --dry-run
 .venv/bin/post-relay drafts location-candidates --draft-id 1 --query "Gwangjang Market Seoul" --env-file .env --db data/post_relay.sqlite
 .venv/bin/post-relay drafts location-tag-set --draft-id 1 --page-id <facebook-page-location-id> --name "Seoul, Korea" --source pages/search --db data/post_relay.sqlite
