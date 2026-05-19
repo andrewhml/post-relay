@@ -36,7 +36,7 @@ def _build_fixture_draft(tmp_path: Path, filenames: Optional[list[str]] = None):
 
 def test_build_discord_selection_payload_renders_numbered_request_and_interaction_semantics(tmp_path: Path):
     connection, draft, folder = _build_fixture_draft(tmp_path)
-    contact_sheet = tmp_path / "artifacts" / "draft-1" / "contact-sheet.jpg"
+    contact_sheet = tmp_path / "artifacts" / "draft-1" / "contact-sheet-select.png"
     contact_sheet.parent.mkdir(parents=True)
     contact_sheet.write_bytes(b"fake contact sheet")
 
@@ -80,7 +80,7 @@ def test_build_discord_selection_payload_renders_numbered_request_and_interactio
 def test_build_discord_selection_payload_reports_missing_media_and_artifacts(tmp_path: Path):
     connection, draft, folder = _build_fixture_draft(tmp_path)
     (folder / "03-street.jpg").unlink()
-    missing_contact_sheet = tmp_path / "artifacts" / "draft-1" / "contact-sheet.jpg"
+    missing_contact_sheet = tmp_path / "artifacts" / "draft-1" / "contact-sheet-select.png"
 
     payload = build_discord_selection_payload(
         connection,
@@ -117,7 +117,7 @@ def test_cli_discord_selection_preview_outputs_dry_run_payload_without_sending(t
     folder.mkdir(parents=True)
     for filename in ["01-hero.jpg", "02-food.jpg", "03-street.jpg"]:
         (folder / filename).write_bytes(b"fake image")
-    contact_sheet = tmp_path / "artifacts" / "draft-1" / "contact-sheet.jpg"
+    contact_sheet = tmp_path / "artifacts" / "draft-1" / "contact-sheet-select.png"
     contact_sheet.parent.mkdir(parents=True)
     contact_sheet.write_bytes(b"fake contact sheet")
     config_path = tmp_path / "photo_sources.yaml"

@@ -71,6 +71,23 @@
 </style>
 </head>
 <body>
+<template id="__bundler_thumbnail" data-bg-color="#14120f">
+  <svg viewBox="0 0 240 180" xmlns="http://www.w3.org/2000/svg">
+    <g fill="none" stroke="#e8a838" stroke-width="2">
+      <rect x="40" y="40" width="50" height="50" />
+      <rect x="100" y="40" width="50" height="50" />
+      <rect x="160" y="40" width="50" height="50" />
+      <rect x="40" y="100" width="50" height="40" />
+      <rect x="100" y="100" width="50" height="40" />
+      <rect x="160" y="100" width="50" height="40" />
+    </g>
+    <g fill="#e8a838" font-family="ui-monospace, monospace" font-size="9" font-weight="600">
+      <text x="44" y="54">01</text>
+      <text x="104" y="54">02</text>
+      <text x="164" y="54">03</text>
+    </g>
+  </svg>
+</template>
 <div id="root"></div>
 
 <!-- Plain JS (must load before the babel-compiled scripts that depend on them) -->
@@ -90,12 +107,12 @@
           <div className="demo-step">
             <div className="demo-step-label">
               <span className="demo-step-num">01</span>
-              <span>Review · pick photos & adjust crops in chat</span>
+              <span>Select &middot; pick photos from the library</span>
             </div>
             <div className="demo-frame">
               <ContactSheet
+                mode="select"
                 photos={SAMPLE_PHOTOS}
-                leadNum={SAMPLE_LEAD}
                 title="Granary Coffee · feed candidates"
                 sub="shoot 02 · nov 18"
               />
@@ -105,7 +122,23 @@
           <div className="demo-step">
             <div className="demo-step-label">
               <span className="demo-step-num">02</span>
-              <span>Confirm · the post in carousel order</span>
+              <span>Crop &middot; adjust each selected photo</span>
+            </div>
+            <div className="demo-frame">
+              <ContactSheet
+                mode="crop"
+                photos={SAMPLE_CAROUSEL_ORDER.map(n => SAMPLE_PHOTOS.find(p => p.n === n)).filter(Boolean)}
+                leadNum={SAMPLE_LEAD}
+                title="Granary Coffee · cropping"
+                sub="04 selected · lead E"
+              />
+            </div>
+          </div>
+
+          <div className="demo-step">
+            <div className="demo-step-label">
+              <span className="demo-step-num">03</span>
+              <span>Confirm &middot; the post in carousel order</span>
             </div>
             <div className="demo-frame">
               <CarouselPreview
@@ -119,7 +152,7 @@
         </div>
 
         <div className="demo-footer">
-          <div>Components: <code>&lt;ContactSheet&gt;</code> · <code>&lt;CarouselPreview&gt;</code></div>
+          <div>Components: <code>&lt;ContactSheet mode="select"&gt;</code> · <code>&lt;ContactSheet mode="crop"&gt;</code> · <code>&lt;CarouselPreview&gt;</code></div>
           <div>Files: <code>contact-sheet.jsx</code> · <code>carousel-preview.jsx</code> · <code>crop-helpers.js</code> · <code>contact-sheet-final.css</code></div>
         </div>
       </div>

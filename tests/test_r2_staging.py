@@ -65,11 +65,17 @@ def test_plan_r2_staging_for_draft_preserves_media_and_artifact_order_without_ab
         "01-01-shibuya-crossing.jpg",
         "02-02-rooftop.jpg",
     ]
-    assert [item.kind for item in plan.artifact_items] == ["review_thumbnail", "review_thumbnail", "contact_sheet"]
+    assert [item.kind for item in plan.artifact_items] == [
+        "review_thumbnail",
+        "review_thumbnail",
+        "contact_sheet_select",
+        "contact_sheet_crop",
+    ]
     assert [Path(item.source_path).name for item in plan.artifact_items] == [
         "01-01-shibuya-crossing.jpg",
         "02-02-rooftop.jpg",
-        "contact-sheet.jpg",
+        "contact-sheet-select.png",
+        "contact-sheet-crop.png",
     ]
     all_items = plan.media_items + plan.artifact_items
     assert all(item.exists for item in all_items)

@@ -55,6 +55,15 @@ function ratioLabel(r) {
 }
 
 /**
+ * Photo letter label from 1-indexed display number.
+ * 1 → "A", 2 → "B", … 26 → "Z".
+ * Used as the photo's stable reference in chat (e.g. "use C, B, A, G").
+ */
+function labelFromIndex(n) {
+  return String.fromCharCode(64 + n);
+}
+
+/**
  * 5×5 chess-style coord (A1..E5) from anchor.
  * A = left column, E = right column; 1 = top row, 5 = bottom row.
  */

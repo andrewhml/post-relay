@@ -107,3 +107,9 @@ def tightness_label(tight: float) -> str:
     if tight >= 0.83:
         return "medium"
     return "snug"
+
+
+def label_from_index(n: int) -> str:
+    if n < 1 or n > 26:
+        return str(n)
+    return chr(64 + n)

@@ -139,7 +139,7 @@ Expected GREEN.
 
 Add tests that render two or three fixture images and assert:
 
-- `contact-sheet.jpg` still exists under `review_artifacts.root / draft-N`.
+- `contact-sheet-select.png` and `contact-sheet-crop.png` exist under `review_artifacts.root / draft-N`.
 - Source image bytes are unchanged.
 - The new sheet has a dark background pixel near the header/body, not white.
 - The sheet includes expected dimensions for a three-column chat-safe layout or configured column count.
@@ -196,7 +196,7 @@ Fixture: a carousel draft with two or more selected/included images, caption tex
 
 Assert:
 
-- Renderer outputs `final-post-preview.jpg` under a generated artifact root, e.g. `data/review_artifacts/draft-N/final-post-preview.jpg` or a new configured chat artifact root.
+- Renderer outputs high-DPI `final-post-preview.png` under a generated artifact root, e.g. `data/review_artifacts/draft-N/final-post-preview.png` or a new configured chat artifact root.
 - Slides are rendered in included media order.
 - The first slide/lead has an amber lead marker.
 - All slides use one locked ratio, defaulting to 4:5 for carousel/feed preview unless explicitly overridden.
@@ -225,7 +225,7 @@ Keep output local-only:
 Final Post Preview Artifact
 Post ID: 1
 Preview image:
-  data/review_artifacts/draft-1/final-post-preview.jpg
+  data/review_artifacts/draft-1/final-post-preview.png
 No Discord, R2, or Meta network calls were made.
 ```
 
@@ -315,14 +315,14 @@ Smoke commands after implementation:
 
 ```bash
 .venv/bin/post-relay drafts artifacts render --draft-id 1 --config config/photo_sources.yaml --db data/post_relay.sqlite
-.venv/bin/post-relay drafts discord-selection-preview --draft-id 1 --target-count 5 --artifact-path data/review_artifacts/draft-1/contact-sheet.jpg --db data/post_relay.sqlite
+.venv/bin/post-relay drafts discord-selection-preview --draft-id 1 --target-count 5 --artifact-path data/review_artifacts/draft-1/contact-sheet-select.png --db data/post_relay.sqlite
 .venv/bin/post-relay drafts final-preview-artifact render --draft-id 1 --config config/photo_sources.yaml --db data/post_relay.sqlite
 ```
 
 ## Acceptance checklist
 
 - [ ] Crop helper tests prove parity with the provided JS contract.
-- [ ] Contact sheet artifacts use the warm-dark/amber design and numbered/chess-grid vocabulary.
+- [ ] Contact sheet artifacts use the warm-dark/amber design; Stage 1 is selection-only with no crop framing/grid/lead state, while Stage 2 uses the numbered/chess-grid crop vocabulary.
 - [ ] Contact sheet filenames/metadata are below images, not overlaid.
 - [ ] Final post preview artifact shows selected media in confirmed order with one locked ratio and lead marker.
 - [ ] Existing large-set guardrails still block oversized full contact sheets.

@@ -43,6 +43,20 @@ def _build_image_fixture_draft(tmp_path: Path):
     return connection, draft, [first, second]
 
 
+def _count_near_white_pixels(image: Image.Image, rect: tuple[int, int, int, int]) -> int:
+    x0, y0, x1, y1 = rect
+    count = 0
+    for x in range(x0, x1):
+        for y in range(y0, y1):
+            pixel = image.getpixel((x, y))
+            if not isinstance(pixel, tuple):
+                continue
+            r, g, b = pixel[:3]
+            if r > 220 and g > 220 and b > 210:
+                count += 1
+    return count
+
+
 def test_render_review_artifacts_creates_ordered_thumbnails_and_contact_sheet(tmp_path: Path):
     connection, draft, source_paths = _build_image_fixture_draft(tmp_path)
     original_bytes = {path: path.read_bytes() for path in source_paths}
@@ -65,7 +79,11 @@ def test_render_review_artifacts_creates_ordered_thumbnails_and_contact_sheet(tm
         "01-01-shibuya.jpg",
         "02-02-rooftop.jpg",
     ]
-    assert Path(package.contact_sheet_path).is_file()
+    assert Path(package.select_contact_sheet_path).is_file()
+    assert Path(package.crop_contact_sheet_path).is_file()
+    assert Path(package.contact_sheet_path) == Path(package.crop_contact_sheet_path)
+    assert package.select_contact_sheet_path.endswith("contact-sheet-select.png")
+    assert package.crop_contact_sheet_path.endswith("contact-sheet-crop.png")
 
     for artifact in package.thumbnails:
         thumbnail_path = Path(artifact.local_path)
@@ -75,15 +93,33 @@ def test_render_review_artifacts_creates_ordered_thumbnails_and_contact_sheet(tm
             assert artifact.width == image.width
             assert artifact.height == image.height
 
-    with Image.open(package.contact_sheet_path) as sheet:
-        assert sheet.width >= 320
-        assert sheet.height > 184
-        assert sheet.getpixel((8, 8)) != (255, 255, 255)
-        assert sheet.getpixel((8, 8))[0] < 40
+    with Image.open(package.select_contact_sheet_path) as select_sheet:
+        assert select_sheet.width == 1440
+        assert select_sheet.format == "PNG"
+        assert select_sheet.info.get("dpi", (0, 0))[0] >= 190
+        # Stage 1 is selection-only: dark paper + amber letter stickers, no
+        # bright crop rectangle/grid overlay inside the first photo cell.
+        white_overlay_pixels = _count_near_white_pixels(select_sheet, (32, 212, 478, 658))
+        assert white_overlay_pixels == 0
+
+    with Image.open(package.crop_contact_sheet_path) as sheet:
+        assert sheet.width == 1440
+        assert sheet.format == "PNG"
+        assert sheet.info.get("dpi", (0, 0))[0] >= 190
+        assert sheet.height >= 2 * (88 + 223 + 56 + 44)
+        assert sheet.getpixel((16, 16)) != (255, 255, 255)
+        assert sheet.getpixel((16, 16))[0] < 40
+        # New contact sheets follow the uploaded Discord attachment spec: fixed
+        # width, dark paper, and amber letter/crop affordances rather than the
+        # older dynamic thumbnail layout.
+        assert _count_near_white_pixels(sheet, (32, 212, 478, 658)) > 400
         amber_pixels = 0
         for x in range(sheet.width):
             for y in range(sheet.height):
-                r, g, b = sheet.getpixel((x, y))
+                pixel = sheet.getpixel((x, y))
+                if not isinstance(pixel, tuple):
+                    continue
+                r, g, b = pixel[:3]
                 if r > 180 and g > 110 and b < 80:
                     amber_pixels += 1
                     break
@@ -108,8 +144,11 @@ def test_render_review_artifacts_text_lists_outputs(tmp_path: Path):
     assert "Thumbnails:" in text
     assert "01-01-shibuya.jpg" in text
     assert "02-02-rooftop.jpg" in text
-    assert "Contact sheet:" in text
-    assert "contact-sheet.jpg" in text
+    assert "Stage 1 · Select:" in text
+    assert "contact-sheet-select.png" in text
+    assert "selection only; no crop framing" in text
+    assert "Stage 2 · Crop:" in text
+    assert "contact-sheet-crop.png" in text
 
 
 def test_render_review_artifacts_rejects_artifact_root_inside_source_root(tmp_path: Path):
@@ -173,7 +212,7 @@ def test_render_review_artifacts_refuses_large_draft_and_returns_bounded_plan(tm
 
     assert error.value.plan.media_count == 130
     assert error.value.plan.full_render_safe is False
-    assert not (artifact_config.root / f"draft-{draft.id}" / "contact-sheet.jpg").exists()
+    assert not (artifact_config.root / f"draft-{draft.id}" / "contact-sheet-select.png").exists()
 
 
 def test_cli_review_artifacts_render_prints_bounded_plan_for_large_draft(tmp_path: Path):
@@ -219,7 +258,7 @@ review_artifacts:
     assert "130 included photos" in result.output
     assert "No Discord, R2, or Meta network calls were made." in result.output
     assert root.as_posix() not in result.output
-    assert not (artifact_root / f"draft-{draft.id}" / "contact-sheet.jpg").exists()
+    assert not (artifact_root / f"draft-{draft.id}" / "contact-sheet-select.png").exists()
 
 
 def test_render_review_artifacts_raises_for_missing_draft(tmp_path: Path):
