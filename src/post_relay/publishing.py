@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional, Sequence
@@ -119,6 +120,7 @@ def resolve_staged_r2_publish_image_urls(
     expected_prefix = f"{normalized_prefix}/"
     expected_public_prefix = f"{config.public_base_url.rstrip('/')}/{normalized_prefix}/"
     by_source_path = {}
+    by_media_order = {}
     for record in records:
         if record.bucket != config.bucket:
             continue
@@ -127,10 +129,13 @@ def resolve_staged_r2_publish_image_urls(
         if not record.public_url.startswith(expected_public_prefix):
             continue
         by_source_path[record.source_path] = record
+        media_order = _extract_staged_media_order(record.object_key)
+        if media_order is not None:
+            by_media_order[media_order] = record
     resolved_urls: list[str] = []
     missing_paths: list[str] = []
-    for source_path in selected_paths:
-        record = by_source_path.get(source_path)
+    for media_order, source_path in enumerate(selected_paths, start=1):
+        record = by_source_path.get(source_path) or by_media_order.get(media_order)
         if record is None:
             missing_paths.append(source_path)
             continue
@@ -142,6 +147,14 @@ def resolve_staged_r2_publish_image_urls(
             + ", ".join(missing_paths)
         )
     return resolved_urls
+
+
+def _extract_staged_media_order(object_key: str) -> Optional[int]:
+    filename = object_key.rsplit("/", 1)[-1]
+    match = re.match(r"^(\d+)-", filename)
+    if not match:
+        return None
+    return int(match.group(1))
 
 
 def prepare_single_image_publish_validation(
