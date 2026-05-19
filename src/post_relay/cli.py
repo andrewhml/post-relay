@@ -41,6 +41,7 @@ from post_relay.db import connect_db, initialize_db
 from post_relay.drafts import CandidateNotFound, create_draft_from_candidate
 from post_relay.dm_guided_review import DmGuidedReviewError, handle_dm_guided_review_reply
 from post_relay.dm_intake import DmIntakeError, handle_dm_intake
+from post_relay.dm_operating_loop import DmNextActionError, build_dm_next_action_plan
 from post_relay.dm_scheduling import (
     DmSchedulingError,
     handle_dm_publish_approval_reply,
@@ -865,6 +866,28 @@ def dm_intake(
     except DmIntakeError as error:
         raise typer.BadParameter(str(error), param_hint="--message/--draft-id") from error
     typer.echo(result.to_text())
+
+
+@dm_app.command("next-action")
+def dm_next_action(
+    draft_id: Optional[int] = typer.Option(None, "--draft-id", help="Optional post id to plan from (existing --draft-id option)."),
+    discord_channel_id: Optional[str] = typer.Option(None, "--discord-channel-id", help="Optional private DM channel id to resume an active local thread."),
+    target_count: int = typer.Option(5, "--target-count", help="Preferred photo-selection count when the next step is media selection."),
+    db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
+) -> None:
+    """Render the next safe private-DM operating-loop action without network calls."""
+    connection = connect_db(db)
+    initialize_db(connection)
+    try:
+        plan = build_dm_next_action_plan(
+            connection,
+            draft_id=draft_id,
+            discord_channel_id=discord_channel_id,
+            target_count=target_count,
+        )
+    except DmNextActionError as error:
+        raise typer.BadParameter(str(error), param_hint="--draft-id/--discord-channel-id") from error
+    typer.echo(plan.to_text())
 
 
 @discord_app.command("dm-intake-poll")

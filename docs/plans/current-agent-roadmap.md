@@ -1047,7 +1047,32 @@ Current local result: `14 passed` focused; `174 passed` full suite.
 **Next-session start here:**
 1. First verify the current baseline: `.venv/bin/python -m pytest -q` should report the full suite passing.
 2. Use `meta token-extend --env-file .env` to inspect the dry-run plan; use `--execute --update-env` only after a valid short-lived token is in the private `.env`.
-3. Resume the reviewed private-DM operating-loop improvement milestone after token maintenance is merged.
+3. Complete PR TBD / Milestone 34 `feat/dm-next-action-planner`, then choose proactive opportunity DM controls, video/reel validation, or deeper local media discovery/enrichment.
+
+### PR TBD / Milestone 34: `feat/dm-next-action-planner` (current branch)
+
+**Goal:** Make the private-DM operating loop less manual by adding a local planner that inspects the active thread/post status and tells the agent the next safe step without sending Discord, R2, or Meta requests.
+
+**Delivered behavior in branch:**
+- Added `dm next-action`, which can plan from `--draft-id`, an active `--discord-channel-id`, or the latest local post when no explicit target is provided.
+- Added status-aware routing for candidate selection, media selection, content review, schedule prompting, double-confirmed publish approval prompting, guarded publish preflight, and post-publish analytics feedback.
+- Suggested commands point to the existing gated Discord DM and local Meta/analytics commands while preserving separate content approval, scheduling, final publish approval, and live execution gates.
+- Planner output is source-path-safe and always states that no Discord, Meta, or R2 network calls were made.
+- Added focused tests for open intake threads, drafting posts, queue-approved posts, scheduled posts, ready-to-publish posts, and CLI rendering.
+
+**Safety rule:** This planner is advisory/local-only. It must not send Discord messages, mutate post state, call R2, call Meta, or grant publish authorization. Live Meta `--execute` remains outside the planner and requires explicit active-session approval.
+
+**Verification:**
+
+```bash
+.venv/bin/python -m pytest tests/test_dm_operating_loop.py -q
+.venv/bin/python -m pytest -q
+```
+
+**Next-session start here:**
+1. First verify the current baseline: `.venv/bin/python -m pytest -q` should report the full suite passing.
+2. Use `dm next-action --draft-id <id>` or `--discord-channel-id <dm-channel>` before choosing/sending the next private-DM prompt.
+3. After this lands, choose proactive opportunity DM controls, video/reel validation, or deeper local media discovery/enrichment.
 
 ## Later milestones
 
