@@ -14,6 +14,8 @@ Early local-first MVP scaffold with:
 - post context question generate/list CLI
 - post content approval/edit CLI with approval invalidation on material edits
 - explicit post media selection CLI for numbered contact-sheet keep/remove/lead/post-type edits
+- local crop/center feedback CLI using the designed A1-E5 grid vocabulary (`shift 03 to B2`, `center 05`, `tighten 06`) with approval invalidation on material crop edits
+- warm-dark Pillow-rendered contact sheets and final post preview artifacts based on `assets/contact sheet/` React/CSS design references
 - dry-run Discord preview payload CLI with ordered included image paths and missing-file checks
 - schedule and publish-approval CLI without live publishing
 - sanitized read-only Meta Graph validation CLI
@@ -50,9 +52,10 @@ Early local-first MVP scaffold with:
 
 ## Immediate goals
 1. Use recommendation feedback summaries and follower-growth snapshots as local advisory baselines for the next reviewed travel post; keep improving deterministic suggestions as more real posts collect data
-2. Keep improving the private-DM-first, user-initiated workflow for selecting photos, accepting hook-first captions/metadata, scheduling, and recording local approvals
-3. Keep agent-initiated suggestions local-only until the user-initiated flow has enough successful sessions; then add proactive Discord DMs behind explicit safe trigger and opt-out controls
-4. After feed/carousel publishing is reliable and follower tracking has baseline snapshots, add private-DM operating-loop improvements or reel/video validation
+2. Integrate the new `assets/contact sheet/` warm-dark contact sheet and carousel preview designs into local Pillow-rendered chat artifacts before changing live Discord send behavior
+3. Keep improving the private-DM-first, user-initiated workflow for selecting photos, accepting hook-first captions/metadata, scheduling, and recording local approvals
+4. Keep agent-initiated suggestions local-only until the user-initiated flow has enough successful sessions; then add proactive Discord DMs behind explicit safe trigger and opt-out controls
+5. After feed/carousel publishing is reliable and follower tracking has baseline snapshots, add private-DM operating-loop improvements or reel/video validation
 
 ## Agent handoff
 Future agents should start with `AGENTS.md`, then `docs/plans/current-agent-roadmap.md`. The durable plan for local/NAS sources, review artifacts, and Cloudflare R2 staging is `docs/plans/content-pipeline-r2-staging-plan.md`. The specialized agent baseline is `docs/plans/postrelay-agent-operating-baseline.md`. The current private-DM conversation plan is `docs/plans/discord-dm-conversation-orchestration.md`, and the Discord-before-live-publish selection/review plan is `docs/plans/discord-photo-selection-before-carousel-smoke.md`.
@@ -98,6 +101,8 @@ Use the project virtualenv when running locally:
 .venv/bin/post-relay drafts publish-exports render --draft-id 1 --profile feed_portrait_4x5 --config config/photo_sources.yaml --db data/post_relay.sqlite
 .venv/bin/post-relay drafts media-plan --draft-id 1 --db data/post_relay.sqlite
 .venv/bin/post-relay drafts media-edit --draft-id 1 --lead 3 --keep 1,3,5 --post-type carousel --db data/post_relay.sqlite
+.venv/bin/post-relay drafts crop-feedback --draft-id 1 --shift 3:B2 --center 5 --tighten 6 --db data/post_relay.sqlite
+.venv/bin/post-relay drafts final-preview-artifact render --draft-id 1 --config config/photo_sources.yaml --db data/post_relay.sqlite
 .venv/bin/post-relay drafts guided-package-plan --draft-id 1 --location "Seoul, South Korea" --story-angle "night market alleys" --mood cinematic --audience-hook "food and light" --db data/post_relay.sqlite
 .venv/bin/post-relay drafts guided-package-accept --draft-id 1 --caption-index 1 --location "Seoul, South Korea" --story-angle "night market alleys" --mood cinematic --audience-hook "food and light" --db data/post_relay.sqlite
 .venv/bin/post-relay drafts location-candidates --draft-id 1 --db data/post_relay.sqlite --dry-run

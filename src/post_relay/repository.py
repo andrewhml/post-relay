@@ -46,6 +46,10 @@ class CandidateGroupPhotoItemRecord:
     sort_order: int
     role: str
     include_status: str
+    crop_ratio: Optional[float] = None
+    crop_anchor_x: Optional[float] = None
+    crop_anchor_y: Optional[float] = None
+    crop_tightness: Optional[float] = None
 
 
 @dataclass(frozen=True)
@@ -503,7 +507,11 @@ def list_candidate_group_photo_items(
             photos.local_file_path,
             candidate_group_items.sort_order,
             candidate_group_items.role,
-            candidate_group_items.include_status
+            candidate_group_items.include_status,
+            candidate_group_items.crop_ratio,
+            candidate_group_items.crop_anchor_x,
+            candidate_group_items.crop_anchor_y,
+            candidate_group_items.crop_tightness
         from candidate_group_items
         join photos on photos.id = candidate_group_items.photo_id
         where candidate_group_items.group_id = ?
@@ -520,6 +528,10 @@ def list_candidate_group_photo_items(
             sort_order=int(row[3]),
             role=row[4],
             include_status=row[5],
+            crop_ratio=None if row[6] is None else float(row[6]),
+            crop_anchor_x=None if row[7] is None else float(row[7]),
+            crop_anchor_y=None if row[8] is None else float(row[8]),
+            crop_tightness=None if row[9] is None else float(row[9]),
         )
         for row in rows
     ]
@@ -550,6 +562,29 @@ def update_candidate_group_photo_item(
         where group_id = ? and photo_id = ?
         """,
         (sort_order, role, include_status, group_id, photo_id),
+    )
+
+
+def update_candidate_group_photo_crop(
+    connection,
+    *,
+    group_id: int,
+    photo_id: int,
+    crop_ratio: float,
+    crop_anchor_x: float,
+    crop_anchor_y: float,
+    crop_tightness: float,
+) -> None:
+    connection.execute(
+        """
+        update candidate_group_items
+        set crop_ratio = ?,
+            crop_anchor_x = ?,
+            crop_anchor_y = ?,
+            crop_tightness = ?
+        where group_id = ? and photo_id = ?
+        """,
+        (crop_ratio, crop_anchor_x, crop_anchor_y, crop_tightness, group_id, photo_id),
     )
 
 

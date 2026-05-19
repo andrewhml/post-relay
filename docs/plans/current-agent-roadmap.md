@@ -4,7 +4,7 @@
 
 **Goal:** Make the Post Relay plan discoverable and executable for future agents across sessions.
 
-**Architecture:** Post Relay is a local-first Python CLI and SQLite workflow. The repo now supports processed-folder indexing, candidate/draft creation, numbered media selection, local review artifacts, R2 staging, guarded single-image/carousel publish validation, private Discord DM intake/selection/guided review/scheduling/double-confirmed final approval, local opportunity records, safe opportunity trigger checks, DM narrowing guardrails, bounded review artifact planning, semantic local candidate matching, Instagram-optimized export assets, and resolved Meta location tags. The first live carousel smoke succeeded; schedule enforcement, final Meta-bound caption/metadata preview, export profiles, and guarded `location_id` support are now in place. The next roadmap focus is post-publish analytics feedback.
+**Architecture:** Post Relay is a local-first Python CLI and SQLite workflow. The repo now supports processed-folder indexing, candidate/draft creation, numbered media selection, crop/center feedback, warm-dark local review artifacts, final post preview artifacts, R2 staging, guarded single-image/carousel publish validation, private Discord DM intake/selection/guided review/scheduling/double-confirmed final approval, local opportunity records, safe opportunity trigger checks, DM narrowing guardrails, bounded review artifact planning, semantic local candidate matching, Instagram-optimized export assets, and resolved Meta location tags. The first live carousel smoke succeeded; schedule enforcement, final Meta-bound caption/metadata preview, export profiles, guarded `location_id` support, advisory analytics/follower summaries, and contact-sheet chat artifact refresh are now in place.
 
 **Tech Stack:** Python 3.9+, SQLite, Typer, Pydantic, PyYAML, Pillow, pytest, GitHub PR milestone workflow.
 
@@ -230,10 +230,10 @@ Run this before opening or merging any PR:
 .venv/bin/python -m pytest -q
 ```
 
-Expected current result after the publish export profiles milestone:
+Expected current result after the contact-sheet/chat design refresh milestone:
 
 ```text
-195 passed
+248 passed
 ```
 
 ## Milestone execution rules
@@ -1093,6 +1093,36 @@ Current local result: `14 passed` focused; `174 passed` full suite.
 1. First verify the current baseline: `.venv/bin/python -m pytest -q` should report the full suite passing.
 2. Use `dm next-action --draft-id <id>` or `--discord-channel-id <dm-channel>` before choosing/sending the next private-DM prompt.
 3. After this lands, choose proactive opportunity DM controls, video/reel validation, or deeper local media discovery/enrichment.
+
+### Milestone 36: `feat/chat-design-refresh` (PR #62)
+
+**Goal:** Integrate the new `assets/contact sheet/` contact-sheet and carousel-preview designs into Post Relay's local artifacts and chat/Discord preview surfaces.
+
+**Reference plan:** `docs/plans/contact-sheet-chat-design-refresh.md`
+
+**Design source files:**
+- `assets/contact sheet/INTEGRATION_PROMPT.md`
+- `assets/contact sheet/README.md`
+- `assets/contact sheet/contact-sheet.jsx`
+- `assets/contact sheet/carousel-preview.jsx`
+- `assets/contact sheet/crop-helpers.js`
+- `assets/contact sheet/contact-sheet-final.css`
+
+**Expected behavior implemented on this branch:**
+- The deterministic crop-helper contract (`fitCrop`, `cropBox`, `chessFromAnchor`, `chessSpan`, `ratioLabel`, `tightnessLabel`) is ported into tested Python helpers.
+- The simple white contact sheet is replaced with a warm-dark/amber numbered contact sheet artifact that includes the A1-E5 crop grid vocabulary, visible number chips, filenames/meta below images, and lead/cover markers.
+- Local final post preview artifacts show selected media in confirmed order, one locked Instagram aspect ratio, a lead marker, pagination dots, and caption preview.
+- Dry-run Discord/chat payload copy references designed artifacts and the crop-feedback fallback before changing live-send behavior.
+- Large-set guardrails, source media immutability, and local/no-network defaults are preserved.
+
+**Safety rule:** Treat the React/CSS assets as the visual contract, but Post Relay's current CLI/Discord chat path should render static local artifacts with Pillow first. Rendering and dry-run preview commands must not send Discord messages, upload to R2, call Meta, mutate approvals/schedules, or modify local/NAS source media.
+
+**Verification:**
+
+```bash
+.venv/bin/python -m pytest tests/test_contact_sheet_design.py tests/test_review_artifacts.py tests/test_final_post_artifacts.py tests/test_discord_selection_payload.py tests/test_dm_operating_loop.py -q
+.venv/bin/python -m pytest -q
+```
 
 ## Later milestones
 

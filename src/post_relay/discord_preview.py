@@ -94,7 +94,7 @@ class DiscordSelectionPayload:
             lines.extend(f"  - {path}" for path in self.missing_image_paths)
         else:
             lines.append("  - <none>")
-        lines.append("Local artifact references:")
+        lines.append("Designed local artifact references:")
         if self.artifact_paths:
             lines.extend(f"  - {path}" for path in self.artifact_paths)
         else:
@@ -110,11 +110,13 @@ class DiscordSelectionPayload:
                 f"  - Accept exactly {self.target_count} selected photo numbers.",
                 "  - Lead/cover must be one of the selected numbers.",
                 "  - Preserve Andrew's selected order; the lead/cover is first in the final post media order.",
-                "  - Reject incomplete, duplicate, or out-of-range selections with actionable feedback.",
+                "  - Crop/position feedback can use A1-E5 language from the designed contact sheet (e.g. shift 03 to B2, center 05, tighten 06).",
                 "Command fallback:",
                 _command_fallback(self.draft_id, self.target_count, self.post_type),
+                "Crop feedback fallback:",
+                f"  drafts crop-feedback --draft-id {self.draft_id} --shift 3:B2 --center 5 --tighten 6",
                 "Fallbacks if Discord attachments fail:",
-                "  - use the contact sheet or thumbnail artifact paths rendered locally",
+                "  - use the designed contact sheet or final post preview artifact paths rendered locally",
                 "  - use local source paths for manual review",
                 "  - stage review media separately only after the dry-run payload remains green",
                 "Instagram capability notes:",
