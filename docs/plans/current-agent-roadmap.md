@@ -823,7 +823,7 @@ Current local result: `14 passed` focused; `174 passed` full suite.
 .venv/bin/python -m pytest -q
 ```
 
-### Milestone 26: `feat/publish-export-profiles`
+### Milestone 26: `feat/publish-export-profiles` (completed in PR #51)
 
 **Goal:** Generate Instagram-optimized publish assets from immutable source media before R2 staging/Meta publish, especially for portrait carousel posts.
 
@@ -837,10 +837,25 @@ Current local result: `14 passed` focused; `174 passed` full suite.
 - R2 staging for publish should use exported publish assets when present; review artifacts/contact sheets remain separate from publish assets.
 - Add tests for dimensions, aspect ratio decisions, source immutability, mixed-orientation warnings, R2 plan resolution using exported assets, and dry-run output.
 
+**Delivered behavior in branch:**
+- Added `drafts publish-exports render --profile feed_portrait_4x5`, which renders immutable-source local publish assets under the configured `publish_exports.root`.
+- Added `feed_portrait_4x5` (`1080x1350`) and `feed_square` (`1080x1080`) profile definitions, with portrait center-crop behavior and a clean-mat treatment for landscape images inside portrait exports.
+- Added mixed-orientation warnings so carousel export review explicitly flags landscape/portrait sets before staging.
+- Added a publish preview contact sheet built from the exported publish files rather than source Lightroom/NAS media.
+- Updated R2 staging planning/upload so publish media use exported assets when a matching export package is present; review artifacts stay separate and optional.
+- Added tests covering 4:5 dimensions, treatment decisions, source immutability, mixed-orientation warnings, R2 exported asset resolution, and CLI dry-run output.
+
+**Safety rule:** Publish exports perform no Discord sends, no R2 upload/cleanup, and no Meta publishing calls. Source processed media must remain immutable; exported publish files are generated under `publish_exports.root` only.
+
+**Next-session start here:**
+1. First verify the current baseline: `.venv/bin/python -m pytest -q` should report the full suite passing.
+2. Move next to Milestone 27 `feat/post-publish-analytics-feedback` to capture publish outcomes and read-only analytics feedback.
+3. Keep live-safe defaults: no Discord sends, no R2 `--execute`, and no Meta `--execute` unless explicitly authorized in the active session.
+
 **Verification:**
 
 ```bash
-.venv/bin/python -m pytest tests/test_review_artifacts.py tests/test_r2_staging.py tests/test_publishing.py -q
+.venv/bin/python -m pytest tests/test_publish_exports.py tests/test_review_artifacts.py tests/test_r2_staging.py tests/test_r2_staging_upload.py tests/test_publish_validation.py tests/test_scheduled_publish_runner.py tests/test_final_publish_preview.py tests/test_cli.py -q
 .venv/bin/python -m pytest -q
 ```
 

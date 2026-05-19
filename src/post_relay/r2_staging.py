@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Optional
 
 from post_relay.config import R2StagingConfig
+from post_relay.publish_exports import list_publish_export_media_paths
 from post_relay.repository import get_candidate_group, get_draft, list_candidate_group_photo_paths
 
 
@@ -33,6 +34,7 @@ class R2StagingPlan:
     prefix: str
     media_items: list[R2StagingPlanItem]
     artifact_items: list[R2StagingPlanItem]
+    publish_export_profile: Optional[str] = None
 
     @property
     def missing_source_paths(self) -> list[str]:
@@ -49,6 +51,7 @@ class R2StagingPlan:
             f"Candidate: {self.candidate_title}",
             f"Bucket: {self.bucket}",
             f"Prefix: {self.prefix}",
+            f"Publish exports: {self.publish_export_profile or '<none>'}",
             f"Ready to upload: {'yes' if self.ready_to_upload else 'no'}",
             "Media:",
         ]
@@ -73,6 +76,8 @@ def plan_r2_staging_for_draft(
     config: R2StagingConfig,
     *,
     review_artifact_root: Optional[Path] = None,
+    publish_export_root: Optional[Path] = None,
+    publish_export_profile: str = "feed_portrait_4x5",
 ) -> R2StagingPlan:
     _validate_r2_staging_config(config)
     draft = get_draft(connection, draft_id)
@@ -82,6 +87,16 @@ def plan_r2_staging_for_draft(
     candidate = get_candidate_group(connection, draft.candidate_group_id)
     candidate_title = candidate.title if candidate is not None else f"candidate #{draft.candidate_group_id}"
     media_paths = list_candidate_group_photo_paths(connection, draft.candidate_group_id)
+    selected_publish_export_profile: Optional[str] = None
+    if publish_export_root is not None:
+        export_paths = list_publish_export_media_paths(
+            draft.id,
+            publish_export_root,
+            profile_name=publish_export_profile,
+        )
+        if export_paths:
+            media_paths = export_paths
+            selected_publish_export_profile = publish_export_profile
     prefix = _normalize_prefix(config.prefix)
     bucket = config.bucket or "<unconfigured>"
     public_base_url = (config.public_base_url or "").rstrip("/")
@@ -90,7 +105,13 @@ def plan_r2_staging_for_draft(
         _plan_item(
             kind="draft_media",
             source=Path(source_path),
-            object_key=f"{prefix}/drafts/{draft.id}/media/{index:02d}-{_safe_key_stem(Path(source_path))}{_safe_suffix(Path(source_path))}",
+            object_key=_media_object_key(
+                prefix=prefix,
+                draft_id=draft.id,
+                index=index,
+                source=Path(source_path),
+                publish_export_profile=selected_publish_export_profile,
+            ),
             public_base_url=public_base_url,
         )
         for index, source_path in enumerate(media_paths, start=1)
@@ -112,7 +133,22 @@ def plan_r2_staging_for_draft(
         prefix=prefix,
         media_items=media_items,
         artifact_items=artifact_items,
+        publish_export_profile=selected_publish_export_profile,
     )
+
+
+def _media_object_key(
+    *,
+    prefix: str,
+    draft_id: int,
+    index: int,
+    source: Path,
+    publish_export_profile: Optional[str],
+) -> str:
+    name = f"{index:02d}-{_safe_key_stem(source)}{_safe_suffix(source)}"
+    if publish_export_profile:
+        return f"{prefix}/drafts/{draft_id}/publish-exports/{publish_export_profile}/media/{name}"
+    return f"{prefix}/drafts/{draft_id}/media/{name}"
 
 
 def _validate_r2_staging_config(config: R2StagingConfig) -> None:
