@@ -132,6 +132,22 @@ class R2StagedObjectRecord:
 
 
 @dataclass(frozen=True)
+class PublishedPostSnapshotRecord:
+    id: int
+    draft_id: int
+    publish_attempt_id: int
+    published_media_id: str
+    post_type: str
+    final_caption: Optional[str]
+    media_urls: list[str]
+    media_dimensions: list[dict[str, Optional[int]]]
+    scheduled_for: Optional[str]
+    actual_published_at: str
+    location_page_id: Optional[str]
+    location_name: Optional[str]
+
+
+@dataclass(frozen=True)
 class DraftLocationTagRecord:
     id: int
     draft_id: int
@@ -1202,6 +1218,98 @@ def list_publish_attempts(connection, draft_id: int) -> list[PublishAttemptRecor
     return [_publish_attempt_from_row(row) for row in rows]
 
 
+def get_latest_published_attempt(connection, draft_id: int) -> Optional[PublishAttemptRecord]:
+    row = connection.execute(
+        """
+        select id, draft_id, post_type, image_url, caption, container_id,
+               published_media_id, status, status_code, status_message,
+               image_urls_json, child_container_ids_json
+        from publish_attempts
+        where draft_id = ?
+          and status = 'published'
+          and published_media_id is not null
+          and published_media_id != ''
+        order by id desc
+        limit 1
+        """,
+        (draft_id,),
+    ).fetchone()
+    if row is None:
+        return None
+    return _publish_attempt_from_row(row)
+
+
+def upsert_published_post_snapshot(
+    connection,
+    *,
+    draft_id: int,
+    publish_attempt_id: int,
+    published_media_id: str,
+    post_type: str,
+    final_caption: Optional[str],
+    media_urls: Sequence[str],
+    media_dimensions: Sequence[dict[str, Optional[int]]],
+    scheduled_for: Optional[str],
+    actual_published_at: str,
+    location_page_id: Optional[str] = None,
+    location_name: Optional[str] = None,
+) -> PublishedPostSnapshotRecord:
+    connection.execute(
+        """
+        insert into published_post_snapshots (
+            draft_id, publish_attempt_id, published_media_id, post_type,
+            final_caption, media_urls_json, media_dimensions_json,
+            scheduled_for, actual_published_at, location_page_id, location_name
+        ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        on conflict(draft_id) do update set
+            publish_attempt_id = excluded.publish_attempt_id,
+            published_media_id = excluded.published_media_id,
+            post_type = excluded.post_type,
+            final_caption = excluded.final_caption,
+            media_urls_json = excluded.media_urls_json,
+            media_dimensions_json = excluded.media_dimensions_json,
+            scheduled_for = excluded.scheduled_for,
+            actual_published_at = excluded.actual_published_at,
+            location_page_id = excluded.location_page_id,
+            location_name = excluded.location_name,
+            updated_at = current_timestamp
+        """,
+        (
+            draft_id,
+            publish_attempt_id,
+            published_media_id,
+            post_type,
+            final_caption,
+            json.dumps(list(media_urls)),
+            json.dumps(list(media_dimensions)),
+            scheduled_for,
+            actual_published_at,
+            location_page_id,
+            location_name,
+        ),
+    )
+    return get_published_post_snapshot_for_draft(connection, draft_id)
+
+
+def get_published_post_snapshot_for_draft(
+    connection,
+    draft_id: int,
+) -> Optional[PublishedPostSnapshotRecord]:
+    row = connection.execute(
+        """
+        select id, draft_id, publish_attempt_id, published_media_id, post_type,
+               final_caption, media_urls_json, media_dimensions_json,
+               scheduled_for, actual_published_at, location_page_id, location_name
+        from published_post_snapshots
+        where draft_id = ?
+        """,
+        (draft_id,),
+    ).fetchone()
+    if row is None:
+        return None
+    return _published_post_snapshot_from_row(row)
+
+
 def create_r2_staged_object_record(
     connection,
     *,
@@ -1330,6 +1438,23 @@ def _publish_attempt_from_row(row) -> PublishAttemptRecord:
         status_message=row[9],
         image_urls=_json_list(row[10]),
         child_container_ids=_json_list(row[11]),
+    )
+
+
+def _published_post_snapshot_from_row(row) -> PublishedPostSnapshotRecord:
+    return PublishedPostSnapshotRecord(
+        id=row[0],
+        draft_id=row[1],
+        publish_attempt_id=row[2],
+        published_media_id=row[3],
+        post_type=row[4],
+        final_caption=row[5],
+        media_urls=json.loads(row[6]) if row[6] else [],
+        media_dimensions=json.loads(row[7]) if row[7] else [],
+        scheduled_for=row[8],
+        actual_published_at=row[9],
+        location_page_id=row[10],
+        location_name=row[11],
     )
 
 

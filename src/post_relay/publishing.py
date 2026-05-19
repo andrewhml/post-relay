@@ -6,6 +6,7 @@ from typing import Optional, Sequence
 from urllib.parse import parse_qsl, urlsplit, urlunsplit
 
 from post_relay.config import R2StagingConfig
+from post_relay.analytics_feedback import record_published_post_snapshot
 from post_relay.meta_graph import MetaGraphClient, MetaGraphRequestError, redact_secrets
 from post_relay.publish_metadata import compose_final_meta_caption
 from post_relay.repository import (
@@ -254,6 +255,7 @@ def execute_single_image_publish_validation(
         )
         update_draft_status(connection, draft.id, DraftState.POSTED.value)
         connection.commit()
+        record_published_post_snapshot(connection, draft.id)
         return SingleImagePublishValidationResult(
             draft_id=draft.id,
             status="published",
@@ -417,6 +419,7 @@ def execute_carousel_publish_validation(
         )
         update_draft_status(connection, draft.id, DraftState.POSTED.value)
         connection.commit()
+        record_published_post_snapshot(connection, draft.id)
         return CarouselPublishValidationResult(
             draft_id=draft.id,
             status="published",
