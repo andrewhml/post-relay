@@ -100,6 +100,27 @@ def test_render_publish_exports_creates_3x4_feed_profile_assets(tmp_path: Path):
     assert "Publish preview contact sheet" not in package.to_text()
 
 
+def test_render_publish_exports_can_crop_landscape_into_portrait_profile(tmp_path: Path):
+    connection, draft, source_root, _source_paths = _build_mixed_carousel_draft(tmp_path)
+    config = PublishExportsConfig(root=tmp_path / "publish_exports")
+
+    package = render_publish_exports_for_draft(
+        connection,
+        draft.id,
+        config,
+        profile_name="feed_portrait_3x4",
+        landscape_treatment="center_crop",
+        protected_source_roots=[source_root],
+    )
+
+    assert [item.treatment for item in package.media_items] == ["center_crop", "center_crop"]
+    landscape_export = Path(package.media_items[1].local_path)
+    with Image.open(landscape_export) as exported:
+        assert exported.size == (1080, 1440)
+        assert exported.getpixel((20, 20))[:3] != (255, 255, 255)
+        assert exported.getpixel((exported.width - 21, exported.height - 21))[:3] != (255, 255, 255)
+
+
 def test_r2_staging_prefers_publish_exports_when_available(tmp_path: Path):
     connection, draft, _source_root, source_paths = _build_mixed_carousel_draft(tmp_path)
     export_config = PublishExportsConfig(root=tmp_path / "publish_exports")
