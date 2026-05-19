@@ -1094,7 +1094,7 @@ Current local result: `14 passed` focused; `174 passed` full suite.
 2. Use `dm next-action --draft-id <id>` or `--discord-channel-id <dm-channel>` before choosing/sending the next private-DM prompt.
 3. After this lands, choose proactive opportunity DM controls, video/reel validation, or deeper local media discovery/enrichment.
 
-### Milestone 36: `feat/chat-design-refresh` (current branch)
+### Milestone 36: `feat/chat-design-refresh` (PR #62)
 
 **Goal:** Integrate the new `assets/contact sheet/` contact-sheet and carousel-preview designs into Post Relay's local artifacts and chat/Discord preview surfaces.
 
