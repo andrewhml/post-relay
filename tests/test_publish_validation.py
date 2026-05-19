@@ -421,6 +421,34 @@ def test_resolve_staged_r2_publish_image_urls_preserves_selected_media_order(tmp
     ]
 
 
+def test_resolve_staged_r2_publish_image_urls_accepts_exported_publish_asset_by_media_order(tmp_path: Path):
+    connection, draft = _build_single_image_ready_draft(tmp_path, caption="Temple morning.")
+    r2_config = R2StagingConfig(
+        enabled=True,
+        bucket="post-relay-publish",
+        public_base_url="https://peddocks.net",
+        prefix="post-relay/staging",
+    )
+    exported_asset = tmp_path / "publish_exports" / "draft-1" / "feed_portrait_4x5" / "media" / "01-01-temple.jpg"
+    exported_asset.parent.mkdir(parents=True)
+    exported_asset.write_bytes(b"exported image")
+    create_r2_staged_object_record(
+        connection,
+        draft_id=draft.id,
+        kind="draft_media",
+        source_path=str(exported_asset),
+        bucket="post-relay-publish",
+        object_key="post-relay/staging/drafts/1/publish-exports/feed_portrait_4x5/media/01-01-temple.jpg",
+        public_url="https://peddocks.net/post-relay/staging/drafts/1/publish-exports/feed_portrait_4x5/media/01-01-temple.jpg",
+    )
+
+    urls = resolve_staged_r2_publish_image_urls(connection, draft.id, r2_config)
+
+    assert urls == [
+        "https://peddocks.net/post-relay/staging/drafts/1/publish-exports/feed_portrait_4x5/media/01-01-temple.jpg"
+    ]
+
+
 def test_resolve_staged_r2_publish_image_urls_requires_uploaded_media_for_each_selected_photo(tmp_path: Path):
     connection, draft = _build_carousel_ready_draft(tmp_path, caption="Kyoto garden sequence.")
     selected_paths = list_candidate_group_photo_paths(connection, draft.candidate_group_id)
