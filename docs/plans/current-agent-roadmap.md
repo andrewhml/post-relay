@@ -697,6 +697,8 @@ As of the first live carousel smoke, the local-first workflow is past the origin
 
 ## Immediate next plan
 
+This handoff refresh is tracked in PR #63 after the merged chat artifact refresh PR #62.
+
 1. Use `analytics feedback-summary` plus `analytics follower-summary` as deterministic advisory baselines when planning the next reviewed post.
 2. Practice the private-DM-first, user-initiated operating loop with the refreshed contact-sheet/final-preview artifacts before changing live Discord send behavior.
 3. Choose the next rollback-safe engineering milestone from private-DM operating-loop hardening, proactive opportunity DM controls, video/reel validation, or deeper local media discovery/enrichment.
