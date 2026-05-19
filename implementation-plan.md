@@ -1,7 +1,7 @@
 # Post Relay — Implementation Plan
 
 ## Status
-Current roadmap snapshot after PR #47 plus the live-carousel preflight refresh. This file is historical; the canonical, actively maintained agent plan is `docs/plans/current-agent-roadmap.md`.
+Current roadmap snapshot after PR #55 was opened for read-only insights storage. This file is historical; the canonical, actively maintained agent plan is `docs/plans/current-agent-roadmap.md`. The immediate next engineering milestone, after PR #55 merges, is `feat/recommendation-feedback-summaries`.
 
 ## Purpose
 This document breaks Post Relay into concrete implementation phases and tasks.
@@ -15,17 +15,18 @@ It assumes the currently validated setup:
 - initial product scope: single-account v1
 
 ## Current Engineering Snapshot
-Post Relay has now implemented most of Phases 0-6 for feed/carousel workflows:
+Post Relay has now implemented most feed/carousel production hardening through the open PR #55 branch:
 - local SQLite content/draft pipeline, candidate grouping, context questions, approvals, scheduling, and publish approval
-- review artifacts, numbered media selection, R2 staging plans/uploads/cleanup, and staged-R2 publish URL resolution
-- sanitized Meta Graph read-only validation, live-proven single-image publishing, and guarded carousel publish validation
-- private Discord DM user-initiated intake, media selection, guided review, scheduling, and local publish approval
+- review artifacts, numbered media selection, R2 staging plans/uploads/cleanup, staged-R2 publish URL resolution, and publish export profiles
+- sanitized Meta Graph read-only validation, live-proven single-image publishing, live-proven carousel publishing, schedule enforcement, final Meta-bound preview, and explicit resolved `location_id` support
+- private Discord DM user-initiated intake, media selection, guided review, scheduling, and double-confirmed local publish approval
 - local agent-initiated opportunity records and safe no-network trigger checks
 - broad DM request guardrails that ask for narrowing before huge weak matches
 - bounded review artifact planning that blocks oversized full contact sheets until Andrew narrows the set
 - local semantic DM candidate matching from folder/year/filename descriptors with simple explainable aliases
+- local post-publish snapshots and guarded read-only insight metric storage behind explicit `analytics insights-fetch --execute`
 
-Remaining near-term gaps are no longer generic scaffolding. They are targeted operational gates: intentional draft and final publish approvals for the selected carousel smoke candidate, public media staging or explicit public URLs, immediate carousel dry-run review, explicit active-session live execution authorization, then analytics/recommendation improvements and deeper media discovery/enrichment.
+Remaining near-term gaps are targeted optimization and operating-loop gaps, not generic scaffolding: merge PR #55, add deterministic recommendation feedback summaries from stored local snapshots/insights, then decide whether to prioritize follower-growth tracking, more user-initiated DM practice, proactive opportunity DMs, video/reel validation, or deeper media discovery/enrichment.
 
 ## Build Strategy
 
@@ -217,15 +218,16 @@ Make Post Relay smarter over time.
 
 ## Recommended Next Build Artifacts
 The next useful detailed artifacts are now:
-- `docs/plans/dm-bounded-review-artifacts.md` for large-folder contact-sheet safety and bounded review packages
-- `docs/plans/dm-semantic-candidate-matching.md` for local request-to-candidate matching beyond substring overlap
-- an updated `docs/publishing/live-carousel-smoke-preflight-YYYY-MM-DD.md` only when the live carousel smoke blockers change
+- `docs/plans/current-agent-roadmap.md` Milestone 30 section for `feat/recommendation-feedback-summaries`
+- a small implementation plan for deterministic analytics feedback only if Milestone 30 grows beyond the current bite-sized roadmap task list
+- a later follower-growth tracking plan once per-post feedback summaries exist
 
 ## Practical Next Human Steps
 Andrew should continue with:
 - keeping tokens private and rotating any exposed test tokens
 - using private DM-driven sessions to prove the user-initiated workflow on real travel sets
-- explicitly choosing and approving a carousel smoke-test draft only when ready to run the guarded live path
+- collecting read-only insights only with `analytics insights-fetch --execute` when the active token has the needed insights permission
+- treating recommendation feedback as advisory until several real posts provide enough signal
 
 ## Immediate Next Engineering Step
-Build `feat/dm-bounded-review-artifacts`: a local-only guardrail that prevents matched large folders from immediately producing oversized contact sheets. It should offer a bounded first-pass review plan or ask for a smaller date/folder/range/filename slice, then verify with focused DM intake/review artifact tests and the full `.venv/bin/python -m pytest -q` suite. After that, improve natural candidate matching (`feat/dm-semantic-candidate-matching`). Resume live carousel publish execution only after the PR #43 preflight blockers are resolved and Andrew explicitly approves the Meta `--execute` command in the active session.
+Merge PR #55 `feat/read-only-insights-feedback`, sync local `main`, and verify `.venv/bin/python -m pytest -q`. Then build `feat/recommendation-feedback-summaries`: a local-only analytics command that reads `published_post_snapshots` plus `media_insight_snapshots`, summarizes observed payload choices and metrics, and produces conservative next-post suggestions without mutating drafts, approvals, schedules, Discord, R2, or Meta state.

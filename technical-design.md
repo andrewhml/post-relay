@@ -1,7 +1,7 @@
 # Instagram Travel Content Tool — Technical Design
 
 ## Status
-Draft v0.1
+Historical design, updated after PR #55 was opened. The implementation now uses Python, Typer, SQLite, local processed folders, generated artifacts/exports, optional R2 staging, and official Meta Graph routes. The canonical active plan is `docs/plans/current-agent-roadmap.md`.
 
 ## Purpose
 This document translates the product requirements into a buildable system design for **Post Relay**, an Instagram travel-content workflow built around the official Meta/Instagram publishing path.
@@ -290,11 +290,12 @@ Meta’s capabilities and endpoints evolve. Final implementation should verify t
 For v1, a local file-based approach is likely sufficient and easier to inspect.
 
 ### Recommended storage layout
-- `data/instagram/posts/` — one JSON/YAML file per post draft
-- `data/instagram/queue/` — queue state or derived files
-- `data/instagram/logs/` — publish and workflow logs
-- `data/instagram/config/` — non-secret config
-- `data/instagram/cache/` — previews, metadata cache, derived artifacts
+The original design expected local files. The current implementation uses SQLite as the durable workflow store plus generated artifact roots:
+- `data/post_relay.sqlite` — default local SQLite database for indexed media, candidates, drafts, approvals, publish attempts, staged R2 records, post-publish snapshots, and insight snapshots
+- configured processed Lightroom/year folders — immutable source of truth for source media
+- configured review artifact root — thumbnails/contact sheets and local review packages
+- configured publish export root — immutable-source Instagram-ready publish assets such as 4:5 feed exports
+- configured R2 prefix — disposable temporary public staging objects for Meta-bound media URLs
 - `.env` or local secret store — tokens/app secrets (not committed)
 
 ### Suggested post record fields
@@ -399,22 +400,24 @@ For v1, simplest behavior:
 Initial recommendation logic should be simple and interpretable.
 
 ### Inputs
-- media orientation and composition hints
-- prior approval patterns
-- prior engagement results
+- local `published_post_snapshots` containing final Meta-bound caption, media count/order, exported dimensions, timing, post type, and resolved location tag state
+- local `media_insight_snapshots` containing read-only Meta metrics collected through explicit `analytics insights-fetch --execute`
+- prior approval and revision patterns
 - content category mix
 - posting time history
 
 ### Early outputs
-- suggested post type
-- suggested posting window
-- suggested caption tone
-- whether a set should become carousel vs single post
+- advisory feedback summaries for individual published posts and recent-post sets
+- suggested post type and carousel count/order heuristics
+- suggested posting window notes
+- suggested caption tone/length notes
+- warnings when evidence is weak or sample size is too small
 
 ### Later improvements
 - learn best-performing formats by trip/theme
 - learn Andrew’s stylistic preferences
 - reduce interview frequency where prior signals are strong
+- add follower-growth progress tracking once per-post feedback summaries are stable
 
 ## Error Handling
 ### Categories
@@ -491,21 +494,16 @@ Includes:
 - smarter schedule suggestions
 - better post-type selection
 
-## Technology Direction (Recommended)
-This is not final, but a practical direction for implementation:
+## Technology Direction
+Current implementation direction:
 
-- **Runtime:** Node.js or Python
-- **Storage:** local JSON/YAML files for v1
-- **Metadata extraction:** platform-appropriate EXIF/media parser
-- **Scheduling:** local scheduled job / OpenClaw-compatible periodic check
-- **Discord communication:** OpenClaw session messaging flow
-- **Publishing:** official Meta Graph API client logic
-
-If choosing between Node and Python:
-- **Node** may fit well if the rest of the OpenClaw/local automation environment is JS-heavy
-- **Python** may be nicer for media and metadata workflows
-
-Either is viable; the main thing is keeping modules clean.
+- **Runtime:** Python package under `src/post_relay/`
+- **CLI:** Typer entry point `post-relay`
+- **Storage:** local SQLite database, default `data/post_relay.sqlite`
+- **Media processing:** Pillow-backed local artifact/export rendering where needed
+- **Scheduling:** local CLI/state-machine preflight and explicit scheduled publish runner command
+- **Discord communication:** private-DM-first commands with no-network apply harnesses and live-capable send/poll commands
+- **Publishing:** official Meta Graph API client logic through `graph.facebook.com`
 
 ## Andrew Setup Checklist
 This is the practical checklist for Andrew before live publishing integration.
@@ -559,19 +557,14 @@ These should be verified against the current official Meta docs at build time:
 - the exact publish/create flow on the Facebook/Meta Graph route for a Page-linked Creator account
 
 ## Recommended Next Artifacts
-After this document, the next useful artifacts are:
-1. `setup-checklist.md` — cleaner step-by-step setup doc for Andrew
-2. `data-model.md` — concrete schema for post records and logs
-3. `implementation-plan.md` — phased engineering tasks
-4. `meta-api-notes.md` — validated notes from current official Meta docs
+The canonical active roadmap is now `docs/plans/current-agent-roadmap.md`. The next useful artifact is the Milestone 30 implementation slice for `feat/recommendation-feedback-summaries`; create a separate detailed plan only if that milestone expands beyond the current roadmap checklist.
 
-## Initial Build Readiness Criteria
-The system is ready to start implementation when:
-- requirements doc is accepted
-- technical design is accepted
-- account setup path is agreed
-- official Meta docs have been checked for the current publish path
-- initial stack choice is made
+## Current Readiness Criteria
+The system is ready for the next optimization milestone when:
+- PR #55 is merged and local `main` is synced
+- `.venv/bin/python -m pytest -q` is green
+- recommendation feedback reads only local snapshots/insights and remains advisory-only
+- any live insights collection remains explicitly gated by `analytics insights-fetch --execute`
 
 ## Summary
 This design deliberately separates:

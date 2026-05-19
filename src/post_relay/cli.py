@@ -16,7 +16,11 @@ from post_relay.approvals import (
 from post_relay.analytics_feedback import (
     PublishedPostSnapshotNotReady,
     build_insights_collection_plan,
+    collect_and_store_media_insights,
     record_published_post_snapshot,
+    render_insights_fetch_dry_run,
+    render_insights_fetch_error,
+    render_media_insight_snapshot,
     render_published_post_snapshot,
 )
 from post_relay.candidates import build_candidate_groups
@@ -271,6 +275,44 @@ def analytics_insights_plan(
         typer.echo(str(error))
         raise typer.Exit(code=1) from error
     typer.echo(plan.to_text())
+
+
+@analytics_app.command("insights-fetch")
+def analytics_insights_fetch(
+    draft_id: int = typer.Option(..., "--draft-id", help="Draft id."),
+    metric: list[str] = typer.Option(None, "--metric", help="Insight metric to collect; repeat for multiple metrics."),
+    collected_at: Optional[str] = typer.Option(None, "--collected-at", help="Collection timestamp to persist; defaults to current local time."),
+    execute: bool = typer.Option(False, "--execute", help="Actually call the read-only Meta insights endpoint and store results."),
+    db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
+    env_file: Optional[Path] = typer.Option(Path(".env"), "--env-file", help="Private .env file path."),
+) -> None:
+    """Fetch/store read-only Meta insights only when --execute is explicit."""
+    connection = connect_db(db)
+    initialize_db(connection)
+    try:
+        plan = build_insights_collection_plan(connection, draft_id)
+    except PublishedPostSnapshotNotReady as error:
+        typer.echo(str(error))
+        raise typer.Exit(code=1) from error
+    metrics = metric or plan.metrics
+    if not execute:
+        typer.echo(render_insights_fetch_dry_run(plan))
+        return
+    try:
+        config = load_meta_graph_config(env_file=env_file)
+        client = MetaGraphClient(config)
+        record = collect_and_store_media_insights(
+            connection,
+            draft_id,
+            client=client,
+            metrics=metrics,
+            collected_at=collected_at,
+        )
+    except (MetaGraphConfigError, MetaGraphRequestError, PublishedPostSnapshotNotReady) as error:
+        token = config.access_token if "config" in locals() else None
+        typer.echo(render_insights_fetch_error(error, token=token))
+        raise typer.Exit(code=1) from error
+    typer.echo(render_media_insight_snapshot(record))
 
 
 @meta_app.command("validate-readonly")

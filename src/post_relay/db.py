@@ -244,6 +244,20 @@ SCHEMA_STATEMENTS = [
         foreign key(publish_attempt_id) references publish_attempts(id)
     )
     """,
+    """
+    create table if not exists media_insight_snapshots (
+        id integer primary key,
+        draft_id integer not null,
+        published_post_snapshot_id integer not null,
+        published_media_id text not null,
+        metrics_json text not null,
+        raw_payload_json text not null,
+        collected_at text not null,
+        created_at text not null default current_timestamp,
+        foreign key(draft_id) references drafts(id),
+        foreign key(published_post_snapshot_id) references published_post_snapshots(id)
+    )
+    """,
 ]
 
 

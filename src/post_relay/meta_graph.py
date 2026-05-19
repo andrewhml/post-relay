@@ -119,6 +119,12 @@ class MetaGraphClient:
             {"q": query, "fields": fields},
         )
 
+    def get_media_insights(self, media_id: str, *, metrics: Iterable[str]) -> Mapping[str, Any]:
+        return self._request(
+            f"{media_id}/insights",
+            {"metric": ",".join(metrics)},
+        )
+
     def create_image_container(
         self,
         instagram_account_id: str,
