@@ -113,16 +113,26 @@ class MetaGraphClient:
             {"fields": "id,username,media_count"},
         )
 
+    def search_pages(self, *, query: str, fields: str = "id,name,location,link") -> Mapping[str, Any]:
+        return self._request(
+            "pages/search",
+            {"q": query, "fields": fields},
+        )
+
     def create_image_container(
         self,
         instagram_account_id: str,
         *,
         image_url: str,
         caption: str,
+        location_id: Optional[str] = None,
     ) -> Mapping[str, Any]:
+        params = {"image_url": image_url, "caption": caption}
+        if location_id:
+            params["location_id"] = location_id
         return self._request(
             f"{instagram_account_id}/media",
-            {"image_url": image_url, "caption": caption},
+            params,
             method="POST",
         )
 
@@ -144,14 +154,18 @@ class MetaGraphClient:
         *,
         child_container_ids: Iterable[str],
         caption: str,
+        location_id: Optional[str] = None,
     ) -> Mapping[str, Any]:
+        params = {
+            "media_type": "CAROUSEL",
+            "children": ",".join(child_container_ids),
+            "caption": caption,
+        }
+        if location_id:
+            params["location_id"] = location_id
         return self._request(
             f"{instagram_account_id}/media",
-            {
-                "media_type": "CAROUSEL",
-                "children": ",".join(child_container_ids),
-                "caption": caption,
-            },
+            params,
             method="POST",
         )
 

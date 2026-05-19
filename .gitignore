@@ -32,4 +32,5 @@ data/instagram/cache/
 data/*.sqlite
 data/review_artifacts/
 data/review_artifacts-small/
+data/publish_exports/
 config/photo_sources.yaml

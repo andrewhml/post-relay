@@ -64,9 +64,9 @@ _CAPABILITIES: dict[str, InstagramCapability] = {
     ),
     "location_tag": InstagramCapability(
         field_name="location_tag",
-        status="needs_validation",
-        publish_note="Location tags are not sent until official Meta Graph support is validated for this account.",
-        review_note="Show as confirmed/review-only location text for manual use.",
+        status="publishable_when_resolved",
+        publish_note="A resolved Facebook Page location_id is sent to Meta as location_id only after explicit candidate selection and reapproval.",
+        review_note="Freeform location text stays local-only; do not infer or fabricate a location_id.",
     ),
     "collaborators": InstagramCapability(
         field_name="collaborators",

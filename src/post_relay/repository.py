@@ -132,6 +132,16 @@ class R2StagedObjectRecord:
 
 
 @dataclass(frozen=True)
+class DraftLocationTagRecord:
+    id: int
+    draft_id: int
+    page_id: str
+    name: str
+    source: str
+    status: str
+
+
+@dataclass(frozen=True)
 class ConversationThreadRecord:
     id: int
     draft_id: Optional[int]
@@ -588,6 +598,45 @@ def update_draft_content(
         (caption, hashtags_json, location_text, alt_text, status, draft_id),
     )
     return get_draft(connection, draft_id)
+
+
+def upsert_draft_location_tag(
+    connection,
+    *,
+    draft_id: int,
+    page_id: str,
+    name: str,
+    source: str,
+    status: str = "resolved",
+) -> DraftLocationTagRecord:
+    connection.execute(
+        """
+        insert into draft_location_tags (draft_id, page_id, name, source, status)
+        values (?, ?, ?, ?, ?)
+        on conflict(draft_id) do update set
+            page_id = excluded.page_id,
+            name = excluded.name,
+            source = excluded.source,
+            status = excluded.status,
+            updated_at = current_timestamp
+        """,
+        (draft_id, page_id, name, source, status),
+    )
+    return get_draft_location_tag(connection, draft_id)
+
+
+def get_draft_location_tag(connection, draft_id: int) -> Optional[DraftLocationTagRecord]:
+    row = connection.execute(
+        """
+        select id, draft_id, page_id, name, source, status
+        from draft_location_tags
+        where draft_id = ?
+        """,
+        (draft_id,),
+    ).fetchone()
+    if row is None:
+        return None
+    return _draft_location_tag_from_row(row)
 
 
 def upsert_guided_draft_package(
@@ -1297,6 +1346,17 @@ def _r2_staged_object_from_row(row) -> R2StagedObjectRecord:
         staged_at=row[8],
         deleted_at=row[9],
         cleanup_reason=row[10],
+    )
+
+
+def _draft_location_tag_from_row(row) -> DraftLocationTagRecord:
+    return DraftLocationTagRecord(
+        id=int(row[0]),
+        draft_id=int(row[1]),
+        page_id=row[2],
+        name=row[3],
+        source=row[4],
+        status=row[5],
     )
 
 

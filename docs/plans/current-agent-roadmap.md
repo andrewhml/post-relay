@@ -4,7 +4,7 @@
 
 **Goal:** Make the Post Relay plan discoverable and executable for future agents across sessions.
 
-**Architecture:** Post Relay is a local-first Python CLI and SQLite workflow. The repo now supports processed-folder indexing, candidate/draft creation, numbered media selection, local review artifacts, R2 staging, guarded single-image/carousel publish validation, private Discord DM intake/selection/guided review/scheduling/double-confirmed final approval, local opportunity records, safe opportunity trigger checks, DM narrowing guardrails, bounded review artifact planning, and semantic local candidate matching. The first live carousel smoke succeeded; schedule enforcement, final Meta-bound caption/metadata preview, and Instagram-optimized export assets are now in place. The next roadmap focus is validating true Instagram location tags before analytics feedback work.
+**Architecture:** Post Relay is a local-first Python CLI and SQLite workflow. The repo now supports processed-folder indexing, candidate/draft creation, numbered media selection, local review artifacts, R2 staging, guarded single-image/carousel publish validation, private Discord DM intake/selection/guided review/scheduling/double-confirmed final approval, local opportunity records, safe opportunity trigger checks, DM narrowing guardrails, bounded review artifact planning, semantic local candidate matching, Instagram-optimized export assets, and resolved Meta location tags. The first live carousel smoke succeeded; schedule enforcement, final Meta-bound caption/metadata preview, export profiles, and guarded `location_id` support are now in place. The next roadmap focus is post-publish analytics feedback.
 
 **Tech Stack:** Python 3.9+, SQLite, Typer, Pydantic, PyYAML, Pillow, pytest, GitHub PR milestone workflow.
 
@@ -693,7 +693,7 @@ As of the first live carousel smoke, the local-first workflow is past the origin
 - Agent-initiated suggestions are modeled locally through `post_opportunities` and safe trigger checks, but proactive Discord outreach has not been implemented yet.
 - DM intake now avoids the worst broad-request failure mode by asking for narrowing cues before suggesting huge weak matches, matched large sets point operators to bounded artifact planning, and natural request matching uses local folder/year/filename descriptors with explainable rationale.
 - Oversized full contact-sheet renders are blocked by `drafts artifacts render`; instead, the CLI prints a bounded, DM-safe first-pass plan with narrowing/sample guidance and no source paths.
-- Single-image publish validation has completed one live smoke test. The first live carousel smoke for draft `2` succeeded through the guarded Meta path. Schedule enforcement and final publish caption/metadata preview have now landed; remaining post-publish hardening before the next production cadence is export sizing/aspect-ratio optimization.
+- Single-image publish validation has completed one live smoke test. The first live carousel smoke for draft `2` succeeded through the guarded Meta path. Schedule enforcement, final publish caption/metadata preview, publish exports, and resolved Meta `location_id` support have now landed; the next hardening milestone is analytics feedback from published media outcomes.
 
 ## Next planned milestones
 
@@ -859,21 +859,33 @@ Current local result: `14 passed` focused; `174 passed` full suite.
 .venv/bin/python -m pytest -q
 ```
 
-### Milestone 27: `feat/location-tag-validation`
+### PR #53 / Milestone 27: `feat/location-tag-validation`
 
 **Goal:** Support Instagram location as a true publish tag, not just local review text, only after official Meta Graph capability is validated for Andrew's Page-linked Creator account.
 
-**Required behavior:**
-- Research and validate the official Meta Graph field/endpoint shape for feed image and carousel location tagging on the current `graph.facebook.com` route and API version.
-- Add a no-network capability/dry-run harness that clearly distinguishes three states: unsupported, supported-but-unresolved, and resolved publishable location tag.
-- Model resolved location tags separately from freeform `location_text`; do not infer or fabricate a tag id from caption text, folder names, or user-provided prose.
-- Add lookup/selection behavior only through official Meta/Graph-supported routes if available, with token redaction and read-only defaults.
-- Update final publish preview so it shows both the human location text and the exact location tag payload, or explicitly explains why no tag will be sent.
-- Update single-image, carousel, and scheduled publish paths to send the location tag only when it is officially validated, resolved, reviewed, and covered by active draft/publish approvals.
-- Ensure material edits to resolved location tags invalidate active approvals just like caption, hashtags, media, or location text edits.
-- Add tests proving unsupported/unresolved location text remains local-only, resolved tags appear in final preview, live execute/dry-run uses identical payload composition, and no unvalidated location fields are silently sent to Meta.
+**Delivered behavior in branch:**
+- Validated the official `graph.facebook.com` content publishing shape: feed image and carousel parent container creation accept `location_id=<LOCATION_PAGE_ID>`; the official lookup route is read-only `GET /pages/search?q=...&fields=id,name,location,link`.
+- Added resolved draft location tags in SQLite, stored separately from freeform `drafts.location_text` so prose is never converted into an inferred tag id.
+- Added `drafts location-candidates --draft-id ... [--query ...]` so the bot can ask for a more specific place when context is vague, or use read-only Page search to present ranked candidate tags without setting anything.
+- Added `drafts location-tag-set --draft-id ... --page-id ... --name ...` to persist an explicitly selected Facebook Page id; setting/changing the tag invalidates active approvals and moves approved drafts back to `needs_edits`.
+- Updated final publish preview to render `Location handling: resolved Meta location tag` plus the exact `location_id` payload when a resolved tag exists; otherwise freeform location text remains local/review-only.
+- Updated single-image and carousel publish execution to include `location_id` only from a resolved stored tag. Carousel child containers do not receive location ids; only the image container or carousel parent container does.
+- Updated the Instagram capability matrix from `needs_validation` to `publishable_when_resolved` while keeping arbitrary/freeform `location_tag` metadata out of generic publishable filtering.
+- Added tests for official page-search request construction, location candidate clarification/ranking, approval invalidation, CLI persistence, final preview payload rendering, carousel publish params, and local-only freeform location behavior.
 
-**Safety rule:** Until this milestone validates official support, `location_text` remains local/review-only and must not be sent as a Meta location tag. If validation shows the Graph path cannot tag locations for this account/post type, keep the feature as manual-review guidance and do not fake it by caption metadata.
+**Safety rule:** `location_text` is still local/review-only. Post Relay sends a Meta location tag only when a reviewed Facebook Page `location_id` is explicitly stored on the draft and approvals have been reacquired after that material edit. Do not infer or fabricate location ids from captions, folder names, or user prose.
+
+**Verification:**
+
+```bash
+.venv/bin/python -m pytest tests/test_location_tags.py tests/test_instagram_capabilities.py tests/test_discord_selection_payload.py -q
+.venv/bin/python -m pytest -q
+```
+
+**Next-session start here:**
+1. First verify the current baseline: `.venv/bin/python -m pytest -q` should report the full suite passing.
+2. Move next to Milestone 28 `feat/post-publish-analytics-feedback` to capture published media outcomes and start improving recommendations from real results.
+3. Keep live-safe defaults: no Discord sends, no R2 `--execute`, and no Meta `--execute` unless explicitly authorized in the active session.
 
 ### Milestone 28: `feat/post-publish-analytics-feedback`
 

@@ -15,8 +15,8 @@ def test_instagram_capability_matrix_marks_v1_publishable_and_review_only_fields
     assert "accessibility" in alt_text.review_note
 
     location = get_instagram_publish_capability("location_tag")
-    assert location.status == "needs_validation"
-    assert "not sent" in location.publish_note
+    assert location.status == "publishable_when_resolved"
+    assert "resolved Facebook Page location_id" in location.publish_note
 
     assert get_instagram_publish_capability("music").status == "unsupported_v1"
     assert get_instagram_publish_capability("unknown_future_field").status == "unsupported_v1"
@@ -41,7 +41,7 @@ def test_filter_publishable_metadata_keeps_only_meta_graph_v1_fields():
         "hashtags_in_caption": ["#travelphotography"],
     }
     assert review_only["alt_text"].value == "Local accessibility note"
-    assert review_only["location_tag"].capability.status == "needs_validation"
+    assert review_only["location_tag"].capability.status == "publishable_when_resolved"
     assert review_only["collaborators"].capability.status == "needs_validation"
     assert review_only["music"].capability.status == "unsupported_v1"
 
@@ -52,5 +52,5 @@ def test_capability_matrix_text_is_clear_for_discord_review_copy():
     assert "Instagram Capability Matrix" in rendered
     assert "media_urls: publishable" in rendered
     assert "alt_text: review_only" in rendered
-    assert "location_tag: needs_validation" in rendered
+    assert "location_tag: publishable_when_resolved" in rendered
     assert "review/local only" in rendered
