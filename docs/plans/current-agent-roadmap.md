@@ -887,7 +887,7 @@ Current local result: `14 passed` focused; `174 passed` full suite.
 2. Move next to Milestone 28 `feat/post-publish-analytics-feedback` to capture published media outcomes and start improving recommendations from real results.
 3. Keep live-safe defaults: no Discord sends, no R2 `--execute`, and no Meta `--execute` unless explicitly authorized in the active session.
 
-### Milestone 28: `feat/post-publish-analytics-feedback` (current branch)
+### PR #54 / Milestone 28: `feat/post-publish-analytics-feedback`
 
 **Goal:** After safer publishing is in place, capture performance feedback so recommendations and export choices improve over time.
 
