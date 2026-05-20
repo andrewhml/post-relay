@@ -232,10 +232,10 @@ Run this before opening or merging any PR:
 .venv/bin/python -m pytest -q
 ```
 
-Expected current result after the meta account discovery milestone:
+Expected current result after the meta OAuth login milestone:
 
 ```text
-293 passed
+297 passed
 ```
 
 ## Milestone execution rules
@@ -1388,11 +1388,11 @@ Current branch result: `59 passed` focused; `248 passed` full suite.
 2. Start `feat/meta-account-discovery` after setup wizard lands.
 3. Keep live-safe defaults: no Discord sends, no R2 `--execute`, and no Meta publish `--execute` unless explicitly authorized in the active session.
 
-### PR #80 / Milestone 48: `feat/meta-account-discovery` (open)
+### PR #80 / Milestone 48: `feat/meta-account-discovery` (merged)
 
 **Goal:** Reduce Meta setup friction before full OAuth by discovering account IDs from an existing private user token.
 
-**Delivered behavior in branch so far:**
+**Delivered behavior:**
 - Adds `post-relay meta discover-accounts --env-file .env`.
 - Defaults to dry-run/no-network unless `--execute` is passed, matching the token-extension safety style.
 - Calls read-only Meta Graph routes in execute mode: `/me/accounts`, each Page's `instagram_business_account`, and linked IG profile fields `id,username,media_count`.
@@ -1414,9 +1414,33 @@ Current branch result: `59 passed` focused; `248 passed` full suite.
 2. Start `feat/meta-oauth-login` only after account discovery lands.
 3. Keep live-safe defaults: no Discord sends, no R2 `--execute`, and no Meta publish `--execute` unless explicitly authorized in the active session.
 
+### PR #81 / Milestone 49: `feat/meta-oauth-login` (open)
+
+**Goal:** Let trusted beta users authenticate their own account through the Post Relay Meta app instead of using Graph API Explorer.
+
+**Delivered behavior in branch so far:**
+- Adds `post-relay meta oauth-login --env-file .env`.
+- Dry-run/default mode prints a Meta OAuth URL with configured app id, redirect URI, state, and requested scopes without network calls.
+- Execute mode exchanges a copied authorization `--code` for a local user token, then discovers visible Pages and linked IG accounts using the returned token.
+- Explicit `--update-env` saves the returned token and optional chosen `POST_RELAY_FACEBOOK_PAGE_ID` / `POST_RELAY_INSTAGRAM_ACCOUNT_ID` to private `.env`.
+- Documents the trusted-tester OAuth flow in README and friend setup guide.
+
+**Safety rule:** OAuth login must keep tokens local and redacted. Dry-run must make no network calls. Execute mode may call only Meta OAuth token exchange plus read-only account/profile discovery routes; it must not call `/media`, `/media_publish`, Discord, R2, or publish endpoints.
+
+**Verification:**
+
+```bash
+.venv/bin/python -m pytest tests/test_meta_graph.py -q
+.venv/bin/python -m pytest -q
+```
+
+**Next-session start here:**
+1. Finish `feat/meta-oauth-login`, run focused and full tests, open/merge the PR, and sync `main`.
+2. Start `docs/managed-staging-design` only after OAuth login lands.
+3. Keep live-safe defaults: no Discord sends, no R2 `--execute`, and no Meta publish `--execute` unless explicitly authorized in the active session.
+
 ## Later milestones
 
-- `feat/meta-oauth-login`: let trusted testers authenticate their own Page-linked Instagram account through the Post Relay Meta app while tokens remain local.
 - `docs/managed-staging-design`: design managed R2 staging with per-user prefixes, randomized keys, TTL cleanup, quotas, and no raw credential sharing.
 - `feat/managed-r2-staging-mvp`: allow selected publish assets to stage through a managed path once the design is reviewed.
 - Video/reel validation after feed/carousel path is reliable.

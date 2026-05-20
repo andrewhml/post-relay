@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from pathlib import Path
+import secrets
 from typing import Optional
 
 import typer
@@ -98,12 +99,16 @@ from post_relay.meta_graph import (
     AccountDiscoveryResult,
     DiscoveredMetaAccount,
     MetaGraphClient,
+    MetaGraphConfig,
     MetaGraphConfigError,
     MetaGraphRequestError,
     TokenExtensionResult,
+    build_meta_oauth_authorization_url,
     load_meta_graph_config,
+    load_meta_oauth_config,
     update_meta_graph_access_token_env_file,
     update_meta_graph_account_ids_env_file,
+    update_meta_graph_oauth_env_file,
 )
 from post_relay.media_selection import (
     DraftNotFound as MediaSelectionDraftNotFound,
@@ -526,6 +531,87 @@ def analytics_insights_fetch(
         typer.echo(render_insights_fetch_error(error, token=token))
         raise typer.Exit(code=1) from error
     typer.echo(render_media_insight_snapshot(record))
+
+
+@meta_app.command("oauth-login")
+def meta_oauth_login(
+    env_file: Optional[Path] = typer.Option(Path(".env"), "--env-file", help="Private .env file path."),
+    redirect_uri: str = typer.Option("http://localhost:8765/callback", "--redirect-uri", help="OAuth redirect URI configured for the Meta app."),
+    state: Optional[str] = typer.Option(None, "--state", help="OAuth state value. Generated automatically when omitted."),
+    code: Optional[str] = typer.Option(None, "--code", help="Authorization code copied from the redirect callback URL."),
+    execute: bool = typer.Option(False, "--execute", help="Exchange the authorization code for a user token."),
+    update_env: bool = typer.Option(False, "--update-env", help="Save the returned user token and optional account IDs in the env file."),
+    page_id: Optional[str] = typer.Option(None, "--page-id", help="Discovered Facebook Page ID to save with --update-env."),
+    instagram_account_id: Optional[str] = typer.Option(None, "--instagram-account-id", help="Discovered Instagram account ID to save with --update-env."),
+) -> None:
+    """Guide trusted testers through Meta OAuth login while keeping tokens local."""
+    try:
+        config = load_meta_oauth_config(env_file=env_file)
+    except MetaGraphConfigError as error:
+        raise typer.BadParameter(str(error), param_hint="--env-file") from error
+
+    resolved_state = state or secrets.token_urlsafe(24)
+    login_url = build_meta_oauth_authorization_url(
+        config,
+        redirect_uri=redirect_uri,
+        state=resolved_state,
+    )
+    if not execute:
+        typer.echo("Meta OAuth login (dry run)")
+        typer.echo(f"Authorization URL: {login_url}")
+        typer.echo(f"Redirect URI: {redirect_uri}")
+        typer.echo(f"State: {resolved_state}")
+        typer.echo("Requested scopes: pages_show_list,pages_read_engagement,instagram_basic,instagram_content_publish")
+        typer.echo("App secret: <redacted>")
+        typer.echo("No network calls were made.")
+        typer.echo("No env file was changed.")
+        typer.echo("Publishing endpoints called: no")
+        return
+
+    if not code:
+        raise typer.BadParameter("--execute requires --code from the OAuth redirect", param_hint="--code")
+    if update_env and env_file is None:
+        raise typer.BadParameter("--update-env requires an --env-file path", param_hint="--env-file")
+    if update_env and ((page_id and not instagram_account_id) or (instagram_account_id and not page_id)):
+        raise typer.BadParameter(
+            "Saving account IDs requires both --page-id and --instagram-account-id",
+            param_hint="--page-id/--instagram-account-id",
+        )
+
+    client = MetaGraphClient(config)
+    try:
+        token_result = client.exchange_oauth_authorization_code(
+            code=code,
+            redirect_uri=redirect_uri,
+        )
+        discovery_result = MetaGraphClient(
+            MetaGraphConfig(
+                access_token=token_result.access_token,
+                page_id=page_id,
+                instagram_account_id=instagram_account_id,
+                app_id=config.app_id,
+                app_secret=config.app_secret,
+                base_url=config.base_url,
+                api_version=config.api_version,
+            )
+        ).discover_accounts()
+    except (MetaGraphConfigError, MetaGraphRequestError) as error:
+        raise typer.BadParameter(str(error), param_hint="--code") from error
+
+    env_updated = False
+    if update_env:
+        assert env_file is not None
+        update_meta_graph_oauth_env_file(
+            env_file,
+            access_token=token_result.access_token,
+            page_id=page_id,
+            instagram_account_id=instagram_account_id,
+        )
+        env_updated = True
+
+    typer.echo("Meta OAuth login completed")
+    typer.echo(token_result.to_text(env_updated=env_updated))
+    typer.echo(discovery_result.to_text(env_updated=env_updated))
 
 
 @meta_app.command("token-extend")

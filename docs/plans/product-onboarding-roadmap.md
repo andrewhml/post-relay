@@ -84,7 +84,7 @@ The onboarding ladder is:
 
 **Safety:** Non-destructive; never overwrite existing `.env`, `config/photo_sources.yaml`, or SQLite DB without explicit confirmation.
 
-## Milestone 4: `feat/meta-account-discovery` (in progress)
+## Milestone 4: `feat/meta-account-discovery` (merged)
 
 **Goal:** Reduce Meta setup friction before full OAuth by discovering account IDs from an existing private token.
 
@@ -97,18 +97,17 @@ The onboarding ladder is:
 
 **Safety:** Read-only Meta calls only; no publishing endpoints.
 
-## Milestone 5: `feat/meta-oauth-login`
+## Milestone 5: `feat/meta-oauth-login` (in progress)
 
 **Goal:** Let trusted beta users authenticate their own account through the Post Relay Meta app instead of using Graph API Explorer.
 
 **Behavior:**
-- Add `post-relay meta login --env-file .env`.
-- Open a Meta OAuth URL for the configured app.
-- Receive a local callback or documented hosted callback.
-- Exchange authorization code for a user token and extend it when supported.
-- Discover visible Pages and linked Instagram accounts.
-- Save the selected token/page/IG IDs to the private `.env` only after confirmation.
-- Run sanitized read-only validation.
+- Add `post-relay meta oauth-login --env-file .env`.
+- Print a Meta OAuth URL for the configured app, redirect URI, scopes, and state without network calls by default.
+- Let the user copy a returned `code` from the redirect URL and exchange it with `--execute --code ...`.
+- Discover visible Pages and linked Instagram accounts with the returned local token.
+- Save the selected token/page/IG IDs to the private `.env` only after explicit `--update-env` plus chosen IDs.
+- Keep sanitized output and no token/app-secret logging.
 
 **Prerequisites:** Users are added as app testers or the app has the required reviewed permissions for broader distribution.
 
