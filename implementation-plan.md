@@ -218,17 +218,22 @@ Make Post Relay smarter over time.
 
 ## Recommended Next Build Artifacts
 The next useful detailed artifacts are now:
-- `docs/plans/current-agent-roadmap.md` Later milestones for private-DM operating-loop improvements, proactive opportunity DM controls, video/reel validation, and deeper media discovery/enrichment
-- a later video/reel validation plan after feed/carousel cadence is stable
+- `docs/plans/product-onboarding-roadmap.md` as the reusable-user onboarding plan from local preview mode to Meta tester auth and managed staging
+- `docs/setup-own-instance.md` as the concrete friend/beta setup guide
+- `docs/plans/current-agent-roadmap.md` as the canonical active engineering roadmap
+- a later `feat/setup-doctor` implementation plan after the docs onboarding PR lands
+- a later video/reel validation plan after feed/carousel cadence and onboarding are stable
 - a later plan for turning enough advisory feedback/follower-growth snapshots into stronger deterministic recommendations
 
 ## Practical Next Human Steps
 Andrew should continue with:
+- sharing the local-only setup path with trusted friends before asking them to connect Meta/R2/Discord
 - keeping tokens private and rotating any exposed test tokens
+- adding trusted users as Meta app testers only when they are ready to validate their own linked Page/Instagram account
+- treating managed R2 staging as a future beta service that must not share raw R2 credentials and must upload only explicitly selected publish media
 - using private DM-driven sessions to prove the user-initiated workflow on real travel sets
-- collecting read-only insights only with `analytics insights-fetch --execute` when the active token has the needed insights permission
-- collecting read-only follower metrics only with `analytics follower-fetch --execute` when explicitly intended; dry-run remains the default
+- collecting read-only insights only with `analytics insights-fetch --execute` or `analytics collect-due --execute` when the active token has the needed insights permission and the active session authorizes it
 - treating recommendation and follower-growth feedback as advisory until several real posts and account snapshots provide enough signal
 
 ## Immediate Next Engineering Step
-Finish and merge `feat/follower-growth-tracking`, then choose the next rollback-safe milestone from `docs/plans/current-agent-roadmap.md`, likely more private-DM operating-loop practice, proactive opportunity DM controls, video/reel validation, or deeper local media discovery/enrichment. Keep recommendation and follower-growth feedback advisory-only until several real posts and account snapshots provide enough signal.
+Finish and merge `docs/friend-onboarding-setup`, then start `feat/setup-doctor` as the first code milestone for reusable-user onboarding. Keep all live-safe defaults: no Discord sends, no R2 `--execute`, and no Meta publish `--execute` unless explicitly authorized in the active session.
