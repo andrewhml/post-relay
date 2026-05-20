@@ -17,13 +17,15 @@ Future agents should read these files before implementing:
 1. `AGENTS.md`
 2. `README.md`
 3. `docs/plans/current-agent-roadmap.md`
-4. `docs/plans/postrelay-agent-operating-baseline.md`
-5. `docs/plans/discord-dm-conversation-orchestration.md`
-6. `docs/plans/discord-photo-selection-before-carousel-smoke.md`
-7. `implementation-plan.md`
-8. `technical-design.md`
-9. `requirements.md`
-10. `setup-checklist.md`
+4. `docs/plans/product-onboarding-roadmap.md`
+5. `docs/setup-own-instance.md`
+6. `docs/plans/postrelay-agent-operating-baseline.md`
+7. `docs/plans/discord-dm-conversation-orchestration.md`
+8. `docs/plans/discord-photo-selection-before-carousel-smoke.md`
+9. `implementation-plan.md`
+10. `technical-design.md`
+11. `requirements.md`
+12. `setup-checklist.md`
 
 If these files conflict, prefer the newest concrete implementation facts in `README.md`, `AGENTS.md`, and this roadmap, then reconcile by updating docs in the same PR.
 
@@ -230,10 +232,10 @@ Run this before opening or merging any PR:
 .venv/bin/python -m pytest -q
 ```
 
-Expected current result after the local media discovery enrichment milestone:
+Expected current result after the friend onboarding docs milestone:
 
 ```text
-254 passed
+280 passed
 ```
 
 ## Milestone execution rules
@@ -1291,11 +1293,11 @@ Current branch result: `59 passed` focused; `248 passed` full suite.
 .venv/bin/python -m pytest -q
 ```
 
-### Milestone 44: `feat/analytics-collect-due` (current branch)
+### PR #75 / Milestone 44: `feat/analytics-collect-due` (merged)
 
 **Goal:** Add the second step of the analytics cadence plan: a guarded runner that can execute only the due read-only analytics checks identified by the cadence planner.
 
-**Delivered behavior in branch so far:**
+**Delivered behavior:**
 - Added `analytics collect-due`, dry-run by default, which renders the same due plan and never requires credentials unless `--execute` is explicit.
 - Execute mode calls only read-only Meta media insights and account metric endpoints through the existing Meta client, stores due snapshots locally, and prints a compact audit summary.
 - Multiple due windows for the same post are collapsed to one read-only fetch at collection time, and the follow-up cadence plan treats that collection as satisfying all earlier due windows up to the current time.
@@ -1310,13 +1312,38 @@ Current branch result: `59 passed` focused; `248 passed` full suite.
 .venv/bin/python -m pytest -q
 ```
 
+### PR #77 / Milestone 45: `docs/friend-onboarding-setup` (open)
+
+**Goal:** Map the reusable-user onboarding path and make the current local-first setup understandable for someone who is not Andrew.
+
+**Planned behavior in branch:**
+- Rewrite the README around local preview mode first, then optional Meta, R2, and Discord integrations.
+- Add `docs/setup-own-instance.md` with concrete local-only setup commands and optional integration sections.
+- Add `docs/plans/product-onboarding-roadmap.md` to capture the stepped product path: local preview, Meta tester auth, managed staging, and guided beta setup.
+- Generalize `.env.example` and `config/photo_sources.example.yaml` so they use placeholders rather than Andrew-specific Page/IG IDs, local paths, bucket names, or domains.
+- Update handoff docs so future agents treat reusable-user onboarding as the immediate product direction.
+
+**Safety rule:** This milestone is documentation/template-only. It must not change runtime behavior, send Discord messages, upload to R2, call Meta, publish, mutate local post state, or expose any secrets. Andrew-specific instance facts remain in agent/operations handoff docs, not generic onboarding surfaces.
+
+**Verification:**
+
+```bash
+.venv/bin/python -m pytest -q
+```
+
 **Next-session start here:**
-1. First verify the current baseline: `.venv/bin/python -m pytest -q` should report the full suite passing.
-2. Use `analytics cadence-plan` before any read-only execute run; use `analytics collect-due --execute` only when Andrew has authorized read-only insights/account metric collection for the active session or a future recurring job.
+1. Finish `docs/friend-onboarding-setup`, run `.venv/bin/python -m pytest -q`, open/merge the docs PR, and sync `main`.
+2. Start `feat/setup-doctor` as the first code milestone to turn manual friend setup debugging into a no-network diagnostic command.
 3. Keep live-safe defaults: no Discord sends, no R2 `--execute`, and no Meta publish `--execute` unless explicitly authorized in the active session.
 
 ## Later milestones
 
+- `feat/setup-doctor`: add a no-network diagnostics command for local config, DB, photo roots, artifact writability, and optional integration readiness.
+- `feat/setup-wizard`: add a non-destructive guided local setup command that copies templates, records a photo root, initializes the DB, and prints next commands.
+- `feat/meta-account-discovery`: discover a user's visible Pages and linked Instagram accounts from an existing private token, reducing manual Page/IG ID setup.
+- `feat/meta-oauth-login`: let trusted testers authenticate their own Page-linked Instagram account through the Post Relay Meta app while tokens remain local.
+- `docs/managed-staging-design`: design managed R2 staging with per-user prefixes, randomized keys, TTL cleanup, quotas, and no raw credential sharing.
+- `feat/managed-r2-staging-mvp`: allow selected publish assets to stage through a managed path once the design is reviewed.
 - Video/reel validation after feed/carousel path is reliable.
 - Per-media carousel alt text validation: model/store one accessibility note per selected media item, render it in final review, validate whether Instagram Graph supports any automated alt-text field for the active API/app combination, and keep unsupported fields review-only/manual without silently sending them to Meta.
 - Generated local tags or perceptual/semantic narrowing on top of the completed no-network dimensions/EXIF enrichment, if kept auditable and local-first.

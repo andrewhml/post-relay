@@ -1,18 +1,11 @@
-# Copy this file to config/photo_sources.yaml and update paths as needed.
+# Copy this file to config/photo_sources.yaml and update paths for your machine.
 # Local/NAS processed folders are the durable source of truth.
 # Post Relay must never delete, move, or mutate source media.
 
 photo_sources:
-  # NAS year folder example provided by Andrew.
-  - name: nas-processed-2024
-    root: /Volumes/Media/photos/2024 Photos/Processed
-    source_type: processed_folder
-    enabled: true
-    reliability_score: 1.0
-
-  # Local Mac year folder example provided by Andrew.
-  - name: local-processed-2025
-    root: /Users/andrewlee/Pictures/2025 Photos/Processed
+  # Replace this with a folder of processed/exported photos on your machine or NAS.
+  - name: local-processed-photos
+    root: /path/to/your/processed/photos
     source_type: processed_folder
     enabled: true
     reliability_score: 1.0
@@ -21,15 +14,20 @@ review_artifacts:
   root: data/review_artifacts
   thumbnail_max_px: 1600
   contact_sheet_columns: 3
-  # Start local-first; later milestones can switch to r2 or both.
+  # Start local-first; optional upload/delivery layers can be added later.
   mode: local
 
+publish_exports:
+  root: data/publish_exports
+  default_profile: feed_portrait_3x4
+
 r2_staging:
-  # Disabled until upload/cleanup commands are implemented and explicitly executed.
+  # Self-managed R2 staging is optional. Keep disabled until bucket settings and
+  # POST_RELAY_R2_* credentials are configured privately in .env.
   enabled: false
-  bucket: post-relay-publish
-  endpoint_url: https://d79fef40225063d4b0e2d2cb33b346d0.r2.cloudflarestorage.com
-  public_base_url: https://peddocks.net
+  bucket: your-r2-bucket-name
+  endpoint_url: https://YOUR_ACCOUNT_ID.r2.cloudflarestorage.com
+  public_base_url: https://media.example.com
   prefix: post-relay/staging
   default_ttl_hours: 72
   cleanup_after_publish: true

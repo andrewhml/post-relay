@@ -1,0 +1,199 @@
+# Set up your own Post Relay instance
+
+Post Relay is currently a local-first app. Each user should run their own local instance with their own photo folders, SQLite database, review artifacts, and private credentials.
+
+You do not need Meta, Discord, or R2 to try the core workflow. Start local-only, then connect optional integrations after the local review loop feels useful.
+
+## 1. Local-only quickstart
+
+From the repo root:
+
+```bash
+python3 -m venv .venv
+.venv/bin/pip install -e ".[dev]"
+cp .env.example .env
+cp config/photo_sources.example.yaml config/photo_sources.yaml
+```
+
+Edit `config/photo_sources.yaml` and set at least one `photo_sources[].root` to a folder of processed/exported photos on your machine or NAS.
+
+Then initialize and scan:
+
+```bash
+.venv/bin/post-relay db init --db data/post_relay.sqlite
+.venv/bin/post-relay index scan --config config/photo_sources.yaml --db data/post_relay.sqlite
+.venv/bin/post-relay library stats --db data/post_relay.sqlite
+.venv/bin/post-relay candidates build --db data/post_relay.sqlite
+.venv/bin/post-relay candidates list --db data/post_relay.sqlite
+```
+
+Create and review a first post:
+
+```bash
+.venv/bin/post-relay drafts create --candidate-id 1 --db data/post_relay.sqlite
+.venv/bin/post-relay drafts preview --post-id 1 --db data/post_relay.sqlite
+.venv/bin/post-relay drafts artifacts render --post-id 1 --stage select --config config/photo_sources.yaml --db data/post_relay.sqlite
+.venv/bin/post-relay drafts media-plan --post-id 1 --db data/post_relay.sqlite
+```
+
+This mode makes no Meta, Discord, or R2 calls. Source media is read but not moved, deleted, or modified.
+
+## 2. Local files and what to customize
+
+Private/local files:
+
+- `.env`: private credentials and account IDs. Never commit this.
+- `config/photo_sources.yaml`: local/NAS photo paths, artifact roots, and optional R2 bucket settings. Never commit this.
+- `data/post_relay.sqlite`: your local database.
+- `data/review_artifacts/`: generated local review sheets and thumbnails.
+- `data/publish_exports/`: generated publish-ready export files.
+
+Template files to commit and share:
+
+- `.env.example`
+- `config/photo_sources.example.yaml`
+
+## 3. Environment variables
+
+`.env.example` is grouped by optional feature. Leave values blank for integrations you are not using.
+
+| Variable | Required for | Secret? | Notes |
+| --- | --- | --- | --- |
+| `POST_RELAY_META_APP_ID` | Meta login/validation/publishing | No | Meta app client ID. |
+| `POST_RELAY_META_APP_SECRET` | token extension/OAuth | Yes | Keep private. |
+| `POST_RELAY_USER_ACCESS_TOKEN` | Meta validation/publishing/insights | Yes | User token for your Facebook user and Page access. |
+| `POST_RELAY_FACEBOOK_PAGE_ID` | Meta validation/publishing | No | Your linked Facebook Page ID, not Andrew's. |
+| `POST_RELAY_INSTAGRAM_ACCOUNT_ID` | Meta validation/publishing/analytics | No | Your professional IG account ID, not Andrew's. |
+| `POST_RELAY_META_GRAPH_BASE_URL` | Meta integration | No | Defaults to `https://graph.facebook.com`. |
+| `POST_RELAY_META_GRAPH_VERSION` | Meta integration | No | Defaults to the version in `.env.example`. |
+| `POST_RELAY_TEST_IMAGE_URL` | optional publish validation | No | Must be a public HTTPS image URL. |
+| `POST_RELAY_TEST_CAPTION` | optional publish validation | No | Smoke-test caption only. |
+| `POST_RELAY_DISCORD_BOT_TOKEN` | live Discord DM sends | Yes | Optional. |
+| `POST_RELAY_DISCORD_TARGET_USER_ID` | live Discord DM sends | No | Optional target Discord user ID. |
+| `POST_RELAY_R2_ACCOUNT_ID` | R2 staging upload | No | Cloudflare account ID. |
+| `POST_RELAY_R2_ACCESS_KEY_ID` | R2 staging upload | Yes | S3-compatible R2 access key ID. |
+| `POST_RELAY_R2_SECRET_ACCESS_KEY` | R2 staging upload | Yes | S3-compatible R2 secret access key. |
+
+## 4. Optional Meta/Instagram setup
+
+Use this only after the local workflow is useful.
+
+Requirements:
+
+- Instagram professional Creator or Business account.
+- Facebook Page linked to that Instagram account.
+- Facebook user with access to the Page.
+- Meta app credentials or beta tester access to a shared Post Relay app.
+- Official Meta/Facebook Graph route. Do not use browser automation or unofficial posting methods.
+
+For the current manual path, populate these in `.env`:
+
+```bash
+POST_RELAY_META_APP_ID=YOUR_META_APP_ID
+POST_RELAY_META_APP_SECRET=YOUR_META_APP_SECRET
+POST_RELAY_USER_ACCESS_TOKEN=YOUR_PRIVATE_USER_ACCESS_TOKEN
+POST_RELAY_FACEBOOK_PAGE_ID=YOUR_FACEBOOK_PAGE_ID
+POST_RELAY_INSTAGRAM_ACCOUNT_ID=YOUR_INSTAGRAM_ACCOUNT_ID
+POST_RELAY_META_GRAPH_BASE_URL=https://graph.facebook.com
+POST_RELAY_META_GRAPH_VERSION=v19.0
+```
+
+Validate read-only first:
+
+```bash
+.venv/bin/post-relay meta validate-readonly --env-file .env --dry-run
+```
+
+If you have a fresh short-lived token and want to extend it, dry-run first:
+
+```bash
+.venv/bin/post-relay meta token-extend --env-file .env
+```
+
+Execute only when you intend to update your private `.env`:
+
+```bash
+.venv/bin/post-relay meta token-extend --env-file .env --execute --update-env
+```
+
+Live publish commands remain explicitly gated by approvals, schedule checks, public HTTPS media URLs, and `--execute`.
+
+## 5. Optional Cloudflare R2 staging
+
+Meta publishing needs public HTTPS media URLs. R2 staging is one way to make selected publish assets available to Meta.
+
+For your own R2 bucket:
+
+1. Create a Cloudflare R2 bucket.
+2. Create S3-compatible R2 credentials. A generic Cloudflare API token is not enough.
+3. Configure `r2_staging` in `config/photo_sources.yaml`.
+4. Put secrets in `.env`:
+
+```bash
+POST_RELAY_R2_ACCOUNT_ID=YOUR_CLOUDFLARE_ACCOUNT_ID
+POST_RELAY_R2_ACCESS_KEY_ID=YOUR_R2_ACCESS_KEY_ID
+POST_RELAY_R2_SECRET_ACCESS_KEY=YOUR_R2_SECRET_ACCESS_KEY
+```
+
+Always inspect the plan first:
+
+```bash
+.venv/bin/post-relay drafts r2-stage-plan --post-id 1 --config config/photo_sources.yaml --db data/post_relay.sqlite
+.venv/bin/post-relay drafts r2-stage-upload --post-id 1 --config config/photo_sources.yaml --db data/post_relay.sqlite
+```
+
+Execute only after confirming the planned object count and keys are expected:
+
+```bash
+.venv/bin/post-relay drafts r2-stage-upload --post-id 1 --config config/photo_sources.yaml --db data/post_relay.sqlite --execute
+```
+
+Cleanup deletes only recorded uploaded objects under the configured Post Relay prefix:
+
+```bash
+.venv/bin/post-relay drafts r2-cleanup --post-id 1 --config config/photo_sources.yaml --db data/post_relay.sqlite
+.venv/bin/post-relay drafts r2-cleanup --post-id 1 --config config/photo_sources.yaml --db data/post_relay.sqlite --execute --reason "publish complete"
+```
+
+## 6. Optional Discord DM workflow
+
+Discord is optional. The local `dm` commands can model the workflow without live sends.
+
+Live private DM sends require:
+
+```bash
+POST_RELAY_DISCORD_BOT_TOKEN=YOUR_DISCORD_BOT_TOKEN
+POST_RELAY_DISCORD_TARGET_USER_ID=YOUR_DISCORD_USER_ID
+```
+
+Use local/no-network planning before live Discord commands:
+
+```bash
+.venv/bin/post-relay dm intake --message "start a post about Kyoto night market" --discord-channel-id local-test --db data/post_relay.sqlite
+.venv/bin/post-relay dm next-action --discord-channel-id local-test --db data/post_relay.sqlite
+```
+
+## 7. Publishing safety model
+
+Post Relay is intentionally guarded:
+
+- Source media is never deleted, moved, or modified.
+- Review artifacts and publish exports are derived local files.
+- Most external workflows have dry-run or planning defaults.
+- Live Meta publishing requires official Graph API routes.
+- Live publish execution requires explicit `--execute`.
+- Content approval and final publish approval are separate gates.
+- Material edits invalidate active approvals.
+- Scheduled publish execution checks due time before creating Meta containers.
+- Freeform location text is local/review-only; only an explicitly reviewed Meta Page `location_id` may be sent as a publish location tag.
+
+## 8. Current onboarding modes
+
+| Mode | Who it is for | Requires |
+| --- | --- | --- |
+| Local preview | Anyone trying the photo review workflow | Python, local processed photo folder |
+| Connected Meta tester | Trusted beta users who want account validation/publish previews | Meta app tester access, linked FB Page + professional IG account |
+| Self-managed R2 staging | Users comfortable with Cloudflare | R2 bucket, S3 credentials, public domain/base URL |
+| Managed staging | Future beta path | Not implemented yet; planned to avoid sharing raw R2 credentials |
+
+For the product roadmap that lowers setup burden over time, see `docs/plans/product-onboarding-roadmap.md`.
