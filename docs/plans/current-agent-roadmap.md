@@ -232,10 +232,10 @@ Run this before opening or merging any PR:
 .venv/bin/python -m pytest -q
 ```
 
-Expected current result after the setup wizard milestone:
+Expected current result after the meta account discovery milestone:
 
 ```text
-289 passed
+293 passed
 ```
 
 ## Milestone execution rules
@@ -1361,11 +1361,11 @@ Current branch result: `59 passed` focused; `248 passed` full suite.
 2. Start `feat/setup-wizard` only after setup doctor lands.
 3. Keep live-safe defaults: no Discord sends, no R2 `--execute`, and no Meta publish `--execute` unless explicitly authorized in the active session.
 
-### PR #79 / Milestone 47: `feat/setup-wizard` (open)
+### PR #79 / Milestone 47: `feat/setup-wizard` (merged)
 
 **Goal:** Make the local-only trial path one guided command plus prompts.
 
-**Delivered behavior in branch so far:**
+**Delivered behavior:**
 - Adds root CLI command `post-relay setup` with `--photo-root` for non-interactive use and a prompt when the option is omitted.
 - Copies `.env.example` to `.env` and `config/photo_sources.example.yaml` to `config/photo_sources.yaml` only when the private files are missing.
 - Writes the first processed-folder photo root into newly created config.
@@ -1388,9 +1388,34 @@ Current branch result: `59 passed` focused; `248 passed` full suite.
 2. Start `feat/meta-account-discovery` after setup wizard lands.
 3. Keep live-safe defaults: no Discord sends, no R2 `--execute`, and no Meta publish `--execute` unless explicitly authorized in the active session.
 
+### PR #80 / Milestone 48: `feat/meta-account-discovery` (open)
+
+**Goal:** Reduce Meta setup friction before full OAuth by discovering account IDs from an existing private user token.
+
+**Delivered behavior in branch so far:**
+- Adds `post-relay meta discover-accounts --env-file .env`.
+- Defaults to dry-run/no-network unless `--execute` is passed, matching the token-extension safety style.
+- Calls read-only Meta Graph routes in execute mode: `/me/accounts`, each Page's `instagram_business_account`, and linked IG profile fields `id,username,media_count`.
+- Renders visible Facebook Pages plus linked Instagram professional account IDs without printing tokens.
+- Supports explicit non-secret `.env` updates with `--execute --update-env --page-id ... --instagram-account-id ...`.
+- Documents the discovery flow in README and friend setup guide.
+
+**Safety rule:** Account discovery may call only read-only Graph routes in `--execute` mode. It must not call `/media`, `/media_publish`, Discord, R2, or any publish endpoint; must not print token/app-secret values; and must update only `POST_RELAY_FACEBOOK_PAGE_ID` and `POST_RELAY_INSTAGRAM_ACCOUNT_ID` when explicitly requested.
+
+**Verification:**
+
+```bash
+.venv/bin/python -m pytest tests/test_meta_graph.py -q
+.venv/bin/python -m pytest -q
+```
+
+**Next-session start here:**
+1. Finish `feat/meta-account-discovery`, run focused and full tests, open/merge the PR, and sync `main`.
+2. Start `feat/meta-oauth-login` only after account discovery lands.
+3. Keep live-safe defaults: no Discord sends, no R2 `--execute`, and no Meta publish `--execute` unless explicitly authorized in the active session.
+
 ## Later milestones
 
-- `feat/meta-account-discovery`: discover a user's visible Pages and linked Instagram accounts from an existing private token, reducing manual Page/IG ID setup.
 - `feat/meta-oauth-login`: let trusted testers authenticate their own Page-linked Instagram account through the Post Relay Meta app while tokens remain local.
 - `docs/managed-staging-design`: design managed R2 staging with per-user prefixes, randomized keys, TTL cleanup, quotas, and no raw credential sharing.
 - `feat/managed-r2-staging-mvp`: allow selected publish assets to stage through a managed path once the design is reviewed.

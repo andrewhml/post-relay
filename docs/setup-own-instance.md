@@ -97,16 +97,27 @@ Requirements:
 - Meta app credentials or beta tester access to a shared Post Relay app.
 - Official Meta/Facebook Graph route. Do not use browser automation or unofficial posting methods.
 
-For the current manual path, populate these in `.env`:
+For the current manual path, first populate your private user token in `.env`:
 
 ```bash
 POST_RELAY_META_APP_ID=YOUR_META_APP_ID
 POST_RELAY_META_APP_SECRET=YOUR_META_APP_SECRET
 POST_RELAY_USER_ACCESS_TOKEN=YOUR_PRIVATE_USER_ACCESS_TOKEN
-POST_RELAY_FACEBOOK_PAGE_ID=YOUR_FACEBOOK_PAGE_ID
-POST_RELAY_INSTAGRAM_ACCOUNT_ID=YOUR_INSTAGRAM_ACCOUNT_ID
 POST_RELAY_META_GRAPH_BASE_URL=https://graph.facebook.com
 POST_RELAY_META_GRAPH_VERSION=v19.0
+```
+
+Then discover visible Pages and linked Instagram professional accounts. Dry-run prints the planned read-only requests without network calls:
+
+```bash
+.venv/bin/post-relay meta discover-accounts --env-file .env --dry-run
+.venv/bin/post-relay meta discover-accounts --env-file .env --execute
+```
+
+After choosing the Page/IG pair from the output, update only the non-secret account ID fields in `.env`:
+
+```bash
+.venv/bin/post-relay meta discover-accounts --env-file .env --execute --update-env --page-id YOUR_FACEBOOK_PAGE_ID --instagram-account-id YOUR_INSTAGRAM_ACCOUNT_ID
 ```
 
 Validate read-only first:
