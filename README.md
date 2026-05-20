@@ -100,9 +100,12 @@ Requirements:
 
 Configure your own values in `.env`; do not reuse Andrew's IDs or tokens.
 
-Read-only validation:
+Read-only account discovery and validation:
 
 ```bash
+.venv/bin/post-relay meta discover-accounts --env-file .env --dry-run
+.venv/bin/post-relay meta discover-accounts --env-file .env --execute
+.venv/bin/post-relay meta discover-accounts --env-file .env --execute --update-env --page-id YOUR_FACEBOOK_PAGE_ID --instagram-account-id YOUR_INSTAGRAM_ACCOUNT_ID
 .venv/bin/post-relay meta validate-readonly --env-file .env --dry-run
 ```
 

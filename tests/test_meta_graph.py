@@ -296,3 +296,128 @@ def test_meta_token_extend_cli_updates_env_only_when_requested(tmp_path, monkeyp
     assert "new-long-lived-token" not in result.output
     assert "app-secret-456" not in result.output
     assert "POST_RELAY_USER_ACCESS_TOKEN=new-long-lived-token" in env_file.read_text()
+
+
+def test_meta_graph_client_discovers_visible_pages_and_linked_instagram_accounts_without_publishing():
+    requested = []
+
+    def fake_transport(method, url, params):
+        requested.append((method, url, dict(params)))
+        if url.endswith("/me/accounts"):
+            return {
+                "data": [
+                    {"id": "page-1", "name": "Travel Page"},
+                    {"id": "page-2", "name": "No IG Page"},
+                ]
+            }
+        if url.endswith("/page-1"):
+            return {
+                "id": "page-1",
+                "name": "Travel Page",
+                "instagram_business_account": {"id": "ig-1"},
+            }
+        if url.endswith("/page-2"):
+            return {"id": "page-2", "name": "No IG Page"}
+        if url.endswith("/ig-1"):
+            return {"id": "ig-1", "username": "travel_creator", "media_count": 42}
+        raise AssertionError(f"unexpected URL: {url}")
+
+    client = MetaGraphClient(MetaGraphConfig(access_token="secret-token"), transport=fake_transport)
+
+    result = client.discover_accounts()
+    rendered = result.to_text()
+
+    assert result.pages[0].page_id == "page-1"
+    assert result.pages[0].page_name == "Travel Page"
+    assert result.pages[0].instagram_account_id == "ig-1"
+    assert result.pages[0].instagram_username == "travel_creator"
+    assert result.pages[0].instagram_media_count == 42
+    assert result.pages[1].page_id == "page-2"
+    assert result.pages[1].instagram_account_id is None
+    assert result.publishing_endpoints_called is False
+    assert "travel_creator" in rendered
+    assert "secret-token" not in rendered
+    assert "Publishing endpoints called: no" in rendered
+    assert [method for method, _url, _params in requested] == ["GET", "GET", "GET", "GET"]
+    assert all("/media" not in url and "/media_publish" not in url for _method, url, _params in requested)
+
+
+def test_update_meta_graph_account_ids_env_file_replaces_only_non_secret_ids(tmp_path):
+    env_file = tmp_path / ".env"
+    env_file.write_text(
+        "POST_RELAY_USER_ACCESS_TOKEN=keep-secret-token\n"
+        "POST_RELAY_FACEBOOK_PAGE_ID=old-page\n"
+        "POST_RELAY_INSTAGRAM_ACCOUNT_ID=old-ig\n"
+    )
+
+    cli_module.update_meta_graph_account_ids_env_file(env_file, page_id="new-page", instagram_account_id="new-ig")
+
+    assert env_file.read_text() == (
+        "POST_RELAY_USER_ACCESS_TOKEN=keep-secret-token\n"
+        "POST_RELAY_FACEBOOK_PAGE_ID=new-page\n"
+        "POST_RELAY_INSTAGRAM_ACCOUNT_ID=new-ig\n"
+    )
+
+
+def test_meta_discover_accounts_cli_dry_run_does_not_call_network_or_print_token(tmp_path):
+    env_file = tmp_path / ".env"
+    env_file.write_text("POST_RELAY_USER_ACCESS_TOKEN=secret-token\n")
+
+    result = runner.invoke(app, ["meta", "discover-accounts", "--env-file", str(env_file), "--dry-run"])
+
+    assert result.exit_code == 0
+    assert "Meta Graph account discovery (dry run)" in result.output
+    assert "https://graph.facebook.com/v19.0/me/accounts" in result.output
+    assert "No network calls were made." in result.output
+    assert "secret-token" not in result.output
+
+
+def test_meta_discover_accounts_cli_can_update_non_secret_ids_after_execute(tmp_path, monkeypatch):
+    env_file = tmp_path / ".env"
+    env_file.write_text("POST_RELAY_USER_ACCESS_TOKEN=secret-token\n")
+
+    class FakeClient:
+        def __init__(self, config):
+            assert config.access_token == "secret-token"
+
+        def discover_accounts(self):
+            return cli_module.AccountDiscoveryResult(
+                pages=[
+                    cli_module.DiscoveredMetaAccount(
+                        page_id="page-1",
+                        page_name="Travel Page",
+                        instagram_account_id="ig-1",
+                        instagram_username="travel_creator",
+                        instagram_media_count=42,
+                    )
+                ]
+            )
+
+        def discovery_dry_run_urls(self):
+            raise AssertionError("dry run URLs should not be used in execute mode")
+
+    monkeypatch.setattr(cli_module, "MetaGraphClient", FakeClient)
+
+    result = runner.invoke(
+        app,
+        [
+            "meta",
+            "discover-accounts",
+            "--env-file",
+            str(env_file),
+            "--execute",
+            "--update-env",
+            "--page-id",
+            "page-1",
+            "--instagram-account-id",
+            "ig-1",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Meta Graph account discovery" in result.output
+    assert "Travel Page" in result.output
+    assert "Env file updated: yes" in result.output
+    assert "secret-token" not in result.output
+    assert "POST_RELAY_FACEBOOK_PAGE_ID=page-1" in env_file.read_text()
+    assert "POST_RELAY_INSTAGRAM_ACCOUNT_ID=ig-1" in env_file.read_text()

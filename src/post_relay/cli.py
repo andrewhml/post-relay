@@ -95,12 +95,15 @@ from post_relay.location_tags import (
     set_draft_location_tag,
 )
 from post_relay.meta_graph import (
+    AccountDiscoveryResult,
+    DiscoveredMetaAccount,
     MetaGraphClient,
     MetaGraphConfigError,
     MetaGraphRequestError,
     TokenExtensionResult,
     load_meta_graph_config,
     update_meta_graph_access_token_env_file,
+    update_meta_graph_account_ids_env_file,
 )
 from post_relay.media_selection import (
     DraftNotFound as MediaSelectionDraftNotFound,
@@ -561,6 +564,58 @@ def meta_token_extend(
         if env_file is None:
             raise typer.BadParameter("--update-env requires an --env-file path", param_hint="--env-file")
         update_meta_graph_access_token_env_file(env_file, result.access_token)
+        env_updated = True
+    typer.echo(result.to_text(env_updated=env_updated))
+
+
+@meta_app.command("discover-accounts")
+def meta_discover_accounts(
+    env_file: Optional[Path] = typer.Option(Path(".env"), "--env-file", help="Private .env file path."),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Print sanitized planned read-only requests without calling Meta."),
+    execute: bool = typer.Option(False, "--execute", help="Call read-only Meta Graph account discovery endpoints."),
+    update_env: bool = typer.Option(False, "--update-env", help="Update non-secret Page and Instagram account IDs in the env file."),
+    page_id: Optional[str] = typer.Option(None, "--page-id", help="Discovered Facebook Page ID to save with --update-env."),
+    instagram_account_id: Optional[str] = typer.Option(None, "--instagram-account-id", help="Discovered Instagram account ID to save with --update-env."),
+) -> None:
+    """Discover visible Facebook Pages and linked Instagram accounts."""
+    try:
+        config = load_meta_graph_config(env_file=env_file)
+    except MetaGraphConfigError as error:
+        raise typer.BadParameter(str(error), param_hint="--env-file") from error
+
+    client = MetaGraphClient(config)
+    if dry_run or not execute:
+        typer.echo("Meta Graph account discovery (dry run)")
+        typer.echo(config.safe_summary())
+        typer.echo("Read-only requests:")
+        for url in client.discovery_dry_run_urls():
+            typer.echo(f"  - {url}")
+        typer.echo("No network calls were made.")
+        typer.echo("No env file was changed.")
+        typer.echo("Publishing endpoints called: no")
+        return
+
+    if update_env:
+        if env_file is None:
+            raise typer.BadParameter("--update-env requires an --env-file path", param_hint="--env-file")
+        if not page_id or not instagram_account_id:
+            raise typer.BadParameter(
+                "--update-env requires --page-id and --instagram-account-id",
+                param_hint="--page-id/--instagram-account-id",
+            )
+    try:
+        result = client.discover_accounts()
+    except MetaGraphRequestError as error:
+        raise typer.BadParameter(str(error), param_hint="--env-file") from error
+
+    env_updated = False
+    if update_env:
+        assert env_file is not None
+        update_meta_graph_account_ids_env_file(
+            env_file,
+            page_id=str(page_id),
+            instagram_account_id=str(instagram_account_id),
+        )
         env_updated = True
     typer.echo(result.to_text(env_updated=env_updated))
 

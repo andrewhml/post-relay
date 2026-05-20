@@ -83,6 +83,42 @@ class ReadOnlyValidationResult:
         )
 
 
+@dataclass(frozen=True)
+class DiscoveredMetaAccount:
+    page_id: str
+    page_name: Optional[str]
+    instagram_account_id: Optional[str]
+    instagram_username: Optional[str]
+    instagram_media_count: Optional[int]
+
+
+@dataclass(frozen=True)
+class AccountDiscoveryResult:
+    pages: list[DiscoveredMetaAccount]
+    publishing_endpoints_called: bool = False
+
+    def to_text(self, *, env_updated: bool = False) -> str:
+        lines = ["Meta Graph account discovery"]
+        if not self.pages:
+            lines.append("No visible Facebook Pages were returned.")
+        for index, page in enumerate(self.pages, start=1):
+            lines.append(f"{index}. Page: {page.page_name or '<unknown>'} ({page.page_id})")
+            if page.instagram_account_id:
+                lines.append(
+                    f"   Instagram account: {page.instagram_username or '<unknown>'} ({page.instagram_account_id})"
+                )
+                lines.append(
+                    f"   Media count: {page.instagram_media_count if page.instagram_media_count is not None else '<unknown>'}"
+                )
+            else:
+                lines.append("   Instagram account: <not linked or not visible>")
+        lines.append(f"Env file updated: {'yes' if env_updated else 'no'}")
+        lines.append(
+            f"Publishing endpoints called: {'yes' if self.publishing_endpoints_called else 'no'}"
+        )
+        return "\n".join(lines)
+
+
 Transport = Callable[[str, str, Mapping[str, str]], Mapping[str, Any]]
 
 
@@ -156,6 +192,47 @@ class MetaGraphClient:
             f"{media_id}/insights",
             {"metric": ",".join(metrics)},
         )
+
+    def discover_accounts(self) -> AccountDiscoveryResult:
+        pages_payload = self.list_pages()
+        discovered: list[DiscoveredMetaAccount] = []
+        for page in pages_payload.get("data") or []:
+            page_id = str(page.get("id") or "")
+            if not page_id:
+                continue
+            page_name = str(page.get("name")) if page.get("name") else None
+            page_payload = self.get_page_with_instagram_account(page_id)
+            linked = page_payload.get("instagram_business_account") or {}
+            linked_id = linked.get("id")
+            if not linked_id:
+                discovered.append(
+                    DiscoveredMetaAccount(
+                        page_id=page_id,
+                        page_name=str(page_payload.get("name") or page_name) if page_payload.get("name") or page_name else None,
+                        instagram_account_id=None,
+                        instagram_username=None,
+                        instagram_media_count=None,
+                    )
+                )
+                continue
+            instagram_payload = self.get_instagram_account(str(linked_id))
+            discovered.append(
+                DiscoveredMetaAccount(
+                    page_id=page_id,
+                    page_name=str(page_payload.get("name") or page_name) if page_payload.get("name") or page_name else None,
+                    instagram_account_id=str(instagram_payload.get("id") or linked_id),
+                    instagram_username=str(instagram_payload.get("username")) if instagram_payload.get("username") else None,
+                    instagram_media_count=_optional_int(instagram_payload.get("media_count")),
+                )
+            )
+        return AccountDiscoveryResult(pages=discovered, publishing_endpoints_called=False)
+
+    def discovery_dry_run_urls(self) -> list[str]:
+        return [
+            self._url("me/accounts") + "?access_token=<redacted>",
+            self._url("<page_id>") + "?fields=id,name,instagram_business_account&access_token=<redacted>",
+            self._url("<instagram_account_id>") + "?fields=id,username,media_count&access_token=<redacted>",
+        ]
 
     def exchange_long_lived_user_token(self, *, now: Optional[datetime] = None) -> TokenExtensionResult:
         if not self.config.app_id or not self.config.app_secret:
@@ -339,23 +416,37 @@ def _optional_int(value: Any) -> Optional[int]:
         return None
 
 
+def update_meta_graph_account_ids_env_file(env_file: Path, *, page_id: str, instagram_account_id: str) -> None:
+    _update_env_values(
+        env_file,
+        {
+            "POST_RELAY_FACEBOOK_PAGE_ID": page_id,
+            "POST_RELAY_INSTAGRAM_ACCOUNT_ID": instagram_account_id,
+        },
+    )
+
+
 def update_meta_graph_access_token_env_file(env_file: Path, new_access_token: str) -> None:
+    _update_env_values(env_file, {"POST_RELAY_USER_ACCESS_TOKEN": new_access_token})
+
+
+def _update_env_values(env_file: Path, replacements: Mapping[str, str]) -> None:
     existing = env_file.read_text() if env_file.exists() else ""
     lines = existing.splitlines(keepends=True)
     updated_lines: list[str] = []
-    replaced = False
+    remaining = dict(replacements)
     for line in lines:
         stripped = line.lstrip()
-        if stripped.startswith("POST_RELAY_USER_ACCESS_TOKEN="):
+        matched_key = next((key for key in remaining if stripped.startswith(f"{key}=")), None)
+        if matched_key:
             newline = "\n" if line.endswith("\n") else ""
             prefix = line[: len(line) - len(stripped)]
-            updated_lines.append(f"{prefix}POST_RELAY_USER_ACCESS_TOKEN={new_access_token}{newline}")
-            replaced = True
+            updated_lines.append(f"{prefix}{matched_key}={remaining.pop(matched_key)}{newline}")
         else:
             updated_lines.append(line)
-    if not replaced:
-        separator = "" if not existing or existing.endswith("\n") else "\n"
-        updated_lines.append(f"{separator}POST_RELAY_USER_ACCESS_TOKEN={new_access_token}\n")
+    for key, value in remaining.items():
+        separator = "" if not existing or (updated_lines and updated_lines[-1].endswith("\n")) else "\n"
+        updated_lines.append(f"{separator}{key}={value}\n")
     tmp_file = env_file.with_name(f"{env_file.name}.tmp")
     tmp_file.write_text("".join(updated_lines))
     tmp_file.replace(env_file)

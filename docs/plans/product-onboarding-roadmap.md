@@ -70,7 +70,7 @@ The onboarding ladder is:
 
 **Safety:** Diagnostics must not print tokens, mutate posts, upload media, call Discord, call R2, call Meta, or publish.
 
-## Milestone 3: `feat/setup-wizard` (in progress)
+## Milestone 3: `feat/setup-wizard` (merged)
 
 **Goal:** Make the local-only trial path one command plus prompts.
 
@@ -84,7 +84,7 @@ The onboarding ladder is:
 
 **Safety:** Non-destructive; never overwrite existing `.env`, `config/photo_sources.yaml`, or SQLite DB without explicit confirmation.
 
-## Milestone 4: `feat/meta-account-discovery`
+## Milestone 4: `feat/meta-account-discovery` (in progress)
 
 **Goal:** Reduce Meta setup friction before full OAuth by discovering account IDs from an existing private token.
 
