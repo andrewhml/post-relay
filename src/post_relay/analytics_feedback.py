@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 import re
 from typing import Mapping, Optional, Sequence
@@ -20,6 +20,7 @@ from post_relay.repository import (
     get_latest_published_attempt,
     get_published_post_snapshot_for_draft,
     list_account_metric_snapshots,
+    list_media_insight_snapshots,
     list_published_post_snapshots,
     list_r2_staged_objects,
     upsert_published_post_snapshot,
@@ -28,6 +29,14 @@ from post_relay.repository import (
 
 DEFAULT_INSIGHT_METRICS = ["reach", "likes", "comments", "saved", "shares"]
 FOLLOWER_GROWTH_FIELDS = ["id", "username", "followers_count", "follows_count", "media_count"]
+POST_INSIGHT_CADENCE_WINDOWS: list[tuple[str, timedelta]] = [
+    ("24h", timedelta(days=1)),
+    ("72h", timedelta(days=3)),
+    ("7d", timedelta(days=7)),
+    ("14d", timedelta(days=14)),
+]
+ACCOUNT_ANALYTICS_CADENCE = timedelta(days=7)
+DEFAULT_DB_CLI_PATH = "data/post_relay.sqlite"
 
 
 class PublishedPostSnapshotNotReady(ValueError):
@@ -106,6 +115,30 @@ class FollowerGrowthSummary:
     previous_follower_count: Optional[int]
     follower_delta: Optional[int]
     remaining_to_target: Optional[int]
+
+
+@dataclass(frozen=True)
+class DuePostInsightWindow:
+    draft_id: int
+    published_media_id: str
+    label: str
+    due_at: str
+    command: str
+
+
+@dataclass(frozen=True)
+class DueAccountMetricWindow:
+    instagram_account_id: str
+    due_at: str
+    reason: str
+    command: str
+
+
+@dataclass(frozen=True)
+class AnalyticsCadencePlan:
+    now: str
+    post_windows: list[DuePostInsightWindow]
+    account_due: Optional[DueAccountMetricWindow]
 
 
 def record_published_post_snapshot(
@@ -209,6 +242,33 @@ def build_follower_growth_summary(
         previous_follower_count=previous,
         follower_delta=delta,
         remaining_to_target=remaining,
+    )
+
+
+def build_analytics_cadence_plan(
+    connection,
+    *,
+    now: Optional[str] = None,
+    instagram_account_id: Optional[str] = None,
+    db_cli_path: str = DEFAULT_DB_CLI_PATH,
+) -> AnalyticsCadencePlan:
+    now_dt = _parse_iso_datetime(now) if now else datetime.now().astimezone()
+    post_windows: list[DuePostInsightWindow] = []
+    for snapshot in list_published_post_snapshots(connection):
+        post_windows.extend(_due_post_insight_windows(connection, snapshot, now_dt, db_cli_path=db_cli_path))
+
+    account_due = None
+    if instagram_account_id:
+        account_due = _due_account_metric_window(
+            connection,
+            instagram_account_id,
+            now_dt,
+            db_cli_path=db_cli_path,
+        )
+    return AnalyticsCadencePlan(
+        now=now_dt.isoformat(timespec="seconds"),
+        post_windows=post_windows,
+        account_due=account_due,
     )
 
 
@@ -364,6 +424,37 @@ def render_follower_metric_snapshot(record: AccountMetricSnapshotRecord) -> str:
     )
 
 
+def render_analytics_cadence_plan(plan: AnalyticsCadencePlan) -> str:
+    lines = [
+        "Analytics cadence plan",
+        f"Now: {plan.now}",
+        f"Post insight windows due: {len(plan.post_windows)}",
+    ]
+    if plan.post_windows:
+        for window in plan.post_windows:
+            lines.extend(
+                [
+                    f"  - Post {window.draft_id} / media {window.published_media_id}: {window.label} due {window.due_at}",
+                    f"    Command: {window.command}",
+                ]
+            )
+    else:
+        lines.append("  - No post insight windows are due. Automated post analytics stop after the 14d window.")
+    lines.append(f"Account metrics due: {'yes' if plan.account_due else 'no'}")
+    if plan.account_due:
+        lines.extend(
+            [
+                f"  - Instagram account {plan.account_due.instagram_account_id}: {plan.account_due.reason}",
+                f"    Due at: {plan.account_due.due_at}",
+                f"    Command: {plan.account_due.command}",
+            ]
+        )
+    else:
+        lines.append("  - Weekly account analytics are not due or no account id was provided.")
+    lines.append("Safety: No network calls were made. No Meta network calls were made. No Discord, R2, Meta publish, or post lifecycle state changes were made.")
+    return "\n".join(lines)
+
+
 def render_follower_growth_summary(summary: FollowerGrowthSummary) -> str:
     lines = [
         "Follower growth summary",
@@ -443,6 +534,107 @@ def render_published_post_snapshot(snapshot: PublishedPostSnapshotRecord) -> str
         lines.append("Resolved location tag: <none>")
     lines.append("Safety: No network calls were made. Snapshot uses local publish attempt and staged media records only.")
     return "\n".join(lines)
+
+
+def _due_post_insight_windows(
+    connection,
+    snapshot: PublishedPostSnapshotRecord,
+    now_dt: datetime,
+    *,
+    db_cli_path: str,
+) -> list[DuePostInsightWindow]:
+    published_at = _parse_iso_datetime(snapshot.actual_published_at)
+    last_window_at = published_at + POST_INSIGHT_CADENCE_WINDOWS[-1][1]
+    if now_dt > last_window_at:
+        return []
+
+    insight_collected_times = [
+        _parse_iso_datetime(record.collected_at)
+        for record in list_media_insight_snapshots(connection, snapshot.draft_id)
+    ]
+    due_windows: list[DuePostInsightWindow] = []
+    for index, (label, offset) in enumerate(POST_INSIGHT_CADENCE_WINDOWS):
+        due_at = published_at + offset
+        if now_dt < due_at:
+            continue
+        next_due_at = (
+            published_at + POST_INSIGHT_CADENCE_WINDOWS[index + 1][1]
+            if index + 1 < len(POST_INSIGHT_CADENCE_WINDOWS)
+            else None
+        )
+        if _window_has_collected_insight(insight_collected_times, due_at, next_due_at):
+            continue
+        due_windows.append(
+            DuePostInsightWindow(
+                draft_id=snapshot.draft_id,
+                published_media_id=snapshot.published_media_id,
+                label=label,
+                due_at=due_at.isoformat(timespec="seconds"),
+                command=_insights_fetch_command(snapshot.draft_id, db_cli_path),
+            )
+        )
+    return due_windows
+
+
+def _due_account_metric_window(
+    connection,
+    instagram_account_id: str,
+    now_dt: datetime,
+    *,
+    db_cli_path: str,
+) -> Optional[DueAccountMetricWindow]:
+    account_snapshots = [
+        snapshot
+        for snapshot in list_account_metric_snapshots(connection)
+        if snapshot.instagram_account_id == instagram_account_id
+    ]
+    if not account_snapshots:
+        return DueAccountMetricWindow(
+            instagram_account_id=instagram_account_id,
+            due_at=now_dt.isoformat(timespec="seconds"),
+            reason="no stored account snapshot",
+            command=_follower_fetch_command(instagram_account_id, db_cli_path),
+        )
+    latest_collected_at = _parse_iso_datetime(account_snapshots[0].collected_at)
+    due_at = latest_collected_at + ACCOUNT_ANALYTICS_CADENCE
+    if now_dt <= due_at:
+        return None
+    return DueAccountMetricWindow(
+        instagram_account_id=instagram_account_id,
+        due_at=due_at.isoformat(timespec="seconds"),
+        reason="latest account snapshot is older than weekly cadence",
+        command=_follower_fetch_command(instagram_account_id, db_cli_path),
+    )
+
+
+def _window_has_collected_insight(
+    collected_times: Sequence[datetime],
+    due_at: datetime,
+    next_due_at: Optional[datetime],
+) -> bool:
+    for collected_at in collected_times:
+        if collected_at < due_at:
+            continue
+        if next_due_at is not None and collected_at >= next_due_at:
+            continue
+        return True
+    return False
+
+
+def _insights_fetch_command(draft_id: int, db_cli_path: str) -> str:
+    metric_args = " ".join(f"--metric {metric}" for metric in DEFAULT_INSIGHT_METRICS)
+    return f".venv/bin/post-relay analytics insights-fetch --post-id {draft_id} {metric_args} --db {db_cli_path}"
+
+
+def _follower_fetch_command(instagram_account_id: str, db_cli_path: str) -> str:
+    return (
+        ".venv/bin/post-relay analytics follower-fetch "
+        f"--instagram-account-id {instagram_account_id} --db {db_cli_path}"
+    )
+
+
+def _parse_iso_datetime(value: str) -> datetime:
+    return datetime.fromisoformat(value)
 
 
 def _build_feedback_entry(connection, snapshot: PublishedPostSnapshotRecord) -> FeedbackSummaryEntry:

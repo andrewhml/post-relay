@@ -15,6 +15,7 @@ from post_relay.approvals import (
 )
 from post_relay.analytics_feedback import (
     PublishedPostSnapshotNotReady,
+    build_analytics_cadence_plan,
     build_feedback_summary,
     build_follower_growth_plan,
     build_follower_growth_summary,
@@ -22,6 +23,7 @@ from post_relay.analytics_feedback import (
     collect_and_store_follower_metrics,
     collect_and_store_media_insights,
     record_published_post_snapshot,
+    render_analytics_cadence_plan,
     render_feedback_summary,
     render_follower_fetch_dry_run,
     render_follower_growth_summary,
@@ -310,6 +312,28 @@ def analytics_feedback_summary(
     initialize_db(connection)
     summary = build_feedback_summary(connection, draft_id=draft_id, limit=limit)
     typer.echo(render_feedback_summary(summary))
+
+
+@analytics_app.command("cadence-plan")
+def analytics_cadence_plan(
+    now: Optional[str] = typer.Option(None, "--now", help="Deterministic current timestamp for due-window planning."),
+    instagram_account_id: Optional[str] = typer.Option(None, "--instagram-account-id", help="Instagram professional account id for weekly account analytics planning."),
+    db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
+) -> None:
+    """Render a no-network analytics cadence plan for due post/account read-only checks."""
+    connection = connect_db(db)
+    initialize_db(connection)
+    try:
+        plan = build_analytics_cadence_plan(
+            connection,
+            now=now,
+            instagram_account_id=instagram_account_id,
+            db_cli_path=db.as_posix(),
+        )
+    except ValueError as error:
+        typer.echo(f"Invalid analytics cadence timestamp: {error}")
+        raise typer.Exit(code=1) from error
+    typer.echo(render_analytics_cadence_plan(plan))
 
 
 @analytics_app.command("follower-summary")

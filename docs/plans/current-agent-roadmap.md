@@ -1254,6 +1254,31 @@ Current branch result: `59 passed` focused; `248 passed` full suite.
 .venv/bin/python -m pytest -q
 ```
 
+### Milestone 43: `feat/analytics-cadence-planner` (current branch)
+
+**Goal:** Add the first step of the analytics cadence plan: a deterministic no-network planner that tells the operator which read-only post/account analytics checks are due before any recurring or execute-mode collection exists.
+
+**Delivered behavior in branch so far:**
+- Added `analytics cadence-plan`, which inspects stored local published-post snapshots, media insight snapshots, and account metric snapshots without making Meta calls.
+- Post insight windows are limited to `24h`, `72h`, `7d`, and `14d` after `actual_published_at`; after the 14-day window, the planner does not schedule catch-up automated post analytics.
+- Already collected insight snapshots suppress the matching post window so reruns stay idempotent at the planning layer.
+- Account analytics use a weekly cadence by default: no stored account snapshot is due immediately, while a latest snapshot older than seven days is due.
+- Planner output includes exact dry-run-safe `analytics insights-fetch` and `analytics follower-fetch` commands, but it does not add `--execute`.
+
+**Safety rule:** `analytics cadence-plan` is local/no-network only. It must not call Meta, Discord, or R2; must not collect/store new analytics; and must not mutate posts, approvals, schedules, publish attempts, or lifecycle state. Post analytics automation should stop after the 14-day window; account checks should remain weekly unless follower growth materially accelerates.
+
+**Verification:**
+
+```bash
+.venv/bin/python -m pytest tests/test_analytics_feedback.py -q
+.venv/bin/python -m pytest -q
+```
+
+**Next-session start here:**
+1. First verify the current baseline: `.venv/bin/python -m pytest -q` should report the full suite passing.
+2. Move next to `feat/analytics-collect-due`: keep dry-run default, add `--execute` only for read-only due post/account collection, and preserve no mutation of drafts/approvals/schedules/Discord/R2/Meta publish state.
+3. Keep live-safe defaults: no Discord sends, no R2 `--execute`, and no Meta publish `--execute` unless explicitly authorized in the active session.
+
 ## Later milestones
 
 - Video/reel validation after feed/carousel path is reliable.

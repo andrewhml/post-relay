@@ -6,6 +6,7 @@ from typer.testing import CliRunner
 
 from post_relay.analytics_feedback import (
     PublishedPostSnapshotNotReady,
+    build_analytics_cadence_plan,
     build_feedback_summary,
     build_follower_growth_plan,
     build_follower_growth_summary,
@@ -13,6 +14,7 @@ from post_relay.analytics_feedback import (
     collect_and_store_follower_metrics,
     collect_and_store_media_insights,
     record_published_post_snapshot,
+    render_analytics_cadence_plan,
     render_feedback_summary,
     render_follower_growth_summary,
 )
@@ -669,4 +671,136 @@ def test_follower_fetch_cli_dry_run_makes_no_network_or_state_changes(tmp_path: 
     assert "No Meta network calls were made" in result.output
     verify_connection = connect_db(db_path)
     initialize_db(verify_connection)
+    assert list_account_metric_snapshots(verify_connection) == []
+
+
+def test_analytics_cadence_plan_lists_due_post_windows_and_weekly_account_check(tmp_path: Path):
+    connection, draft, public_urls = _build_ready_carousel_with_exported_staged_media(tmp_path)
+    _insert_successful_publish_attempt(connection, draft, public_urls)
+
+    plan = build_analytics_cadence_plan(
+        connection,
+        now="2026-05-22T11:00:00-04:00",
+        instagram_account_id="17841400498120050",
+    )
+    rendered = render_analytics_cadence_plan(plan)
+
+    assert [window.label for window in plan.post_windows] == ["24h", "72h"]
+    assert plan.post_windows[0].draft_id == draft.id
+    assert plan.post_windows[0].due_at == "2026-05-20T10:02:30-04:00"
+    assert plan.post_windows[0].command == (
+        ".venv/bin/post-relay analytics insights-fetch --post-id 1 "
+        "--metric reach --metric likes --metric comments --metric saved --metric shares "
+        "--db data/post_relay.sqlite"
+    )
+    assert plan.account_due is not None
+    assert plan.account_due.command == (
+        ".venv/bin/post-relay analytics follower-fetch "
+        "--instagram-account-id 17841400498120050 --db data/post_relay.sqlite"
+    )
+    assert "Post insight windows due: 2" in rendered
+    assert "24h due 2026-05-20T10:02:30-04:00" in rendered
+    assert "Account metrics due: yes" in rendered
+    assert "No network calls were made" in rendered
+
+
+def test_analytics_cadence_plan_skips_collected_windows_and_stops_after_14_days(tmp_path: Path):
+    connection, draft, public_urls = _build_ready_carousel_with_exported_staged_media(tmp_path)
+    _insert_successful_publish_attempt(connection, draft, public_urls)
+
+    class FakeInsightsClient:
+        def get_media_insights(self, media_id, *, metrics):
+            return {"data": [{"name": "reach", "period": "lifetime", "values": [{"value": 420}]}]}
+
+    collect_and_store_media_insights(
+        connection,
+        draft.id,
+        client=FakeInsightsClient(),
+        metrics=["reach"],
+        collected_at="2026-05-20T10:30:00-04:00",
+    )
+
+    plan_during_window = build_analytics_cadence_plan(
+        connection,
+        now="2026-05-27T12:00:00-04:00",
+        instagram_account_id="17841400498120050",
+    )
+    assert [window.label for window in plan_during_window.post_windows] == ["72h", "7d"]
+
+    expired_plan = build_analytics_cadence_plan(
+        connection,
+        now="2026-06-05T12:00:00-04:00",
+        instagram_account_id="17841400498120050",
+    )
+    assert expired_plan.post_windows == []
+    assert "Post insight windows due: 0" in render_analytics_cadence_plan(expired_plan)
+
+
+def test_analytics_cadence_plan_uses_weekly_account_cadence(tmp_path: Path):
+    connection = connect_db(tmp_path / "post_relay.sqlite")
+    initialize_db(connection)
+
+    class FakeAccountClient:
+        def get_instagram_account_metrics(self, instagram_account_id: str):
+            return {
+                "id": instagram_account_id,
+                "username": "andrewhml",
+                "followers_count": 763,
+                "media_count": 208,
+            }
+
+    collect_and_store_follower_metrics(
+        connection,
+        "17841400498120050",
+        client=FakeAccountClient(),
+        collected_at="2026-05-17T09:00:00-07:00",
+    )
+
+    not_due = build_analytics_cadence_plan(
+        connection,
+        now="2026-05-23T08:59:00-07:00",
+        instagram_account_id="17841400498120050",
+    )
+    assert not_due.account_due is None
+
+    due = build_analytics_cadence_plan(
+        connection,
+        now="2026-05-24T09:00:01-07:00",
+        instagram_account_id="17841400498120050",
+    )
+    assert due.account_due is not None
+    assert due.account_due.reason == "latest account snapshot is older than weekly cadence"
+
+
+def test_analytics_cadence_plan_cli_is_no_network_and_state_safe(tmp_path: Path):
+    connection, draft, public_urls = _build_ready_carousel_with_exported_staged_media(tmp_path)
+    db_path = tmp_path / "post_relay.sqlite"
+    _insert_successful_publish_attempt(connection, draft, public_urls)
+    connection.close()
+
+    result = runner.invoke(
+        app,
+        [
+            "analytics",
+            "cadence-plan",
+            "--now",
+            "2026-05-22T11:00:00-04:00",
+            "--instagram-account-id",
+            "17841400498120050",
+            "--db",
+            str(db_path),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "Analytics cadence plan" in result.output
+    assert "Post insight windows due: 2" in result.output
+    assert "analytics insights-fetch --post-id 1" in result.output
+    assert f"--db {db_path.as_posix()}" in result.output
+    assert "analytics follower-fetch --instagram-account-id 17841400498120050" in result.output
+    assert "No Meta network calls were made" in result.output
+
+    verify_connection = connect_db(db_path)
+    initialize_db(verify_connection)
+    assert list_media_insight_snapshots(verify_connection, draft.id) == []
     assert list_account_metric_snapshots(verify_connection) == []
