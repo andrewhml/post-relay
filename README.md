@@ -44,22 +44,21 @@ This path does not require Meta, Discord, R2, or any network calls.
 ```bash
 python3 -m venv .venv
 .venv/bin/pip install -e ".[dev]"
-cp .env.example .env
-cp config/photo_sources.example.yaml config/photo_sources.yaml
+.venv/bin/post-relay setup
 ```
 
-Edit `config/photo_sources.yaml` and set at least one `photo_sources[].root` to your processed/exported photo folder.
+The setup wizard prompts for a processed/exported photo folder, copies `.env.example` and `config/photo_sources.example.yaml` only when the private files are missing, writes your first local photo source, creates local artifact/export directories, initializes the SQLite DB, and makes no network calls.
 
-Check local readiness without network calls:
+You can also pass the folder directly:
 
 ```bash
-.venv/bin/post-relay doctor --config config/photo_sources.yaml --db data/post_relay.sqlite --env-file .env
+.venv/bin/post-relay setup --photo-root /path/to/your/processed/photos
 ```
 
 Then run:
 
 ```bash
-.venv/bin/post-relay db init --db data/post_relay.sqlite
+.venv/bin/post-relay doctor --config config/photo_sources.yaml --db data/post_relay.sqlite --env-file .env
 .venv/bin/post-relay index scan --config config/photo_sources.yaml --db data/post_relay.sqlite
 .venv/bin/post-relay library stats --db data/post_relay.sqlite
 .venv/bin/post-relay candidates build --db data/post_relay.sqlite

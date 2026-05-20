@@ -178,6 +178,7 @@ from post_relay.scheduling import (
     schedule_draft,
 )
 from post_relay.setup_doctor import build_setup_doctor_report, render_setup_doctor_report
+from post_relay.setup_wizard import render_setup_wizard_result, run_setup_wizard
 
 app = typer.Typer(help="Post Relay local-first Instagram content workflow.")
 db_app = typer.Typer(help="Database commands.")
@@ -227,6 +228,40 @@ def setup_doctor(
     """Check local setup readiness without making network calls."""
     report = build_setup_doctor_report(config_path=config, db_path=db, env_file=env_file)
     typer.echo(render_setup_doctor_report(report))
+
+
+@app.command("setup")
+def setup_wizard(
+    photo_root: Optional[Path] = typer.Option(
+        None,
+        "--photo-root",
+        help="Processed/exported photo folder to use as the first local source.",
+    ),
+    config: Path = typer.Option(Path("config/photo_sources.yaml"), "--config", help="Path to write photo_sources.yaml."),
+    db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path to initialize if missing."),
+    env_file: Path = typer.Option(Path(".env"), "--env-file", help="Path to write private .env if missing."),
+    env_template: Path = typer.Option(Path(".env.example"), "--env-template", help="Template to copy for .env."),
+    config_template: Path = typer.Option(
+        Path("config/photo_sources.example.yaml"),
+        "--config-template",
+        help="Template to copy and customize for photo_sources.yaml.",
+    ),
+    initialize_database: bool = typer.Option(True, "--init-db/--no-init-db", help="Initialize the SQLite database if it is missing."),
+) -> None:
+    """Create a non-destructive local-first setup without network calls."""
+    selected_photo_root = photo_root or Path(typer.prompt("Processed/exported photo folder"))
+    result = run_setup_wizard(
+        photo_root=selected_photo_root,
+        env_file=env_file,
+        config_path=config,
+        db_path=db,
+        env_template=env_template,
+        config_template=config_template,
+        initialize_database=initialize_database,
+    )
+    typer.echo(render_setup_wizard_result(result))
+    if not result.success:
+        raise typer.Exit(code=1)
 
 
 @db_app.command("init")
