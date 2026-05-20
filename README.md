@@ -29,6 +29,7 @@ Early local-first MVP scaffold with:
 - guarded read-only insights fetch/storage for published media behind explicit `analytics insights-fetch --execute`, with dry-run default and local metric audit records
 - local recommendation feedback summaries from stored post-publish snapshots and read-only insight metrics, with advisory-only output and no network/state mutation
 - no-network analytics cadence planning that flags due post insight windows at 24h, 72h, 7d, and 14d only, plus weekly account metric checks without making Meta calls
+- guarded due analytics collection that dry-runs by default and only calls read-only Meta insights/account metric endpoints with explicit `analytics collect-due --execute`
 - local follower-growth summaries from stored read-only account metric snapshots, plus guarded dry-run/default `analytics follower-fetch` for account-level follower/media counts
 - guarded Meta user-token extension helper (`meta token-extend`) that dry-runs by default, exchanges valid short-lived tokens only with `--execute`, and updates `.env` only with `--update-env`
 - guarded R2 staging upload/cleanup CLI with recorded-object-only deletion and explicit `--execute` safeguards
@@ -92,6 +93,7 @@ Use the project virtualenv when running locally:
 .venv/bin/post-relay analytics feedback-summary --post-id 2 --db data/post_relay.sqlite
 .venv/bin/post-relay analytics feedback-summary --limit 10 --db data/post_relay.sqlite
 .venv/bin/post-relay analytics cadence-plan --instagram-account-id 17841400498120050 --db data/post_relay.sqlite
+.venv/bin/post-relay analytics collect-due --instagram-account-id 17841400498120050 --db data/post_relay.sqlite
 .venv/bin/post-relay analytics follower-fetch --instagram-account-id 17841400498120050 --db data/post_relay.sqlite
 .venv/bin/post-relay analytics follower-summary --target-followers 5000 --db data/post_relay.sqlite
 # Execute only for read-only insights collection when the token has instagram_manage_insights:

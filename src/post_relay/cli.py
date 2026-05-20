@@ -14,16 +14,20 @@ from post_relay.approvals import (
     submit_draft_for_review,
 )
 from post_relay.analytics_feedback import (
+    DEFAULT_INSIGHT_METRICS,
     PublishedPostSnapshotNotReady,
     build_analytics_cadence_plan,
     build_feedback_summary,
     build_follower_growth_plan,
     build_follower_growth_summary,
     build_insights_collection_plan,
+    collect_and_store_due_analytics,
     collect_and_store_follower_metrics,
     collect_and_store_media_insights,
     record_published_post_snapshot,
     render_analytics_cadence_plan,
+    render_due_analytics_collection_result,
+    render_due_analytics_dry_run,
     render_feedback_summary,
     render_follower_fetch_dry_run,
     render_follower_growth_summary,
@@ -336,6 +340,49 @@ def analytics_cadence_plan(
     typer.echo(render_analytics_cadence_plan(plan))
 
 
+@analytics_app.command("collect-due")
+def analytics_collect_due(
+    now: Optional[str] = typer.Option(None, "--now", help="Deterministic collection timestamp and due-window clock."),
+    instagram_account_id: Optional[str] = typer.Option(None, "--instagram-account-id", help="Instagram professional account id for weekly account analytics collection."),
+    metric: list[str] = typer.Option(None, "--metric", help="Insight metric to collect for due posts; repeat for multiple metrics."),
+    execute: bool = typer.Option(False, "--execute", help="Actually call read-only Meta endpoints and store due analytics."),
+    db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
+    env_file: Optional[Path] = typer.Option(Path(".env"), "--env-file", help="Private .env file path."),
+) -> None:
+    """Collect due read-only post/account analytics only when --execute is explicit."""
+    connection = connect_db(db)
+    initialize_db(connection)
+    try:
+        plan = build_analytics_cadence_plan(
+            connection,
+            now=now,
+            instagram_account_id=instagram_account_id,
+            db_cli_path=db.as_posix(),
+        )
+    except ValueError as error:
+        typer.echo(f"Invalid analytics collection timestamp: {error}")
+        raise typer.Exit(code=1) from error
+    if not execute:
+        typer.echo(render_due_analytics_dry_run(plan))
+        return
+    config = None
+    try:
+        config = load_meta_graph_config(env_file=env_file)
+        client = MetaGraphClient(config)
+        result = collect_and_store_due_analytics(
+            connection,
+            now=now,
+            instagram_account_id=instagram_account_id,
+            metrics=metric or DEFAULT_INSIGHT_METRICS,
+            client=client,
+        )
+    except (MetaGraphConfigError, MetaGraphRequestError, PublishedPostSnapshotNotReady) as error:
+        token = config.access_token if config is not None else None
+        typer.echo(render_insights_fetch_error(error, token=token))
+        raise typer.Exit(code=1) from error
+    typer.echo(render_due_analytics_collection_result(result))
+
+
 @analytics_app.command("follower-summary")
 def analytics_follower_summary(
     target_followers: int = typer.Option(5000, "--target-followers", help="Follower goal for progress reporting."),
@@ -413,6 +460,7 @@ def analytics_insights_fetch(
     if not execute:
         typer.echo(render_insights_fetch_dry_run(plan))
         return
+    config = None
     try:
         config = load_meta_graph_config(env_file=env_file)
         client = MetaGraphClient(config)
@@ -424,7 +472,7 @@ def analytics_insights_fetch(
             collected_at=collected_at,
         )
     except (MetaGraphConfigError, MetaGraphRequestError, PublishedPostSnapshotNotReady) as error:
-        token = config.access_token if "config" in locals() else None
+        token = config.access_token if config is not None else None
         typer.echo(render_insights_fetch_error(error, token=token))
         raise typer.Exit(code=1) from error
     typer.echo(render_media_insight_snapshot(record))
