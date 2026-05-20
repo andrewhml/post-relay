@@ -1439,7 +1439,7 @@ Current branch result: `59 passed` focused; `248 passed` full suite.
 2. Start `docs/managed-staging-design` only after OAuth login lands.
 3. Keep live-safe defaults: no Discord sends, no R2 `--execute`, and no Meta publish `--execute` unless explicitly authorized in the active session.
 
-### PR TBD / Milestone 50: `docs/managed-staging-design` (in progress)
+### PR #82 / Milestone 50: `docs/managed-staging-design` (open)
 
 **Goal:** Design managed R2 staging before implementation so friends/beta users do not need raw Cloudflare R2 credentials.
 
