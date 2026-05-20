@@ -1414,7 +1414,7 @@ Current branch result: `59 passed` focused; `248 passed` full suite.
 2. Start `feat/meta-oauth-login` only after account discovery lands.
 3. Keep live-safe defaults: no Discord sends, no R2 `--execute`, and no Meta publish `--execute` unless explicitly authorized in the active session.
 
-### PR TBD / Milestone 49: `feat/meta-oauth-login` (in progress)
+### PR #81 / Milestone 49: `feat/meta-oauth-login` (open)
 
 **Goal:** Let trusted beta users authenticate their own account through the Post Relay Meta app instead of using Graph API Explorer.
 
