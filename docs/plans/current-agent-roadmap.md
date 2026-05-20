@@ -1274,7 +1274,7 @@ Current branch result: `59 passed` focused; `248 passed` full suite.
 .venv/bin/python -m pytest -q
 ```
 
-### PR TBD / Milestone: `fix/final-publish-approval-feedback`
+### PR #76 / Milestone: `fix/final-publish-approval-feedback`
 
 **Goal:** Make the post-approval unattended publish plan communicate the user-facing outcome after final publish approval has led to staged assets and a scheduled guarded publish job.
 
