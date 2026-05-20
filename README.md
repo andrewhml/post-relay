@@ -125,6 +125,8 @@ Publishing is guarded and uses official Meta/Facebook Graph routes only. Public 
 
 R2 staging is optional and exists to provide public HTTPS media URLs for selected publish assets.
 
+The current implementation supports self-managed R2 credentials. Managed staging for friends/beta users is designed in `docs/plans/managed-r2-staging-design.md`; it is not implemented yet and should not expose raw shared R2 credentials to users.
+
 Configure non-secret bucket settings in `config/photo_sources.yaml` and secrets in `.env`:
 
 ```bash

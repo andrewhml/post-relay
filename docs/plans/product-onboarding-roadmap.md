@@ -97,7 +97,7 @@ The onboarding ladder is:
 
 **Safety:** Read-only Meta calls only; no publishing endpoints.
 
-## Milestone 5: `feat/meta-oauth-login` (in progress)
+## Milestone 5: `feat/meta-oauth-login` (merged)
 
 **Goal:** Let trusted beta users authenticate their own account through the Post Relay Meta app instead of using Graph API Explorer.
 
@@ -113,9 +113,11 @@ The onboarding ladder is:
 
 **Safety:** Tokens stay local; output redacts secrets; no publishing endpoints.
 
-## Milestone 6: `docs/managed-staging-design`
+## Milestone 6: `docs/managed-staging-design` (in progress)
 
 **Goal:** Design shared R2 staging before implementation.
+
+**Design artifact:** `docs/plans/managed-r2-staging-design.md`
 
 **Design topics:**
 - User identity and auth for the staging service.

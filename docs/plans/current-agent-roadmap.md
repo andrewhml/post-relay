@@ -1414,11 +1414,11 @@ Current branch result: `59 passed` focused; `248 passed` full suite.
 2. Start `feat/meta-oauth-login` only after account discovery lands.
 3. Keep live-safe defaults: no Discord sends, no R2 `--execute`, and no Meta publish `--execute` unless explicitly authorized in the active session.
 
-### PR #81 / Milestone 49: `feat/meta-oauth-login` (open)
+### PR #81 / Milestone 49: `feat/meta-oauth-login` (merged)
 
 **Goal:** Let trusted beta users authenticate their own account through the Post Relay Meta app instead of using Graph API Explorer.
 
-**Delivered behavior in branch so far:**
+**Delivered behavior:**
 - Adds `post-relay meta oauth-login --env-file .env`.
 - Dry-run/default mode prints a Meta OAuth URL with configured app id, redirect URI, state, and requested scopes without network calls.
 - Execute mode exchanges a copied authorization `--code` for a local user token, then discovers visible Pages and linked IG accounts using the returned token.
@@ -1439,9 +1439,31 @@ Current branch result: `59 passed` focused; `248 passed` full suite.
 2. Start `docs/managed-staging-design` only after OAuth login lands.
 3. Keep live-safe defaults: no Discord sends, no R2 `--execute`, and no Meta publish `--execute` unless explicitly authorized in the active session.
 
+### PR TBD / Milestone 50: `docs/managed-staging-design` (in progress)
+
+**Goal:** Design managed R2 staging before implementation so friends/beta users do not need raw Cloudflare R2 credentials.
+
+**Delivered behavior in branch so far:**
+- Adds `docs/plans/managed-r2-staging-design.md`.
+- Defines a managed staging service using invite/user auth, server-owned R2 credentials, presigned direct uploads, opaque object keys, and public HTTPS URLs suitable for Meta fetchers.
+- Documents TTL and cleanup policy, quota limits, local config/env shape, staged media records, CLI milestone shape, failure modes, rollback rules, privacy copy, security checklist, and future test checklist.
+- Clarifies that current implementation remains self-managed R2 only until a later MVP milestone.
+
+**Safety rule:** This is a docs-only design milestone. It must not add live upload, cleanup, Discord, R2, or Meta publish behavior. Future managed staging must not expose raw shared R2 credentials, must upload selected publish media only, must keep source media immutable, and must remain dry-run-first.
+
+**Verification:**
+
+```bash
+.venv/bin/python -m pytest -q
+```
+
+**Next-session start here:**
+1. Finish `docs/managed-staging-design`, run full tests, open/merge the PR, and sync `main`.
+2. Start `feat/managed-r2-staging-mvp` only after the design is reviewed.
+3. Keep live-safe defaults: no Discord sends, no R2 `--execute`, and no Meta publish `--execute` unless explicitly authorized in the active session.
+
 ## Later milestones
 
-- `docs/managed-staging-design`: design managed R2 staging with per-user prefixes, randomized keys, TTL cleanup, quotas, and no raw credential sharing.
 - `feat/managed-r2-staging-mvp`: allow selected publish assets to stage through a managed path once the design is reviewed.
 - Video/reel validation after feed/carousel path is reliable.
 - Per-media carousel alt text validation: model/store one accessibility note per selected media item, render it in final review, validate whether Instagram Graph supports any automated alt-text field for the active API/app combination, and keep unsupported fields review-only/manual without silently sending them to Meta.
