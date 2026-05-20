@@ -1388,7 +1388,7 @@ Current branch result: `59 passed` focused; `248 passed` full suite.
 2. Start `feat/meta-account-discovery` after setup wizard lands.
 3. Keep live-safe defaults: no Discord sends, no R2 `--execute`, and no Meta publish `--execute` unless explicitly authorized in the active session.
 
-### PR TBD / Milestone 48: `feat/meta-account-discovery` (in progress)
+### PR #80 / Milestone 48: `feat/meta-account-discovery` (open)
 
 **Goal:** Reduce Meta setup friction before full OAuth by discovering account IDs from an existing private user token.
 
