@@ -57,7 +57,7 @@ The onboarding ladder is:
 - No managed R2 staging service.
 - No live Discord, R2, or Meta calls.
 
-## Milestone 2: `feat/setup-doctor` (in progress)
+## Milestone 2: `feat/setup-doctor` (merged)
 
 **Goal:** Replace manual setup debugging with a no-network diagnostic command.
 
@@ -70,7 +70,7 @@ The onboarding ladder is:
 
 **Safety:** Diagnostics must not print tokens, mutate posts, upload media, call Discord, call R2, call Meta, or publish.
 
-## Milestone 3: `feat/setup-wizard`
+## Milestone 3: `feat/setup-wizard` (in progress)
 
 **Goal:** Make the local-only trial path one command plus prompts.
 

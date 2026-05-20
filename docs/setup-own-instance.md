@@ -11,11 +11,16 @@ From the repo root:
 ```bash
 python3 -m venv .venv
 .venv/bin/pip install -e ".[dev]"
-cp .env.example .env
-cp config/photo_sources.example.yaml config/photo_sources.yaml
+.venv/bin/post-relay setup
 ```
 
-Edit `config/photo_sources.yaml` and set at least one `photo_sources[].root` to a folder of processed/exported photos on your machine or NAS.
+The setup wizard prompts for a processed/exported photo folder. It copies `.env.example` and `config/photo_sources.example.yaml` only when the private files are missing, writes your first local photo source, creates local artifact/export directories, initializes the SQLite DB, and makes no network calls.
+
+You can also pass the folder directly:
+
+```bash
+.venv/bin/post-relay setup --photo-root /path/to/your/processed/photos
+```
 
 Run the setup doctor before the first scan. It checks local files, readable photo roots, writable artifact/export roots, and optional integration env vars without making network calls or printing secrets:
 

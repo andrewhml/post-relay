@@ -232,10 +232,10 @@ Run this before opening or merging any PR:
 .venv/bin/python -m pytest -q
 ```
 
-Expected current result after the setup doctor milestone:
+Expected current result after the setup wizard milestone:
 
 ```text
-285 passed
+289 passed
 ```
 
 ## Milestone execution rules
@@ -1336,11 +1336,11 @@ Current branch result: `59 passed` focused; `248 passed` full suite.
 2. Start `feat/setup-doctor` as the first code milestone to turn manual friend setup debugging into a no-network diagnostic command.
 3. Keep live-safe defaults: no Discord sends, no R2 `--execute`, and no Meta publish `--execute` unless explicitly authorized in the active session.
 
-### PR #78 / Milestone 46: `feat/setup-doctor` (open)
+### PR #78 / Milestone 46: `feat/setup-doctor` (merged)
 
 **Goal:** Replace manual friend/beta setup debugging with a no-network diagnostic command.
 
-**Delivered behavior in branch so far:**
+**Delivered behavior:**
 - Adds root CLI command `post-relay doctor --config config/photo_sources.yaml --db data/post_relay.sqlite --env-file .env`.
 - Reports config file presence/validity, database file presence, readable enabled photo roots, writable review artifact/export roots, optional Meta env readiness, optional Discord env readiness, and R2 staging readiness when enabled.
 - Redacts secret-like values by reporting only env var names and never env var contents.
@@ -1361,9 +1361,35 @@ Current branch result: `59 passed` focused; `248 passed` full suite.
 2. Start `feat/setup-wizard` only after setup doctor lands.
 3. Keep live-safe defaults: no Discord sends, no R2 `--execute`, and no Meta publish `--execute` unless explicitly authorized in the active session.
 
+### PR TBD / Milestone 47: `feat/setup-wizard` (in progress)
+
+**Goal:** Make the local-only trial path one guided command plus prompts.
+
+**Delivered behavior in branch so far:**
+- Adds root CLI command `post-relay setup` with `--photo-root` for non-interactive use and a prompt when the option is omitted.
+- Copies `.env.example` to `.env` and `config/photo_sources.example.yaml` to `config/photo_sources.yaml` only when the private files are missing.
+- Writes the first processed-folder photo root into newly created config.
+- Creates local review artifact and publish export directories.
+- Initializes the SQLite DB when missing, while skipping existing DBs.
+- Prints next local-preview commands: `doctor`, `index scan`, `library stats`, `candidates build`, and `candidates list`.
+- Documents setup wizard usage in README and the friend setup guide.
+
+**Safety rule:** Setup wizard must remain local/no-network and non-destructive. It must not overwrite existing `.env`, `config/photo_sources.yaml`, or SQLite DB; must not upload to R2, send Discord, call Meta, publish, mutate posts, or print secrets.
+
+**Verification:**
+
+```bash
+.venv/bin/python -m pytest tests/test_setup_wizard.py -q
+.venv/bin/python -m pytest -q
+```
+
+**Next-session start here:**
+1. Finish `feat/setup-wizard`, run focused and full tests, open/merge the PR, and sync `main`.
+2. Start `feat/meta-account-discovery` after setup wizard lands.
+3. Keep live-safe defaults: no Discord sends, no R2 `--execute`, and no Meta publish `--execute` unless explicitly authorized in the active session.
+
 ## Later milestones
 
-- `feat/setup-wizard`: add a non-destructive guided local setup command that copies templates, records a photo root, initializes the DB, and prints next commands.
 - `feat/meta-account-discovery`: discover a user's visible Pages and linked Instagram accounts from an existing private token, reducing manual Page/IG ID setup.
 - `feat/meta-oauth-login`: let trusted testers authenticate their own Page-linked Instagram account through the Post Relay Meta app while tokens remain local.
 - `docs/managed-staging-design`: design managed R2 staging with per-user prefixes, randomized keys, TTL cleanup, quotas, and no raw credential sharing.
