@@ -57,7 +57,7 @@ The onboarding ladder is:
 - No managed R2 staging service.
 - No live Discord, R2, or Meta calls.
 
-## Milestone 2: `feat/setup-doctor`
+## Milestone 2: `feat/setup-doctor` (in progress)
 
 **Goal:** Replace manual setup debugging with a no-network diagnostic command.
 

@@ -17,6 +17,12 @@ cp config/photo_sources.example.yaml config/photo_sources.yaml
 
 Edit `config/photo_sources.yaml` and set at least one `photo_sources[].root` to a folder of processed/exported photos on your machine or NAS.
 
+Run the setup doctor before the first scan. It checks local files, readable photo roots, writable artifact/export roots, and optional integration env vars without making network calls or printing secrets:
+
+```bash
+.venv/bin/post-relay doctor --config config/photo_sources.yaml --db data/post_relay.sqlite --env-file .env
+```
+
 Then initialize and scan:
 
 ```bash

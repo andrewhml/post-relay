@@ -50,6 +50,12 @@ cp config/photo_sources.example.yaml config/photo_sources.yaml
 
 Edit `config/photo_sources.yaml` and set at least one `photo_sources[].root` to your processed/exported photo folder.
 
+Check local readiness without network calls:
+
+```bash
+.venv/bin/post-relay doctor --config config/photo_sources.yaml --db data/post_relay.sqlite --env-file .env
+```
+
 Then run:
 
 ```bash
