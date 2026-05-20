@@ -177,6 +177,7 @@ from post_relay.scheduling import (
     request_publish_approval,
     schedule_draft,
 )
+from post_relay.setup_doctor import build_setup_doctor_report, render_setup_doctor_report
 
 app = typer.Typer(help="Post Relay local-first Instagram content workflow.")
 db_app = typer.Typer(help="Database commands.")
@@ -215,6 +216,17 @@ DEFAULT_DB_PATH = Path("data/post_relay.sqlite")
 def version() -> None:
     """Print the current Post Relay version."""
     typer.echo("post-relay 0.1.0")
+
+
+@app.command("doctor")
+def setup_doctor(
+    config: Path = typer.Option(Path("config/photo_sources.yaml"), "--config", help="Path to photo_sources.yaml."),
+    db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
+    env_file: Path = typer.Option(Path(".env"), "--env-file", help="Path to private .env file."),
+) -> None:
+    """Check local setup readiness without making network calls."""
+    report = build_setup_doctor_report(config_path=config, db_path=db, env_file=env_file)
+    typer.echo(render_setup_doctor_report(report))
 
 
 @db_app.command("init")

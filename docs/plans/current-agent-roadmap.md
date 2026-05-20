@@ -232,10 +232,10 @@ Run this before opening or merging any PR:
 .venv/bin/python -m pytest -q
 ```
 
-Expected current result after the friend onboarding docs milestone:
+Expected current result after the setup doctor milestone:
 
 ```text
-280 passed
+285 passed
 ```
 
 ## Milestone execution rules
@@ -1312,11 +1312,11 @@ Current branch result: `59 passed` focused; `248 passed` full suite.
 .venv/bin/python -m pytest -q
 ```
 
-### PR #77 / Milestone 45: `docs/friend-onboarding-setup` (open)
+### PR #77 / Milestone 45: `docs/friend-onboarding-setup` (merged)
 
 **Goal:** Map the reusable-user onboarding path and make the current local-first setup understandable for someone who is not Andrew.
 
-**Planned behavior in branch:**
+**Delivered behavior:**
 - Rewrite the README around local preview mode first, then optional Meta, R2, and Discord integrations.
 - Add `docs/setup-own-instance.md` with concrete local-only setup commands and optional integration sections.
 - Add `docs/plans/product-onboarding-roadmap.md` to capture the stepped product path: local preview, Meta tester auth, managed staging, and guided beta setup.
@@ -1336,9 +1336,33 @@ Current branch result: `59 passed` focused; `248 passed` full suite.
 2. Start `feat/setup-doctor` as the first code milestone to turn manual friend setup debugging into a no-network diagnostic command.
 3. Keep live-safe defaults: no Discord sends, no R2 `--execute`, and no Meta publish `--execute` unless explicitly authorized in the active session.
 
+### PR TBD / Milestone 46: `feat/setup-doctor` (in progress)
+
+**Goal:** Replace manual friend/beta setup debugging with a no-network diagnostic command.
+
+**Delivered behavior in branch so far:**
+- Adds root CLI command `post-relay doctor --config config/photo_sources.yaml --db data/post_relay.sqlite --env-file .env`.
+- Reports config file presence/validity, database file presence, readable enabled photo roots, writable review artifact/export roots, optional Meta env readiness, optional Discord env readiness, and R2 staging readiness when enabled.
+- Redacts secret-like values by reporting only env var names and never env var contents.
+- Prints local preview readiness plus actionable next commands.
+- Documents the doctor command in README and friend setup guide.
+
+**Safety rule:** Setup doctor must remain local/no-network. It must not mutate posts, initialize databases, create review artifacts, upload to R2, send Discord, call Meta, publish, or print tokens/secrets.
+
+**Verification:**
+
+```bash
+.venv/bin/python -m pytest tests/test_setup_doctor.py -q
+.venv/bin/python -m pytest -q
+```
+
+**Next-session start here:**
+1. Finish `feat/setup-doctor`, run focused and full tests, open/merge the PR, and sync `main`.
+2. Start `feat/setup-wizard` only after setup doctor lands.
+3. Keep live-safe defaults: no Discord sends, no R2 `--execute`, and no Meta publish `--execute` unless explicitly authorized in the active session.
+
 ## Later milestones
 
-- `feat/setup-doctor`: add a no-network diagnostics command for local config, DB, photo roots, artifact writability, and optional integration readiness.
 - `feat/setup-wizard`: add a non-destructive guided local setup command that copies templates, records a photo root, initializes the DB, and prints next commands.
 - `feat/meta-account-discovery`: discover a user's visible Pages and linked Instagram accounts from an existing private token, reducing manual Page/IG ID setup.
 - `feat/meta-oauth-login`: let trusted testers authenticate their own Page-linked Instagram account through the Post Relay Meta app while tokens remain local.
