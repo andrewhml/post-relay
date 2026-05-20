@@ -97,7 +97,15 @@ Requirements:
 - Meta app credentials or beta tester access to a shared Post Relay app.
 - Official Meta/Facebook Graph route. Do not use browser automation or unofficial posting methods.
 
-For the current manual path, first populate your private user token in `.env`:
+For trusted beta users, use the OAuth helper instead of copying tokens from Graph API Explorer. The first command prints a Meta login URL without network calls; after the browser redirects to the configured callback URL, copy the `code` query parameter into the execute command:
+
+```bash
+.venv/bin/post-relay meta oauth-login --env-file .env
+.venv/bin/post-relay meta oauth-login --env-file .env --execute --code OAUTH_CODE_FROM_REDIRECT
+.venv/bin/post-relay meta oauth-login --env-file .env --execute --code OAUTH_CODE_FROM_REDIRECT --update-env --page-id YOUR_FACEBOOK_PAGE_ID --instagram-account-id YOUR_INSTAGRAM_ACCOUNT_ID
+```
+
+For the manual Graph API Explorer path, first populate your private user token in `.env`:
 
 ```bash
 POST_RELAY_META_APP_ID=YOUR_META_APP_ID

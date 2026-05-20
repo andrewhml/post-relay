@@ -100,9 +100,12 @@ Requirements:
 
 Configure your own values in `.env`; do not reuse Andrew's IDs or tokens.
 
-Read-only account discovery and validation:
+Trusted-tester OAuth helper, account discovery, and validation:
 
 ```bash
+.venv/bin/post-relay meta oauth-login --env-file .env
+.venv/bin/post-relay meta oauth-login --env-file .env --execute --code OAUTH_CODE_FROM_REDIRECT
+.venv/bin/post-relay meta oauth-login --env-file .env --execute --code OAUTH_CODE_FROM_REDIRECT --update-env --page-id YOUR_FACEBOOK_PAGE_ID --instagram-account-id YOUR_INSTAGRAM_ACCOUNT_ID
 .venv/bin/post-relay meta discover-accounts --env-file .env --dry-run
 .venv/bin/post-relay meta discover-accounts --env-file .env --execute
 .venv/bin/post-relay meta discover-accounts --env-file .env --execute --update-env --page-id YOUR_FACEBOOK_PAGE_ID --instagram-account-id YOUR_INSTAGRAM_ACCOUNT_ID

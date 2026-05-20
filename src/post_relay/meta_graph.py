@@ -10,7 +10,14 @@ from urllib import parse, request, error
 
 
 DEFAULT_META_GRAPH_BASE_URL = "https://graph.facebook.com"
+DEFAULT_META_OAUTH_DIALOG_BASE_URL = "https://www.facebook.com"
 DEFAULT_META_GRAPH_VERSION = "v19.0"
+DEFAULT_META_OAUTH_SCOPES = (
+    "pages_show_list",
+    "pages_read_engagement",
+    "instagram_basic",
+    "instagram_content_publish",
+)
 
 
 class MetaGraphConfigError(ValueError):
@@ -145,6 +152,55 @@ def load_meta_graph_config(env_file: Optional[Path] = Path(".env")) -> MetaGraph
     )
 
 
+def load_meta_oauth_config(
+    env_file: Optional[Path] = Path(".env"),
+    *,
+    app_id: Optional[str] = None,
+    app_secret: Optional[str] = None,
+) -> MetaGraphConfig:
+    values = _read_env_file(env_file) if env_file is not None else {}
+
+    def get(name: str) -> Optional[str]:
+        return os.environ.get(name) or values.get(name)
+
+    resolved_app_id = app_id or get("POST_RELAY_META_APP_ID")
+    resolved_app_secret = app_secret or get("POST_RELAY_META_APP_SECRET")
+    if not resolved_app_id or not resolved_app_secret:
+        raise MetaGraphConfigError(
+            "POST_RELAY_META_APP_ID and POST_RELAY_META_APP_SECRET are required for Meta OAuth login"
+        )
+    return MetaGraphConfig(
+        access_token=get("POST_RELAY_USER_ACCESS_TOKEN") or "",
+        page_id=get("POST_RELAY_FACEBOOK_PAGE_ID"),
+        instagram_account_id=get("POST_RELAY_INSTAGRAM_ACCOUNT_ID"),
+        app_id=resolved_app_id,
+        app_secret=resolved_app_secret,
+        base_url=get("POST_RELAY_META_GRAPH_BASE_URL") or DEFAULT_META_GRAPH_BASE_URL,
+        api_version=get("POST_RELAY_META_GRAPH_VERSION") or DEFAULT_META_GRAPH_VERSION,
+    )
+
+
+def build_meta_oauth_authorization_url(
+    config: MetaGraphConfig,
+    *,
+    redirect_uri: str,
+    state: str,
+    scopes: Iterable[str] = DEFAULT_META_OAUTH_SCOPES,
+) -> str:
+    if not config.app_id:
+        raise MetaGraphConfigError("POST_RELAY_META_APP_ID is required for Meta OAuth login")
+    params = parse.urlencode(
+        {
+            "client_id": config.app_id,
+            "redirect_uri": redirect_uri,
+            "state": state,
+            "scope": ",".join(scopes),
+            "response_type": "code",
+        }
+    )
+    return f"{DEFAULT_META_OAUTH_DIALOG_BASE_URL}/{config.api_version}/dialog/oauth?{params}"
+
+
 def redact_secrets(text: str, secrets: Iterable[Optional[str]]) -> str:
     redacted = text
     for secret in secrets:
@@ -233,6 +289,40 @@ class MetaGraphClient:
             self._url("<page_id>") + "?fields=id,name,instagram_business_account&access_token=<redacted>",
             self._url("<instagram_account_id>") + "?fields=id,username,media_count&access_token=<redacted>",
         ]
+
+    def exchange_oauth_authorization_code(
+        self,
+        *,
+        code: str,
+        redirect_uri: str,
+        now: Optional[datetime] = None,
+    ) -> TokenExtensionResult:
+        if not self.config.app_id or not self.config.app_secret:
+            raise MetaGraphConfigError(
+                "POST_RELAY_META_APP_ID and POST_RELAY_META_APP_SECRET are required for Meta OAuth login"
+            )
+        payload = self._request(
+            "oauth/access_token",
+            {
+                "client_id": self.config.app_id,
+                "client_secret": self.config.app_secret,
+                "redirect_uri": redirect_uri,
+                "code": code,
+            },
+            include_access_token=False,
+        )
+        access_token = payload.get("access_token")
+        if not access_token:
+            raise MetaGraphRequestError("Meta Graph did not return a user access token")
+        expires_in = _optional_int(payload.get("expires_in"))
+        issued_at = now or datetime.now(timezone.utc)
+        expires_at = issued_at + timedelta(seconds=expires_in) if expires_in is not None else None
+        return TokenExtensionResult(
+            access_token=str(access_token),
+            token_type=str(payload.get("token_type")) if payload.get("token_type") else None,
+            expires_in=expires_in,
+            expires_at=expires_at,
+        )
 
     def exchange_long_lived_user_token(self, *, now: Optional[datetime] = None) -> TokenExtensionResult:
         if not self.config.app_id or not self.config.app_secret:
@@ -414,6 +504,21 @@ def _optional_int(value: Any) -> Optional[int]:
         return int(value)
     except (TypeError, ValueError):
         return None
+
+
+def update_meta_graph_oauth_env_file(
+    env_file: Path,
+    *,
+    access_token: str,
+    page_id: Optional[str] = None,
+    instagram_account_id: Optional[str] = None,
+) -> None:
+    replacements = {"POST_RELAY_USER_ACCESS_TOKEN": access_token}
+    if page_id:
+        replacements["POST_RELAY_FACEBOOK_PAGE_ID"] = page_id
+    if instagram_account_id:
+        replacements["POST_RELAY_INSTAGRAM_ACCOUNT_ID"] = instagram_account_id
+    _update_env_values(env_file, replacements)
 
 
 def update_meta_graph_account_ids_env_file(env_file: Path, *, page_id: str, instagram_account_id: str) -> None:

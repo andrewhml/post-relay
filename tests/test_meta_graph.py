@@ -421,3 +421,149 @@ def test_meta_discover_accounts_cli_can_update_non_secret_ids_after_execute(tmp_
     assert "secret-token" not in result.output
     assert "POST_RELAY_FACEBOOK_PAGE_ID=page-1" in env_file.read_text()
     assert "POST_RELAY_INSTAGRAM_ACCOUNT_ID=ig-1" in env_file.read_text()
+
+
+def test_meta_oauth_authorization_url_uses_app_id_redirect_scope_and_state_without_secret():
+    config = cli_module.load_meta_oauth_config(env_file=None, app_id="app-id-123", app_secret="app-secret-456")
+
+    url = cli_module.build_meta_oauth_authorization_url(
+        config,
+        redirect_uri="http://localhost:8765/callback",
+        state="local-state-123",
+        scopes=["pages_show_list", "instagram_basic"],
+    )
+
+    assert url.startswith("https://www.facebook.com/v19.0/dialog/oauth?")
+    assert "client_id=app-id-123" in url
+    assert "redirect_uri=http%3A%2F%2Flocalhost%3A8765%2Fcallback" in url
+    assert "state=local-state-123" in url
+    assert "scope=pages_show_list%2Cinstagram_basic" in url
+    assert "app-secret-456" not in url
+
+
+def test_meta_graph_client_exchanges_oauth_code_without_publishing_or_leaking_secrets():
+    requested = []
+
+    def fake_transport(method, url, params):
+        requested.append((method, url, dict(params)))
+        return {"access_token": "short-lived-user-token", "token_type": "bearer", "expires_in": 3600}
+
+    client = MetaGraphClient(
+        MetaGraphConfig(access_token="placeholder", app_id="app-id-123", app_secret="app-secret-456"),
+        transport=fake_transport,
+    )
+
+    result = client.exchange_oauth_authorization_code(
+        code="oauth-code-789",
+        redirect_uri="http://localhost:8765/callback",
+        now=datetime(2026, 5, 20, 12, 0, 0, tzinfo=timezone.utc),
+    )
+
+    assert result.access_token == "short-lived-user-token"
+    assert result.expires_at.isoformat() == "2026-05-20T13:00:00+00:00"
+    assert requested == [
+        (
+            "GET",
+            "https://graph.facebook.com/v19.0/oauth/access_token",
+            {
+                "client_id": "app-id-123",
+                "client_secret": "app-secret-456",
+                "redirect_uri": "http://localhost:8765/callback",
+                "code": "oauth-code-789",
+            },
+        )
+    ]
+    rendered = result.to_text(env_updated=False)
+    assert "short-lived-user-token" not in rendered
+    assert "Publishing endpoints called: no" in rendered
+    assert all("/media" not in url and "/media_publish" not in url for _method, url, _params in requested)
+
+
+def test_meta_oauth_login_cli_dry_run_prints_login_url_without_network_or_secrets(tmp_path):
+    env_file = tmp_path / ".env"
+    env_file.write_text(
+        "POST_RELAY_META_APP_ID=app-id-123\n"
+        "POST_RELAY_META_APP_SECRET=app-secret-456\n"
+    )
+
+    result = runner.invoke(
+        app,
+        ["meta", "oauth-login", "--env-file", str(env_file), "--state", "state-123"],
+    )
+
+    assert result.exit_code == 0
+    assert "Meta OAuth login (dry run)" in result.output
+    assert "https://www.facebook.com/v19.0/dialog/oauth" in result.output
+    assert "app-id-123" in result.output
+    assert "app-secret-456" not in result.output
+    assert "No network calls were made." in result.output
+    assert "No env file was changed." in result.output
+    assert "Publishing endpoints called: no" in result.output
+
+
+def test_meta_oauth_login_cli_execute_updates_token_and_non_secret_ids(tmp_path, monkeypatch):
+    env_file = tmp_path / ".env"
+    env_file.write_text(
+        "POST_RELAY_META_APP_ID=app-id-123\n"
+        "POST_RELAY_META_APP_SECRET=app-secret-456\n"
+        "POST_RELAY_USER_ACCESS_TOKEN=old-token\n"
+    )
+
+    class FakeClient:
+        def __init__(self, config):
+            self.config = config
+
+        def exchange_oauth_authorization_code(self, *, code, redirect_uri):
+            assert code == "oauth-code-789"
+            assert redirect_uri == "http://localhost:8765/callback"
+            return cli_module.TokenExtensionResult(
+                access_token="new-user-token",
+                token_type="bearer",
+                expires_in=3600,
+                expires_at=datetime(2026, 5, 20, 13, 0, 0, tzinfo=timezone.utc),
+            )
+
+        def discover_accounts(self):
+            assert self.config.access_token == "new-user-token"
+            return cli_module.AccountDiscoveryResult(
+                pages=[
+                    cli_module.DiscoveredMetaAccount(
+                        page_id="page-1",
+                        page_name="Travel Page",
+                        instagram_account_id="ig-1",
+                        instagram_username="travel_creator",
+                        instagram_media_count=42,
+                    )
+                ]
+            )
+
+    monkeypatch.setattr(cli_module, "MetaGraphClient", FakeClient)
+
+    result = runner.invoke(
+        app,
+        [
+            "meta",
+            "oauth-login",
+            "--env-file",
+            str(env_file),
+            "--execute",
+            "--code",
+            "oauth-code-789",
+            "--update-env",
+            "--page-id",
+            "page-1",
+            "--instagram-account-id",
+            "ig-1",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Meta OAuth login completed" in result.output
+    assert "Travel Page" in result.output
+    assert "Env file updated: yes" in result.output
+    assert "new-user-token" not in result.output
+    assert "app-secret-456" not in result.output
+    env_text = env_file.read_text()
+    assert "POST_RELAY_USER_ACCESS_TOKEN=new-user-token" in env_text
+    assert "POST_RELAY_FACEBOOK_PAGE_ID=page-1" in env_text
+    assert "POST_RELAY_INSTAGRAM_ACCOUNT_ID=ig-1" in env_text
