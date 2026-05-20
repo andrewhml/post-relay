@@ -88,6 +88,8 @@ class ScriptlessScheduledPublishPlan:
                 "Hermes cron prompt:",
                 self.hermes_cron_prompt,
                 "No per-post script is required.",
+                f"Approved assets have been staged, and this post will publish automatically at {self.scheduled_for}.",
+                "You can still make changes any time before publishing; if you do, Post Relay will remove the publish approval, update the post, and ask you to approve it again before it goes live.",
                 "No Discord network calls were made.",
                 "No R2 upload or cleanup calls were made.",
                 "No Meta publishing endpoints were called.",

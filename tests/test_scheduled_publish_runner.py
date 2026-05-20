@@ -275,6 +275,10 @@ def test_scriptless_scheduled_publish_plan_verifies_ready_state_without_due_time
     assert "--execute" in plan.publish_command
     assert "post_relay_publish_draft" not in plan.to_text()
     assert "No per-post script is required." in plan.to_text()
+    assert "Approved assets have been staged" in plan.to_text()
+    assert "will publish automatically at 2026-05-05T09:30:00-07:00" in plan.to_text()
+    assert "You can still make changes any time before publishing" in plan.to_text()
+    assert "remove the publish approval" in plan.to_text()
     assert "secret" not in plan.to_text()
 
 

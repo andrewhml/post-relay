@@ -1274,6 +1274,23 @@ Current branch result: `59 passed` focused; `248 passed` full suite.
 .venv/bin/python -m pytest -q
 ```
 
+### PR #76 / Milestone: `fix/final-publish-approval-feedback`
+
+**Goal:** Make the post-approval unattended publish plan communicate the user-facing outcome after final publish approval has led to staged assets and a scheduled guarded publish job.
+
+**Delivered behavior:**
+- `meta unattended-publish-plan` now includes confirmation copy that approved assets have been staged and the post will publish automatically at the scheduled time.
+- The same copy reminds Andrew he can still request changes any time before publishing; material edits remove publish approval and require reapproval before the post goes live.
+
+**Safety rule:** This is a copy/feedback improvement only. It does not weaken the due-time, active-approval, staged-media, or explicit guarded Meta execute checks.
+
+**Verification:**
+
+```bash
+.venv/bin/python -m pytest tests/test_scheduled_publish_runner.py::test_scriptless_scheduled_publish_plan_verifies_ready_state_without_due_time -q
+.venv/bin/python -m pytest -q
+```
+
 ### Milestone 44: `feat/analytics-collect-due` (current branch)
 
 **Goal:** Add the second step of the analytics cadence plan: a guarded runner that can execute only the due read-only analytics checks identified by the cadence planner.
