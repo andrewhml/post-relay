@@ -1312,7 +1312,7 @@ Current branch result: `59 passed` focused; `248 passed` full suite.
 .venv/bin/python -m pytest -q
 ```
 
-### Milestone 45: `docs/friend-onboarding-setup` (current branch)
+### PR #77 / Milestone 45: `docs/friend-onboarding-setup` (open)
 
 **Goal:** Map the reusable-user onboarding path and make the current local-first setup understandable for someone who is not Andrew.
 
