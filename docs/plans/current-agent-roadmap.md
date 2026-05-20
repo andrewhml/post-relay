@@ -1361,7 +1361,7 @@ Current branch result: `59 passed` focused; `248 passed` full suite.
 2. Start `feat/setup-wizard` only after setup doctor lands.
 3. Keep live-safe defaults: no Discord sends, no R2 `--execute`, and no Meta publish `--execute` unless explicitly authorized in the active session.
 
-### PR TBD / Milestone 47: `feat/setup-wizard` (in progress)
+### PR #79 / Milestone 47: `feat/setup-wizard` (open)
 
 **Goal:** Make the local-only trial path one guided command plus prompts.
 
