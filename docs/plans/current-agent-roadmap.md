@@ -1254,11 +1254,11 @@ Current branch result: `59 passed` focused; `248 passed` full suite.
 .venv/bin/python -m pytest -q
 ```
 
-### Milestone 43: `feat/analytics-cadence-planner` (current branch)
+### PR #74 / Milestone 43: `feat/analytics-cadence-planner` (merged)
 
 **Goal:** Add the first step of the analytics cadence plan: a deterministic no-network planner that tells the operator which read-only post/account analytics checks are due before any recurring or execute-mode collection exists.
 
-**Delivered behavior in branch so far:**
+**Delivered behavior:**
 - Added `analytics cadence-plan`, which inspects stored local published-post snapshots, media insight snapshots, and account metric snapshots without making Meta calls.
 - Post insight windows are limited to `24h`, `72h`, `7d`, and `14d` after `actual_published_at`; after the 14-day window, the planner does not schedule catch-up automated post analytics.
 - Already collected insight snapshots suppress the matching post window so reruns stay idempotent at the planning layer.
@@ -1274,9 +1274,28 @@ Current branch result: `59 passed` focused; `248 passed` full suite.
 .venv/bin/python -m pytest -q
 ```
 
+### Milestone 44: `feat/analytics-collect-due` (current branch)
+
+**Goal:** Add the second step of the analytics cadence plan: a guarded runner that can execute only the due read-only analytics checks identified by the cadence planner.
+
+**Delivered behavior in branch so far:**
+- Added `analytics collect-due`, dry-run by default, which renders the same due plan and never requires credentials unless `--execute` is explicit.
+- Execute mode calls only read-only Meta media insights and account metric endpoints through the existing Meta client, stores due snapshots locally, and prints a compact audit summary.
+- Multiple due windows for the same post are collapsed to one read-only fetch at collection time, and the follow-up cadence plan treats that collection as satisfying all earlier due windows up to the current time.
+- Account collection remains weekly by default and stores account metric snapshots separately from post lifecycle state.
+
+**Safety rule:** `analytics collect-due` must never call publishing endpoints, create containers, mutate drafts/approvals/schedules/publish attempts, send Discord, or touch R2. `--execute` is required before any Meta read-only network call. Post analytics automation still stops after the 14-day window; account checks remain weekly unless follower growth materially accelerates.
+
+**Verification:**
+
+```bash
+.venv/bin/python -m pytest tests/test_analytics_feedback.py -q
+.venv/bin/python -m pytest -q
+```
+
 **Next-session start here:**
 1. First verify the current baseline: `.venv/bin/python -m pytest -q` should report the full suite passing.
-2. Move next to `feat/analytics-collect-due`: keep dry-run default, add `--execute` only for read-only due post/account collection, and preserve no mutation of drafts/approvals/schedules/Discord/R2/Meta publish state.
+2. Use `analytics cadence-plan` before any read-only execute run; use `analytics collect-due --execute` only when Andrew has authorized read-only insights/account metric collection for the active session or a future recurring job.
 3. Keep live-safe defaults: no Discord sends, no R2 `--execute`, and no Meta publish `--execute` unless explicitly authorized in the active session.
 
 ## Later milestones

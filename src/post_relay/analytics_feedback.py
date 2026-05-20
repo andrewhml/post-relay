@@ -141,6 +141,13 @@ class AnalyticsCadencePlan:
     account_due: Optional[DueAccountMetricWindow]
 
 
+@dataclass(frozen=True)
+class DueAnalyticsCollectionResult:
+    plan: AnalyticsCadencePlan
+    media_records: list[MediaInsightSnapshotRecord]
+    account_record: Optional[AccountMetricSnapshotRecord]
+
+
 def record_published_post_snapshot(
     connection,
     draft_id: int,
@@ -269,6 +276,46 @@ def build_analytics_cadence_plan(
         now=now_dt.isoformat(timespec="seconds"),
         post_windows=post_windows,
         account_due=account_due,
+    )
+
+
+def collect_and_store_due_analytics(
+    connection,
+    *,
+    client,
+    now: Optional[str] = None,
+    instagram_account_id: Optional[str] = None,
+    metrics: Sequence[str] = DEFAULT_INSIGHT_METRICS,
+) -> DueAnalyticsCollectionResult:
+    plan = build_analytics_cadence_plan(connection, now=now, instagram_account_id=instagram_account_id)
+    collected_at = plan.now
+    media_records: list[MediaInsightSnapshotRecord] = []
+    seen_draft_ids: set[int] = set()
+    for window in plan.post_windows:
+        if window.draft_id in seen_draft_ids:
+            continue
+        seen_draft_ids.add(window.draft_id)
+        media_records.append(
+            collect_and_store_media_insights(
+                connection,
+                window.draft_id,
+                client=client,
+                metrics=metrics,
+                collected_at=collected_at,
+            )
+        )
+    account_record = None
+    if plan.account_due is not None:
+        account_record = collect_and_store_follower_metrics(
+            connection,
+            plan.account_due.instagram_account_id,
+            client=client,
+            collected_at=collected_at,
+        )
+    return DueAnalyticsCollectionResult(
+        plan=plan,
+        media_records=media_records,
+        account_record=account_record,
     )
 
 
@@ -455,6 +502,35 @@ def render_analytics_cadence_plan(plan: AnalyticsCadencePlan) -> str:
     return "\n".join(lines)
 
 
+def render_due_analytics_dry_run(plan: AnalyticsCadencePlan) -> str:
+    return "\n".join(
+        [
+            "Dry run only: due analytics collection",
+            render_analytics_cadence_plan(plan),
+            "Rerun with --execute to collect and store due read-only analytics.",
+        ]
+    )
+
+
+def render_due_analytics_collection_result(result: DueAnalyticsCollectionResult) -> str:
+    lines = [
+        "Due analytics collected",
+        f"Post insight snapshots stored: {len(result.media_records)}",
+    ]
+    for record in result.media_records:
+        lines.append(
+            f"  - Post {record.draft_id} / media {record.published_media_id}: collected_at {record.collected_at}"
+        )
+    lines.extend(
+        [
+            f"Account metric snapshot stored: {'yes' if result.account_record else 'no'}",
+            "Publishing endpoints called: no",
+            "Safety: Only due read-only analytics were stored locally. No Discord, R2, Meta publish, or post lifecycle state changes were made.",
+        ]
+    )
+    return "\n".join(lines)
+
+
 def render_follower_growth_summary(summary: FollowerGrowthSummary) -> str:
     lines = [
         "Follower growth summary",
@@ -612,13 +688,8 @@ def _window_has_collected_insight(
     due_at: datetime,
     next_due_at: Optional[datetime],
 ) -> bool:
-    for collected_at in collected_times:
-        if collected_at < due_at:
-            continue
-        if next_due_at is not None and collected_at >= next_due_at:
-            continue
-        return True
-    return False
+    del next_due_at
+    return any(collected_at >= due_at for collected_at in collected_times)
 
 
 def _insights_fetch_command(draft_id: int, db_cli_path: str) -> str:

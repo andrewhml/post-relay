@@ -11,6 +11,7 @@ from post_relay.analytics_feedback import (
     build_follower_growth_plan,
     build_follower_growth_summary,
     build_insights_collection_plan,
+    collect_and_store_due_analytics,
     collect_and_store_follower_metrics,
     collect_and_store_media_insights,
     record_published_post_snapshot,
@@ -804,3 +805,141 @@ def test_analytics_cadence_plan_cli_is_no_network_and_state_safe(tmp_path: Path)
     initialize_db(verify_connection)
     assert list_media_insight_snapshots(verify_connection, draft.id) == []
     assert list_account_metric_snapshots(verify_connection) == []
+
+
+def test_collect_due_analytics_fetches_once_per_due_post_and_account(tmp_path: Path):
+    connection, draft, public_urls = _build_ready_carousel_with_exported_staged_media(tmp_path)
+    _insert_successful_publish_attempt(connection, draft, public_urls)
+    requested_media = []
+    requested_accounts = []
+
+    class FakeClient:
+        def get_media_insights(self, media_id, *, metrics):
+            requested_media.append((media_id, list(metrics)))
+            return {
+                "data": [
+                    {"name": "reach", "period": "lifetime", "values": [{"value": 420}]},
+                    {"name": "likes", "period": "lifetime", "values": [{"value": 37}]},
+                ]
+            }
+
+        def get_instagram_account_metrics(self, instagram_account_id: str):
+            requested_accounts.append(instagram_account_id)
+            return {
+                "id": instagram_account_id,
+                "username": "andrewhml",
+                "followers_count": 763,
+                "media_count": 208,
+            }
+
+    result = collect_and_store_due_analytics(
+        connection,
+        now="2026-05-22T11:00:00-04:00",
+        instagram_account_id="17841400498120050",
+        client=FakeClient(),
+    )
+
+    assert requested_media == [("media-789", ["reach", "likes", "comments", "saved", "shares"])]
+    assert requested_accounts == ["17841400498120050"]
+    assert [record.draft_id for record in result.media_records] == [draft.id]
+    assert result.media_records[0].collected_at == "2026-05-22T11:00:00-04:00"
+    assert result.account_record is not None
+    assert result.account_record.collected_at == "2026-05-22T11:00:00-04:00"
+
+    follow_up_plan = build_analytics_cadence_plan(
+        connection,
+        now="2026-05-22T11:01:00-04:00",
+        instagram_account_id="17841400498120050",
+    )
+    assert follow_up_plan.post_windows == []
+    assert follow_up_plan.account_due is None
+
+
+def test_analytics_collect_due_dry_run_makes_no_network_or_state_changes(tmp_path: Path):
+    connection, draft, public_urls = _build_ready_carousel_with_exported_staged_media(tmp_path)
+    db_path = tmp_path / "post_relay.sqlite"
+    _insert_successful_publish_attempt(connection, draft, public_urls)
+    connection.close()
+
+    result = runner.invoke(
+        app,
+        [
+            "analytics",
+            "collect-due",
+            "--now",
+            "2026-05-22T11:00:00-04:00",
+            "--instagram-account-id",
+            "17841400498120050",
+            "--db",
+            str(db_path),
+            "--env-file",
+            str(tmp_path / "missing.env"),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "Dry run only: due analytics collection" in result.output
+    assert "Post insight windows due: 2" in result.output
+    assert "No Meta network calls were made" in result.output
+    assert "--execute" in result.output
+
+    verify_connection = connect_db(db_path)
+    initialize_db(verify_connection)
+    assert list_media_insight_snapshots(verify_connection, draft.id) == []
+    assert list_account_metric_snapshots(verify_connection) == []
+
+
+def test_analytics_collect_due_execute_collects_due_read_only_metrics(tmp_path: Path, monkeypatch):
+    connection, draft, public_urls = _build_ready_carousel_with_exported_staged_media(tmp_path)
+    db_path = tmp_path / "post_relay.sqlite"
+    _insert_successful_publish_attempt(connection, draft, public_urls)
+    connection.close()
+    requested_media = []
+    requested_accounts = []
+
+    class FakeClient:
+        def get_media_insights(self, media_id, *, metrics):
+            requested_media.append((media_id, list(metrics)))
+            return {"data": [{"name": "reach", "period": "lifetime", "values": [{"value": 420}]}]}
+
+        def get_instagram_account_metrics(self, instagram_account_id: str):
+            requested_accounts.append(instagram_account_id)
+            return {
+                "id": instagram_account_id,
+                "username": "andrewhml",
+                "followers_count": 763,
+                "media_count": 208,
+            }
+
+    monkeypatch.setattr("post_relay.cli.load_meta_graph_config", lambda env_file: MetaGraphConfig(access_token="secret-token"))
+    monkeypatch.setattr("post_relay.cli.MetaGraphClient", lambda config: FakeClient())
+
+    result = runner.invoke(
+        app,
+        [
+            "analytics",
+            "collect-due",
+            "--now",
+            "2026-05-22T11:00:00-04:00",
+            "--instagram-account-id",
+            "17841400498120050",
+            "--execute",
+            "--db",
+            str(db_path),
+            "--env-file",
+            str(tmp_path / "private.env"),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "Due analytics collected" in result.output
+    assert "Post insight snapshots stored: 1" in result.output
+    assert "Account metric snapshot stored: yes" in result.output
+    assert "Publishing endpoints called: no" in result.output
+    assert requested_media == [("media-789", ["reach", "likes", "comments", "saved", "shares"])]
+    assert requested_accounts == ["17841400498120050"]
+
+    verify_connection = connect_db(db_path)
+    initialize_db(verify_connection)
+    assert len(list_media_insight_snapshots(verify_connection, draft.id)) == 1
+    assert len(list_account_metric_snapshots(verify_connection)) == 1
