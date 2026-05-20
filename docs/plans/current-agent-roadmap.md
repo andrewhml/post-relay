@@ -1336,7 +1336,7 @@ Current branch result: `59 passed` focused; `248 passed` full suite.
 2. Start `feat/setup-doctor` as the first code milestone to turn manual friend setup debugging into a no-network diagnostic command.
 3. Keep live-safe defaults: no Discord sends, no R2 `--execute`, and no Meta publish `--execute` unless explicitly authorized in the active session.
 
-### PR TBD / Milestone 46: `feat/setup-doctor` (in progress)
+### PR #78 / Milestone 46: `feat/setup-doctor` (open)
 
 **Goal:** Replace manual friend/beta setup debugging with a no-network diagnostic command.
 
