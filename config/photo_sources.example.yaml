@@ -22,8 +22,11 @@ publish_exports:
   default_profile: feed_portrait_3x4
 
 r2_staging:
-  # Self-managed R2 staging is optional. Keep disabled until bucket settings and
-  # POST_RELAY_R2_* credentials are configured privately in .env.
+  # Self-managed R2 staging is optional. For the first friend/beta round, bring
+  # your own Cloudflare R2 bucket and S3-compatible R2 credentials. See:
+  # docs/byo-r2-bucket-setup.md
+  # Keep disabled until bucket settings and POST_RELAY_R2_* credentials are
+  # configured privately in .env.
   enabled: false
   bucket: your-r2-bucket-name
   endpoint_url: https://YOUR_ACCOUNT_ID.r2.cloudflarestorage.com

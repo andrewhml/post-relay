@@ -113,7 +113,7 @@ The onboarding ladder is:
 
 **Safety:** Tokens stay local; output redacts secrets; no publishing endpoints.
 
-## Milestone 6: `docs/managed-staging-design` (in progress)
+## Milestone 6: `docs/managed-staging-design` (merged)
 
 **Goal:** Design shared R2 staging before implementation.
 
@@ -131,7 +131,31 @@ The onboarding ladder is:
 - Local DB records for managed staged media.
 - Failure modes and rollback.
 
-## Milestone 7: `feat/managed-r2-staging-mvp`
+## Milestone 7: `docs/byo-r2-friend-setup` (in progress)
+
+**Goal:** Make the first friend/beta publish-staging path use each user's own Cloudflare R2 bucket before building managed staging.
+
+**Behavior:**
+- Document bring-your-own R2 as the current first-round staging recommendation.
+- Add a dedicated setup guide for Cloudflare R2 bucket, public URL, config, dry-run upload, publish preflight, and cleanup.
+- Include the exact Cloudflare credential navigation: `Storage & databases` -> `R2 Object Storage` -> `Overview` -> right-side `Account Details` -> `{}` `Manage` -> `Account API Tokens` -> `Create Account API Token`.
+- Clarify that users need S3-compatible Access Key ID and Secret Access Key values, not a generic Cloudflare API token.
+
+**Safety:** Keep local preview first; do not share Andrew's R2 credentials; upload selected publish media only after dry-run review; keep managed staging as a later convenience layer.
+
+## Milestone 8: `feat/r2-setup-doctor`
+
+**Goal:** Make self-managed R2 readiness easier to verify for technical beta users.
+
+**Behavior:**
+- Extend `post-relay doctor` or add a focused staging diagnostic for R2 config/env readiness.
+- Redact all secrets.
+- Validate required self-managed fields are present and distinguish S3 endpoint URL from public base URL.
+- Optionally add an explicit network check behind a dry-run/execute gate later.
+
+**Safety:** Diagnostics must not upload, delete, publish, or print credentials.
+
+## Milestone 9: `feat/managed-r2-staging-mvp`
 
 **Goal:** Let beta users stage only selected publish media without configuring their own R2 bucket.
 
@@ -145,7 +169,7 @@ The onboarding ladder is:
 
 **Safety:** Do not expose raw R2 credentials to users. Do not upload source folders or review artifacts by default. Do not publish.
 
-## Milestone 8: `feat/onboarding-status`
+## Milestone 10: `feat/onboarding-status`
 
 **Goal:** Give beta users a simple readiness summary.
 
@@ -159,4 +183,4 @@ The onboarding ladder is:
 
 ## Later direction
 
-Only after local setup, Meta auth, and managed staging are proven with trusted testers should Post Relay consider hosted state, a web UI, app review for broader Meta distribution, or multi-tenant server-side workflows. Until then, keep the product local-first and make each optional integration layer valuable on its own.
+Only after local setup, Meta auth, BYO R2 staging, and later managed staging are proven with trusted testers should Post Relay consider hosted state, a web UI, app review for broader Meta distribution, or multi-tenant server-side workflows. Until then, keep the product local-first and make each optional integration layer valuable on its own.
