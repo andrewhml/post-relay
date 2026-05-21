@@ -1520,7 +1520,7 @@ Current branch result: `59 passed` focused; `248 passed` full suite.
 - Do not call Discord, R2, or Meta publish paths from recommendation work.
 - Read-only Meta insights/account metric collection remains explicit `--execute` only; recommendation commands should consume stored local snapshots by default.
 
-### Current in-progress milestone: `feat/user-goal-artifact`
+### PR #86 / Current in-progress milestone: `feat/user-goal-artifact`
 
 **Goal:** Add a durable local goal artifact that the user and agent can agree on and use as the north star for future recommendations.
 

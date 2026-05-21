@@ -70,7 +70,7 @@ Verification:
 .venv/bin/python -m pytest -q
 ```
 
-### Milestone B: `feat/user-goal-artifact`
+### Milestone B: `feat/user-goal-artifact` (PR #86)
 
 Add a durable local goal artifact that the user and agent can agree on before deeper recommendation work.
 
