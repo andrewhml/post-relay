@@ -92,7 +92,26 @@ Verification:
 .venv/bin/python -m pytest -q
 ```
 
-### Milestone C: `feat/recommendation-signal-baseline`
+### Milestone C: `feat/chat-goal-onboarding`
+
+Make first-run chat guidance prompt for the active goal before the agent recommends a first post.
+
+Initial behavior:
+
+- Extend `setup` output with a `goals init` next command so local setup and goal setup happen together.
+- Make `dm next-action` return a local `goal_onboarding` plan when no post/thread is active and no active goal exists.
+- The prompt should ask for goal statement, target audience, content pillars, desired cadence, success metrics, strategy notes, and constraints.
+- Preserve existing post/thread flows once an active goal exists or an active DM thread/post is already in progress.
+- Make no network calls and mutate no posts, approvals, schedules, opportunities, Discord, R2, Meta, or publish state.
+
+Verification:
+
+```bash
+.venv/bin/python -m pytest tests/test_dm_operating_loop.py tests/test_setup_wizard.py -q
+.venv/bin/python -m pytest -q
+```
+
+### Milestone D: `feat/recommendation-signal-baseline`
 
 Add a no-network command that summarizes available recommendation signals and data coverage. It should answer which local signals exist, which are missing, and which are too sparse to trust.
 
@@ -103,7 +122,7 @@ Initial behavior:
 - Print next safe commands for collecting or reviewing missing local signals.
 - Make no network calls and mutate no state.
 
-### Milestone D: `feat/candidate-ranking-signals`
+### Milestone E: `feat/candidate-ranking-signals`
 
 Rank candidate groups with deterministic, explainable local scoring.
 
@@ -117,7 +136,7 @@ Initial scoring dimensions:
 
 The command should explain every score contribution and avoid pretending sparse analytics are conclusive.
 
-### Milestone E: `feat/smarter-context-questions`
+### Milestone F: `feat/smarter-context-questions`
 
 Reduce unnecessary interview questions by using local context first.
 
@@ -128,7 +147,7 @@ Behavior ideas:
 - Ask targeted follow-up questions only for publish-relevant uncertainty: exact location tag, story angle, people/collaborators, date-sensitive context, or accessibility details.
 - Keep freeform `location_text` local/review-only and never treat it as a Meta location tag.
 
-### Milestone F: `feat/schedule-recommendations`
+### Milestone G: `feat/schedule-recommendations`
 
 Suggest schedule windows from stored local account/post signals and priors.
 
@@ -140,7 +159,7 @@ Behavior ideas:
 - Explain why a slot is suggested and list conflicts.
 - Do not schedule automatically.
 
-### Milestone G: `feat/caption-style-recommendations`
+### Milestone H: `feat/caption-style-recommendations`
 
 Use approval/revision/published feedback to advise caption direction.
 

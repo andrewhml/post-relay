@@ -67,6 +67,8 @@ def test_setup_wizard_creates_local_files_from_templates_without_network(tmp_pat
     assert "INITIALIZED database" in rendered
     assert "No network calls were made." in rendered
     assert f"post-relay doctor --config {config_path.as_posix()} --db {db_path.as_posix()} --env-file {env_path.as_posix()}" in rendered
+    assert "post-relay goals init" in rendered
+    assert "--title \"Travel account north star\"" in rendered
 
 
 def test_setup_wizard_does_not_overwrite_existing_private_files(tmp_path: Path):

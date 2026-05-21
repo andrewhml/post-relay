@@ -47,7 +47,7 @@ python3 -m venv .venv
 .venv/bin/post-relay setup
 ```
 
-The setup wizard prompts for a processed/exported photo folder, copies `.env.example` and `config/photo_sources.example.yaml` only when the private files are missing, writes your first local photo source, creates local artifact/export directories, initializes the SQLite DB, and makes no network calls.
+The setup wizard prompts for a processed/exported photo folder, copies `.env.example` and `config/photo_sources.example.yaml` only when the private files are missing, writes your first local photo source, creates local artifact/export directories, initializes the SQLite DB, and makes no network calls. It now also prints a goal-setup command so a user and agent can agree on the north star before the first chat-driven post recommendation.
 
 You can also pass the folder directly:
 
@@ -192,7 +192,7 @@ The local DM harness can be used without live Discord:
 .venv/bin/post-relay dm next-action --discord-channel-id local-test --db data/post_relay.sqlite
 ```
 
-Live Discord DM sends require a private bot token and explicit live-capable commands. Keep bot credentials in `.env`.
+Live Discord DM sends require a private bot token and explicit live-capable commands. Keep bot credentials in `.env`. If `dm next-action` is started before any active goal exists, it returns a local `goal_onboarding` prompt that asks the user to fill in the goal statement, audience, content pillars, cadence, success metrics, strategy notes, and constraints before the agent recommends a first post.
 
 ## Review and publish workflow
 

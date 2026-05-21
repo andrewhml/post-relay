@@ -14,7 +14,7 @@ python3 -m venv .venv
 .venv/bin/post-relay setup
 ```
 
-The setup wizard prompts for a processed/exported photo folder. It copies `.env.example` and `config/photo_sources.example.yaml` only when the private files are missing, writes your first local photo source, creates local artifact/export directories, initializes the SQLite DB, and makes no network calls.
+The setup wizard prompts for a processed/exported photo folder. It copies `.env.example` and `config/photo_sources.example.yaml` only when the private files are missing, writes your first local photo source, creates local artifact/export directories, initializes the SQLite DB, and makes no network calls. It also prints a `goals init` command so the user and chat agent can agree on the account goal before the first recommendation.
 
 You can also pass the folder directly:
 
@@ -26,6 +26,21 @@ Run the setup doctor before the first scan. It checks local files, readable phot
 
 ```bash
 .venv/bin/post-relay doctor --config config/photo_sources.yaml --db data/post_relay.sqlite --env-file .env
+```
+
+Agree on the local user/agent goal before the first chat-driven recommendation:
+
+```bash
+.venv/bin/post-relay goals init --db data/post_relay.sqlite \
+  --title "Travel account north star" \
+  --statement "Grow with saveable city-guide carousels." \
+  --target-audience "Travelers planning city walks." \
+  --pillar "city guides" \
+  --cadence "2-3 posts per week" \
+  --metric "saves" \
+  --strategy-note "Recommend one best next post with rationale." \
+  --constraint "avoid places not pictured" \
+  --reviewed-by YOUR_NAME
 ```
 
 Then initialize and scan:

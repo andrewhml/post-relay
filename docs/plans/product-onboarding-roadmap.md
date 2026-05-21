@@ -80,7 +80,7 @@ The onboarding ladder is:
 - Create local data directories.
 - Initialize the SQLite database.
 - Optionally run the first no-network scan after confirmation.
-- End with the next local commands for candidates and artifacts.
+- End with the next local commands for goal setup, diagnostics, candidates, and artifacts.
 
 **Safety:** Non-destructive; never overwrite existing `.env`, `config/photo_sources.yaml`, or SQLite DB without explicit confirmation.
 
@@ -179,6 +179,7 @@ The onboarding ladder is:
 
 **Candidate first milestones:**
 - `docs/recommendation-engine-roadmap`: use `docs/plans/recommendation-engine-roadmap.md` to define local signals, scoring model, CLI surfaces, and safety boundaries for recommendations.
+- `feat/chat-goal-onboarding`: prompt for the active user/agent goal from first-run chat/setup surfaces before recommending the first post.
 - `feat/recommendation-signal-baseline`: aggregate existing local signals into an advisory summary without network calls or state mutation.
 - `feat/candidate-ranking-signals`: rank candidate groups by explainable signals such as media count, recency, orientation/export readiness, location/topic diversity, approval history, and stored performance hints.
 - `feat/smarter-context-questions`: suppress or rewrite context questions when folder descriptors, previous accepted packages, or local metadata already answer them.
