@@ -218,22 +218,26 @@ Make Post Relay smarter over time.
 
 ## Recommended Next Build Artifacts
 The next useful detailed artifacts are now:
-- `docs/plans/product-onboarding-roadmap.md` as the reusable-user onboarding plan from local preview mode to Meta tester auth and managed staging
-- `docs/setup-own-instance.md` as the concrete friend/beta setup guide
 - `docs/plans/current-agent-roadmap.md` as the canonical active engineering roadmap
-- a later `feat/setup-doctor` implementation plan after the docs onboarding PR lands
-- a later video/reel validation plan after feed/carousel cadence and onboarding are stable
-- a later plan for turning enough advisory feedback/follower-growth snapshots into stronger deterministic recommendations
+- a new recommendation-engine roadmap that defines local signals, deterministic scoring, CLI surfaces, and safety boundaries
+- `docs/plans/product-onboarding-roadmap.md` as historical reusable-user onboarding context, with managed staging paused
+- `docs/setup-own-instance.md` as the concrete friend/beta setup guide when onboarding feedback is needed
+- a later video/reel validation plan after feed/carousel cadence and recommendations are stable
+
+## Later direction
+
+Managed R2 staging remains a designed but paused convenience layer. Only revive it if Andrew explicitly decides the self-managed BYO R2 path has proven enough friction to justify the added managed-service complexity. The current product direction is to make the local agent smarter first: turn existing local signals, approval/revision patterns, stored read-only analytics, follower summaries, schedule history, and candidate/media metadata into explainable recommendations.
+
+Recommendation-engine work should stay local-first and advisory. Initial milestones should define the scoring model and CLI surfaces, aggregate available signals, rank candidate groups, suggest schedule/caption/post-type directions, and reduce unnecessary questions. They should not mutate posts, approvals, schedules, Discord state, R2 staging, or Meta state, and should not perform live insight collection except through existing explicit analytics `--execute` commands.
 
 ## Practical Next Human Steps
 Andrew should continue with:
-- sharing the local-only setup path with trusted friends before asking them to connect Meta/R2/Discord
-- keeping tokens private and rotating any exposed test tokens
-- adding trusted users as Meta app testers only when they are ready to validate their own linked Page/Instagram account
-- treating managed R2 staging as a future beta service that must not share raw R2 credentials and must upload only explicitly selected publish media
 - using private DM-driven sessions to prove the user-initiated workflow on real travel sets
 - collecting read-only insights only with `analytics insights-fetch --execute` or `analytics collect-due --execute` when the active token has the needed insights permission and the active session authorizes it
+- using `analytics feedback-summary` and `analytics follower-summary` as advisory inputs when judging reviewed posts
 - treating recommendation and follower-growth feedback as advisory until several real posts and account snapshots provide enough signal
+- sharing the local-only setup path with trusted friends only when onboarding feedback is useful, without making managed staging the next default build direction
+- keeping tokens private and rotating any exposed test tokens
 
 ## Immediate Next Engineering Step
-Finish and merge `docs/friend-onboarding-setup`, then start `feat/setup-doctor` as the first code milestone for reusable-user onboarding. Keep all live-safe defaults: no Discord sends, no R2 `--execute`, and no Meta publish `--execute` unless explicitly authorized in the active session.
+Pause `feat/managed-r2-staging-mvp`. Start with a planning milestone such as `docs/recommendation-engine-roadmap` to define Post Relay's true recommendation engine: local signals, deterministic scoring, CLI output, safety boundaries, and the first implementation slice. Keep all live-safe defaults: no Discord sends, no R2 `--execute`, and no Meta publish `--execute` unless explicitly authorized in the active session.
