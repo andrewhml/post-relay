@@ -1480,11 +1480,11 @@ Current branch result: `59 passed` focused; `248 passed` full suite.
 .venv/bin/python -m pytest -q
 ```
 
-### PR #84 / Milestone 52: `feat/r2-setup-doctor` (open)
+### PR #84 / Milestone 52: `feat/r2-setup-doctor` (merged)
 
 **Goal:** Make self-managed R2 readiness easier to verify for technical beta users before they attempt dry-run upload planning or any live R2 upload execution.
 
-**Delivered behavior in branch so far:**
+**Delivered behavior:**
 - Extends `post-relay doctor` with detailed no-network R2 readiness checks when `r2_staging.enabled` is true.
 - Reports bucket presence, S3 `endpoint_url` presence, public `public_base_url` presence, required R2 env var names with values, and an aggregate `R2 staging ready` result.
 - Redacts all R2 secret/account/access-key values from rendered output; only env var names and safe readiness labels are printed.
@@ -1500,14 +1500,29 @@ Current branch result: `59 passed` focused; `248 passed` full suite.
 .venv/bin/python -m pytest -q
 ```
 
-**Next-session start here:**
-1. Finish `feat/r2-setup-doctor`, run full tests, open/merge the PR, and sync `main`.
-2. After this lands, return to `feat/managed-r2-staging-mvp` only after self-managed friend setup has been proven enough to justify the managed convenience layer.
-3. Keep live-safe defaults: no Discord sends, no R2 `--execute`, and no Meta publish `--execute` unless explicitly authorized in the active session.
+### PR #85 / Milestone 53: pause managed staging; investigate smarter agent and recommendations
+
+**Decision:** Andrew paused the managed R2 staging direction after PR #84. Do not start `feat/managed-r2-staging-mvp` unless he explicitly reactivates that path.
+
+**Near-term goal:** Find higher-leverage opportunities that make Post Relay a smarter operating agent and lay the foundation for a true recommendation engine, instead of adding more setup/staging infrastructure.
+
+**Potential milestone branches to plan next:**
+- `docs/recommendation-engine-roadmap`: use `docs/plans/recommendation-engine-roadmap.md` to define recommendation inputs, scoring model, safety boundaries, and first local-only deliverables.
+- `feat/recommendation-signal-baseline`: read existing local signals such as candidate metadata, approval/revision history, post snapshots, insights, follower summaries, schedule history, and published payload traits into a deterministic advisory summary.
+- `feat/candidate-ranking-signals`: rank candidate groups by explainable local features such as recency, media count, orientation/export readiness, prior location/topic diversity, and existing performance hints.
+- `feat/smarter-context-questions`: reduce unnecessary interview questions by reusing stored post context, folder descriptors, known trip/location hints, and prior accepted guided-package fields.
+- `feat/schedule-recommendations`: turn advisory analytics/follower summaries into local schedule suggestions without mutating posts or scheduling automatically.
+
+**Recommendation-engine safety rules:**
+- Keep all recommendation output advisory and explainable until several real posts provide enough signal.
+- Prefer deterministic local scoring and transparent rationale before model-generated ranking.
+- Do not mutate posts, approvals, schedules, Discord state, R2 staging, or Meta state from a recommendation command.
+- Do not call Discord, R2, or Meta publish paths from recommendation work.
+- Read-only Meta insights/account metric collection remains explicit `--execute` only; recommendation commands should consume stored local snapshots by default.
 
 ## Later milestones
 
-- `feat/managed-r2-staging-mvp`: allow selected publish assets to stage through a managed path after BYO R2 friend setup is proven and the managed design is reviewed.
+- `feat/managed-r2-staging-mvp` (paused): allow selected publish assets to stage through a managed path only if Andrew reactivates the managed staging direction after BYO R2 friction justifies it.
 - Video/reel validation after feed/carousel path is reliable.
 - Per-media carousel alt text validation: model/store one accessibility note per selected media item, render it in final review, validate whether Instagram Graph supports any automated alt-text field for the active API/app combination, and keep unsupported fields review-only/manual without silently sending them to Meta.
 - Generated local tags or perceptual/semantic narrowing on top of the completed no-network dimensions/EXIF enrichment, if kept auditable and local-first.

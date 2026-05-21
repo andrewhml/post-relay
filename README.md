@@ -31,7 +31,7 @@ Start with the lightest mode that gives you value.
 | Local preview | Scan local processed folders, build candidate posts, render contact sheets, plan copy | No |
 | Connected Meta tester | Validate your own Facebook Page + professional Instagram account through the official Graph path | Yes |
 | Self-managed R2 staging | Stage selected publish assets to your own public HTTPS bucket for Meta publishing | Optional |
-| Managed staging | Future beta path where selected media can be staged without each user creating R2 credentials | Planned |
+| Managed staging | Future beta path where selected media can be staged without each user creating R2 credentials | Paused |
 
 For the full setup guide, see `docs/setup-own-instance.md`.
 
@@ -121,11 +121,17 @@ Token extension dry-run and execute path:
 
 Publishing is guarded and uses official Meta/Facebook Graph routes only. Public HTTPS media URLs are required for Meta publish containers; local file paths are not sent directly to Meta.
 
+## Recommendation-engine direction
+
+Post Relay's next product direction is making the agent smarter rather than adding more staging infrastructure. See `docs/plans/recommendation-engine-roadmap.md` for the current planning baseline. Recommendation work should start from local, auditable signals already present in the system: candidate metadata, folder/year/filename descriptors, selected media order, crop/export readiness, approvals and revisions, scheduled/published payloads, stored read-only insights, and follower-growth summaries.
+
+Early recommendation milestones should stay advisory and deterministic: rank candidate groups, explain why a set is promising, suggest post type/caption angle/schedule windows, and reduce unnecessary context questions by reusing prior accepted context. They should not mutate posts, approvals, schedules, Discord state, R2 staging, or Meta state; read-only Meta collection remains behind explicit analytics `--execute` commands and recommendation commands should consume stored local snapshots by default.
+
 ## Optional R2 staging
 
 R2 staging is optional and exists to provide public HTTPS media URLs for selected publish assets. For the first friend/beta round, users should bring their own Cloudflare R2 bucket; see `docs/byo-r2-bucket-setup.md` for the exact Cloudflare UI path and Post Relay config.
 
-The current implementation supports self-managed R2 credentials. Managed staging for friends/beta users is designed in `docs/plans/managed-r2-staging-design.md`; it remains a later convenience layer and should not expose raw shared R2 credentials to users.
+The current implementation supports self-managed R2 credentials. Managed staging for friends/beta users is designed in `docs/plans/managed-r2-staging-design.md`, but that direction is paused for now while Post Relay focuses on smarter agent behavior and recommendation-engine foundations. Do not revive managed staging unless Andrew explicitly reactivates it; it must still avoid exposing raw shared R2 credentials to users.
 
 Configure non-secret bucket settings in `config/photo_sources.yaml` and secrets in `.env`:
 

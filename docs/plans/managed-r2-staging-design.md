@@ -314,4 +314,4 @@ Integration tests should use a fake staging service transport before any live Cl
 
 ## Recommended next milestone
 
-For the first friend/beta round, do not implement managed staging yet. First document and validate bring-your-own R2 bucket setup for technical users, then add a self-managed R2 setup diagnostic. Return to `feat/managed-r2-staging-mvp` only after BYO R2 onboarding proves where the friction remains.
+For the first friend/beta round, do not implement managed staging yet. The BYO R2 setup docs and self-managed R2 doctor now cover the technical-user path. As of the post-PR #84 roadmap pause, leave `feat/managed-r2-staging-mvp` on hold unless Andrew explicitly reactivates this direction; near-term engineering should focus instead on smarter agent behavior and recommendation-engine foundations.

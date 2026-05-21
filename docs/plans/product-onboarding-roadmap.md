@@ -157,11 +157,13 @@ The onboarding ladder is:
 
 **Safety:** Diagnostics must not upload, delete, publish, or print credentials.
 
-## Milestone 9: `feat/managed-r2-staging-mvp`
+## Milestone 9: `feat/managed-r2-staging-mvp` (paused)
 
 **Goal:** Let beta users stage only selected publish media without configuring their own R2 bucket.
 
-**Behavior:**
+**Status:** Paused after PR #84. Andrew wants to stop pushing this direction for now and look for higher-leverage opportunities such as making the agent smarter and starting a true recommendation engine. Keep this design as a future option, but do not start this branch unless Andrew explicitly reactivates managed staging.
+
+**Behavior if reactivated:**
 - Add managed staging config separate from local self-managed R2 config.
 - Upload selected included post media only.
 - Persist staged public URLs and expiry metadata locally.
@@ -170,6 +172,19 @@ The onboarding ladder is:
 - Keep dry-run planning as the default.
 
 **Safety:** Do not expose raw R2 credentials to users. Do not upload source folders or review artifacts by default. Do not publish.
+
+## Milestone 9 replacement direction: smarter agent and recommendation engine
+
+**Goal:** Make Post Relay better at choosing what to work on next, explaining why, and reducing repeated interview work before adding more setup/staging infrastructure.
+
+**Candidate first milestones:**
+- `docs/recommendation-engine-roadmap`: use `docs/plans/recommendation-engine-roadmap.md` to define local signals, scoring model, CLI surfaces, and safety boundaries for recommendations.
+- `feat/recommendation-signal-baseline`: aggregate existing local signals into an advisory summary without network calls or state mutation.
+- `feat/candidate-ranking-signals`: rank candidate groups by explainable signals such as media count, recency, orientation/export readiness, location/topic diversity, approval history, and stored performance hints.
+- `feat/smarter-context-questions`: suppress or rewrite context questions when folder descriptors, previous accepted packages, or local metadata already answer them.
+- `feat/schedule-recommendations`: suggest schedule windows from stored follower/account/post signals without scheduling automatically.
+
+**Safety:** Recommendation commands must be local-first, advisory, explainable, and dry-run/no-mutation by default. They may read stored local analytics snapshots and follower summaries, but they must not fetch live insights, send Discord messages, upload to R2, publish to Meta, mutate posts, approve content, approve publishing, or schedule posts unless a separate explicit command and active-session authorization does that work.
 
 ## Milestone 10: `feat/onboarding-status`
 
@@ -185,4 +200,4 @@ The onboarding ladder is:
 
 ## Later direction
 
-Only after local setup, Meta auth, BYO R2 staging, and later managed staging are proven with trusted testers should Post Relay consider hosted state, a web UI, app review for broader Meta distribution, or multi-tenant server-side workflows. Until then, keep the product local-first and make each optional integration layer valuable on its own.
+Managed staging is paused. Only revisit hosted state, web UI, app review for broader Meta distribution, multi-tenant server-side workflows, or managed R2 after Andrew explicitly reactivates that infrastructure direction. Until then, keep the product local-first and make the next optional layers valuable by improving recommendations, agent judgment, and review efficiency without increasing setup burden.
