@@ -92,7 +92,7 @@ Verification:
 .venv/bin/python -m pytest -q
 ```
 
-### Milestone C: `feat/chat-goal-onboarding`
+### Milestone C: `feat/chat-goal-onboarding` (PR #87)
 
 Make first-run chat guidance prompt for the active goal before the agent recommends a first post.
 

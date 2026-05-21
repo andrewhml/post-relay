@@ -1539,7 +1539,7 @@ Current branch result: `59 passed` focused; `248 passed` full suite.
 .venv/bin/python -m pytest -q
 ```
 
-### Current in-progress milestone: `feat/chat-goal-onboarding`
+### PR #87 / Current in-progress milestone: `feat/chat-goal-onboarding`
 
 **Goal:** When a user starts with Post Relay through their chat platform, prompt them to fill in the active goal information before the agent recommends a first post, while still pointing them through the existing local setup path if setup is incomplete.
 
