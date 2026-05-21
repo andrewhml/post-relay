@@ -125,6 +125,12 @@ Publishing is guarded and uses official Meta/Facebook Graph routes only. Public 
 
 Post Relay's next product direction is making the agent smarter rather than adding more staging infrastructure. See `docs/plans/recommendation-engine-roadmap.md` for the current planning baseline. Recommendation work should start from the active local user/agent goal artifact plus auditable signals already present in the system: candidate metadata, folder/year/filename descriptors, selected media order, crop/export readiness, approvals and revisions, scheduled/published payloads, stored read-only insights, and follower-growth summaries.
 
+The local signal baseline command summarizes which recommendation inputs are present, sparse, or missing without making network calls or mutating state:
+
+```bash
+.venv/bin/post-relay recommendations signals --db data/post_relay.sqlite
+```
+
 The active goal artifact gives the agent a durable north star for proactive suggestions and question reduction:
 
 ```bash
