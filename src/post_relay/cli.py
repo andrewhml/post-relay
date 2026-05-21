@@ -163,7 +163,7 @@ from post_relay.r2_staging_upload import (
     cleanup_r2_staged_objects_for_draft,
     upload_r2_staging_for_draft,
 )
-from post_relay.recommendations import render_signal_baseline
+from post_relay.recommendations import render_candidate_rankings, render_signal_baseline
 from post_relay.review_artifacts import DraftNotFound as ArtifactDraftNotFound
 from post_relay.review_artifacts import (
     OversizedReviewArtifactSet,
@@ -344,6 +344,17 @@ def recommendations_signals(
     connection = connect_db(db)
     initialize_db(connection)
     typer.echo(render_signal_baseline(connection))
+
+
+@recommendations_app.command("candidates")
+def recommendations_candidates(
+    limit: int = typer.Option(10, "--limit", min=1, help="Maximum number of candidate groups to rank."),
+    db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
+) -> None:
+    """Rank candidate groups using deterministic local advisory signals."""
+    connection = connect_db(db)
+    initialize_db(connection)
+    typer.echo(render_candidate_rankings(connection, limit=limit))
 
 
 @db_app.command("init")
