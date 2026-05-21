@@ -123,7 +123,7 @@ Implemented behavior:
 - Prints next safe commands for collecting or reviewing missing local signals.
 - Makes no network calls and mutates no posts, approvals, schedules, opportunities, publish attempts, analytics rows, Discord, R2, or Meta state.
 
-### Milestone E: `feat/candidate-ranking-signals` (current branch)
+### Milestone E: `feat/candidate-ranking-signals` (PR #89)
 
 Rank candidate groups with deterministic, explainable local scoring.
 

@@ -1571,7 +1571,7 @@ Current branch result: `59 passed` focused; `248 passed` full suite.
 - Prints next safe commands to collect or review missing local signals.
 - Makes no network calls and does not mutate posts, approvals, schedules, opportunities, publish attempts, analytics rows, Discord, R2, or Meta state.
 
-### Current in-progress milestone: `feat/candidate-ranking-signals`
+### PR #89 / Current in-progress milestone: `feat/candidate-ranking-signals`
 
 **Goal:** Rank candidate groups with deterministic explainable local scoring, using the signal baseline and active goal first.
 
