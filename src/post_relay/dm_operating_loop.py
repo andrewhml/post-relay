@@ -14,6 +14,7 @@ from post_relay.repository import (
 )
 from post_relay.scheduled_posts import build_scheduled_post_feedback
 from post_relay.state import ApprovalType, DraftState
+from post_relay.user_goals import get_active_user_goal
 
 
 class DmNextActionError(ValueError):
@@ -81,6 +82,35 @@ def build_dm_next_action_plan(
                         "Candidate selection must happen before photo selection, copy, scheduling, or approvals.",
                     ],
                     safety_notes=_base_safety_notes(),
+                ),
+            )
+        if get_active_user_goal(connection) is None:
+            return _with_schedule_feedback(
+                connection,
+                DmNextActionPlan(
+                    action="goal_onboarding",
+                    summary="Ask the user to agree on the active user/agent goal before recommending a first post.",
+                    command=(
+                        'post-relay goals init --title "Travel account north star" '
+                        '--statement "<what are we trying to achieve?>" '
+                        '--target-audience "<who should this help?>" '
+                        '--pillar "<repeatable content theme>" '
+                        '--cadence "<posting rhythm>" '
+                        '--metric "<success signal>" '
+                        '--strategy-note "<how should the agent steer choices?>" '
+                        '--constraint "<what should the agent avoid?>" '
+                        '--reviewed-by <name> --db data/post_relay.sqlite'
+                    ),
+                    draft_id=None,
+                    thread_id=None,
+                    status=None,
+                    rationale=[
+                        "No active user/agent goal is stored yet, so the agent does not have an agreed north star for suggestions.",
+                        "Prompt for: What kind of account are we trying to build? Who is it for? What content pillars, cadence, success metrics, and constraints should guide recommendations?",
+                        "If local setup is not complete yet, first run: post-relay setup --photo-root <processed-photo-folder>",
+                    ],
+                    safety_notes=_base_safety_notes()
+                    + ["This onboarding prompt is advisory and does not create posts, approvals, schedules, uploads, or publish attempts."],
                 ),
             )
         drafts = list_drafts(connection)

@@ -1520,7 +1520,7 @@ Current branch result: `59 passed` focused; `248 passed` full suite.
 - Do not call Discord, R2, or Meta publish paths from recommendation work.
 - Read-only Meta insights/account metric collection remains explicit `--execute` only; recommendation commands should consume stored local snapshots by default.
 
-### PR #86 / Current in-progress milestone: `feat/user-goal-artifact`
+### PR #86 / Milestone 54: `feat/user-goal-artifact` (merged)
 
 **Goal:** Add a durable local goal artifact that the user and agent can agree on and use as the north star for future recommendations.
 
@@ -1530,12 +1530,33 @@ Current branch result: `59 passed` focused; `248 passed` full suite.
 - Captures title, goal statement, target audience, pillars, cadence, metrics, strategy notes, constraints, reviewer, and change note.
 - Renders a compact advisory agent brief that explicitly says it made no Discord, R2, or Meta calls and did not mutate posts, approvals, schedules, or publish state.
 
-**Next after merge:** Start `feat/recommendation-signal-baseline` so recommendation commands can combine the active goal artifact with local state coverage before ranking candidates.
+**Next after merge:** Start `feat/chat-goal-onboarding` so first-run setup/chat surfaces ask the user to fill in the goal artifact before the agent recommends a first post. Then start `feat/recommendation-signal-baseline` so recommendation commands can combine the active goal artifact with local state coverage before ranking candidates.
 
 **Verification:**
 
 ```bash
 .venv/bin/python -m pytest tests/test_user_goals.py -q
+.venv/bin/python -m pytest -q
+```
+
+### PR #87 / Current in-progress milestone: `feat/chat-goal-onboarding`
+
+**Goal:** When a user starts with Post Relay through their chat platform, prompt them to fill in the active goal information before the agent recommends a first post, while still pointing them through the existing local setup path if setup is incomplete.
+
+**Delivered behavior in this branch:**
+- `post-relay setup` prints a `goals init` next command after the doctor command and before scan/build commands.
+- `post-relay dm next-action` returns `Action: goal_onboarding` when no active post/thread is in progress and no active user/agent goal exists.
+- The onboarding prompt asks for goal statement, target audience, pillars, cadence, success metrics, strategy notes, and constraints, and points incomplete local setup to `post-relay setup --photo-root <processed-photo-folder>`.
+- Existing active-thread and post-scoped DM flows continue to take precedence so the agent does not interrupt in-progress work.
+
+**Safety rule:** This milestone is local/advisory only. It must not send Discord messages, call R2 or Meta, create posts, mutate approvals, schedule posts, upload media, create publish attempts, or publish.
+
+**Next after merge:** Start `feat/recommendation-signal-baseline`.
+
+**Verification:**
+
+```bash
+.venv/bin/python -m pytest tests/test_dm_operating_loop.py tests/test_setup_wizard.py -q
 .venv/bin/python -m pytest -q
 ```
 

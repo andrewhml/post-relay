@@ -63,6 +63,17 @@ def run_setup_wizard(
 
     next_commands = [
         f"post-relay doctor --config {config_path.as_posix()} --db {db_path.as_posix()} --env-file {env_file.as_posix()}",
+        (
+            'post-relay goals init --title "Travel account north star" '
+            '--statement "<what are we trying to achieve?>" '
+            '--target-audience "<who should this help?>" '
+            '--pillar "<repeatable content theme>" '
+            '--cadence "<posting rhythm>" '
+            '--metric "<success signal>" '
+            '--strategy-note "<how should the agent steer choices?>" '
+            '--constraint "<what should the agent avoid?>" '
+            f"--reviewed-by <name> --db {db_path.as_posix()}"
+        ),
         f"post-relay index scan --config {config_path.as_posix()} --db {db_path.as_posix()}",
         f"post-relay library stats --db {db_path.as_posix()}",
         f"post-relay candidates build --db {db_path.as_posix()}",

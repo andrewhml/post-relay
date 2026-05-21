@@ -14,6 +14,7 @@ from post_relay.indexer import index_photo_sources
 from post_relay.repository import list_candidate_groups
 from post_relay.scheduling import approve_draft_for_publishing, request_publish_approval, schedule_draft
 from post_relay.state import DraftState
+from post_relay.user_goals import upsert_active_user_goal
 
 
 runner = CliRunner()
@@ -60,6 +61,43 @@ def test_dm_next_action_routes_open_intake_thread_to_candidate_selection_without
     assert "post-relay dm intake --message \"choose candidate #<id>\"" in text
     assert "No Discord, Meta, or R2 network calls were made." in text
     assert root.as_posix() not in text
+
+
+def test_dm_next_action_prompts_for_goal_before_first_chat_post_when_goal_missing(tmp_path: Path):
+    connection, root = _build_fixture_library(tmp_path)
+
+    plan = build_dm_next_action_plan(connection, discord_channel_id="dm-new-user")
+    text = plan.to_text()
+
+    assert plan.action == "goal_onboarding"
+    assert plan.draft_id is None
+    assert plan.thread_id is None
+    assert "Ask the user to agree on the active user/agent goal before recommending a first post." in text
+    assert "What kind of account are we trying to build?" in text
+    assert "post-relay goals init" in text
+    assert "post-relay setup --photo-root" in text
+    assert "No Discord, Meta, or R2 network calls were made." in text
+    assert root.as_posix() not in text
+
+
+def test_dm_next_action_starts_intake_after_goal_exists(tmp_path: Path):
+    connection, _root = _build_fixture_library(tmp_path)
+    upsert_active_user_goal(
+        connection,
+        title="Travel north star",
+        goal_statement="Grow with saveable travel carousels.",
+        target_audience="Travelers planning trips.",
+        content_pillars=["city guides"],
+        desired_cadence="2 posts per week",
+        success_metrics=["saves"],
+        strategy_notes="Suggest one best next post.",
+        constraints=["avoid places not pictured"],
+        reviewed_by="tester",
+    )
+
+    plan = build_dm_next_action_plan(connection, discord_channel_id="dm-new-user")
+
+    assert plan.action == "start_intake"
 
 
 def test_dm_next_action_routes_drafting_post_to_photo_selection_and_guided_package(tmp_path: Path):
