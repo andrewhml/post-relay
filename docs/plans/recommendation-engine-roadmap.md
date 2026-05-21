@@ -111,7 +111,7 @@ Verification:
 .venv/bin/python -m pytest -q
 ```
 
-### Milestone D: `feat/recommendation-signal-baseline` (current branch)
+### Milestone D: `feat/recommendation-signal-baseline` (PR #88)
 
 Add a no-network command that summarizes available recommendation signals and data coverage. It should answer which local signals exist, which are missing, and which are too sparse to trust.
 

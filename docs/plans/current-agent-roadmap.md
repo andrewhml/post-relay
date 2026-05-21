@@ -1560,7 +1560,7 @@ Current branch result: `59 passed` focused; `248 passed` full suite.
 .venv/bin/python -m pytest -q
 ```
 
-### Current in-progress milestone: `feat/recommendation-signal-baseline`
+### PR #88 / Current in-progress milestone: `feat/recommendation-signal-baseline`
 
 **Goal:** Add a no-network recommendation command that summarizes available local signals and sparse/missing coverage before any candidate ranking work.
 
