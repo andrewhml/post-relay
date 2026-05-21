@@ -1480,7 +1480,7 @@ Current branch result: `59 passed` focused; `248 passed` full suite.
 .venv/bin/python -m pytest -q
 ```
 
-### PR TBD / Milestone 52: `feat/r2-setup-doctor` (current branch)
+### PR #84 / Milestone 52: `feat/r2-setup-doctor` (open)
 
 **Goal:** Make self-managed R2 readiness easier to verify for technical beta users before they attempt dry-run upload planning or any live R2 upload execution.
 
