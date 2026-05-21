@@ -1500,7 +1500,7 @@ Current branch result: `59 passed` focused; `248 passed` full suite.
 .venv/bin/python -m pytest -q
 ```
 
-### Milestone 53 direction: pause managed staging; investigate smarter agent and recommendations
+### PR #85 / Milestone 53: pause managed staging; investigate smarter agent and recommendations
 
 **Decision:** Andrew paused the managed R2 staging direction after PR #84. Do not start `feat/managed-r2-staging-mvp` unless he explicitly reactivates that path.
 
