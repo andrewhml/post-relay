@@ -123,19 +123,19 @@ Implemented behavior:
 - Prints next safe commands for collecting or reviewing missing local signals.
 - Makes no network calls and mutates no posts, approvals, schedules, opportunities, publish attempts, analytics rows, Discord, R2, or Meta state.
 
-### Milestone E: `feat/candidate-ranking-signals`
+### Milestone E: `feat/candidate-ranking-signals` (PR #89)
 
 Rank candidate groups with deterministic, explainable local scoring.
 
-Initial scoring dimensions:
+Implemented behavior in this branch:
 
-- readiness: source files exist, dimensions known, export compatibility, not too large for review without narrowing
-- content potential: reasonable carousel size, coherent folder/year descriptors, strong filename/location hints
-- diversity: avoid repeating the same trip/location/topic too soon when local history exists
-- learning signal: prefer sets related to prior approvals or published posts that performed well, only when stored data is sufficient
-- effort: lower friction for posts with existing accepted context, selected media, or review artifacts
-
-The command should explain every score contribution and avoid pretending sparse analytics are conclusive.
+- Adds `post-relay recommendations candidates --limit 5 --db data/post_relay.sqlite`.
+- Scores candidate groups from local-only readiness, content-potential, active-goal, effort, and sparse-learning signals.
+- Explains every score contribution, warning, and next safe command per ranked candidate.
+- Checks source-file existence and dimensions from local indexed metadata only; no external enrichment is performed.
+- Penalizes oversized sets that need narrowing and existing posts that are already queued or completed.
+- Keeps sparse analytics advisory only and explicitly avoids weighting performance strongly until enough stored snapshots exist.
+- Makes no network calls and mutates no posts, approvals, schedules, opportunities, publish attempts, analytics rows, Discord, R2, or Meta state.
 
 ### Milestone F: `feat/smarter-context-questions`
 

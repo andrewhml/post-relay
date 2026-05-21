@@ -232,10 +232,10 @@ Run this before opening or merging any PR:
 .venv/bin/python -m pytest -q
 ```
 
-Expected current result after the recommendation signal baseline milestone:
+Expected current result after the candidate ranking signals milestone:
 
 ```text
-308 passed
+311 passed
 ```
 
 ## Milestone execution rules
@@ -1560,25 +1560,37 @@ Current branch result: `59 passed` focused; `248 passed` full suite.
 .venv/bin/python -m pytest -q
 ```
 
-### PR #88 / Current in-progress milestone: `feat/recommendation-signal-baseline`
+### PR #88 / Milestone 56: `feat/recommendation-signal-baseline` (merged)
 
 **Goal:** Add a no-network recommendation command that summarizes available local signals and sparse/missing coverage before any candidate ranking work.
 
-**Delivered behavior in this branch:**
+**Delivered behavior:**
 - Adds `post-relay recommendations signals` as a local advisory command.
 - Reports active goal presence, candidate groups, posts by lifecycle state, selected media, accepted guided packages, published snapshots, insight snapshots, follower snapshots, approvals, approval invalidations, scheduled posts, opportunities, and DM threads.
 - Prints sparse-signal warnings for missing goals/candidates/posts and insufficient published, insight, follower, or accepted package history.
 - Prints next safe commands to collect or review missing local signals.
 - Makes no network calls and does not mutate posts, approvals, schedules, opportunities, publish attempts, analytics rows, Discord, R2, or Meta state.
 
-**Safety rule:** This milestone is local/advisory only and is a coverage baseline, not a ranking engine. Recommendation output must not create posts, change lifecycle state, approve, schedule, upload, send Discord messages, call Meta/R2, or publish.
+### PR #89 / Current in-progress milestone: `feat/candidate-ranking-signals`
 
-**Next after merge:** Start `feat/candidate-ranking-signals` to rank candidate groups with deterministic explainable local scoring, using this signal baseline and the active goal first.
+**Goal:** Rank candidate groups with deterministic explainable local scoring, using the signal baseline and active goal first.
+
+**Delivered behavior in this branch:**
+- Adds `post-relay recommendations candidates` as a local advisory command.
+- Scores candidate groups from local-only readiness, content-potential, active-goal, effort, and sparse-learning signals.
+- Explains every score contribution, warning, and next safe command per ranked candidate.
+- Penalizes missing files, missing dimensions, oversized sets that need narrowing, and posts that are already queued or completed.
+- Keeps sparse analytics advisory only and does not weight performance strongly until enough stored snapshots exist.
+- Makes no network calls and does not mutate posts, approvals, schedules, opportunities, publish attempts, analytics rows, Discord, R2, or Meta state.
+
+**Safety rule:** Recommendation milestones are local/advisory only. Candidate ranking output must not create posts, change lifecycle state, approve, schedule, upload, send Discord messages, call Meta/R2, or publish.
+
+**Next after merge:** Start `feat/smarter-context-questions` to reduce unnecessary interview questions by reusing active goals, folder descriptors, and accepted local context before asking Andrew for missing publish-relevant facts.
 
 **Verification:**
 
 ```bash
-.venv/bin/python -m pytest tests/test_recommendation_signals.py -q
+.venv/bin/python -m pytest tests/test_candidate_ranking_signals.py -q
 .venv/bin/python -m pytest -q
 ```
 
