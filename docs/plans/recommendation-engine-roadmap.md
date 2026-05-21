@@ -111,16 +111,17 @@ Verification:
 .venv/bin/python -m pytest -q
 ```
 
-### Milestone D: `feat/recommendation-signal-baseline`
+### Milestone D: `feat/recommendation-signal-baseline` (PR #88)
 
 Add a no-network command that summarizes available recommendation signals and data coverage. It should answer which local signals exist, which are missing, and which are too sparse to trust.
 
-Initial behavior:
+Implemented behavior:
 
-- Count candidate groups, posts by lifecycle state, selected media, accepted guided packages, published snapshots, insight snapshots, follower snapshots, approvals, revisions/invalidations, scheduled posts, opportunities, and DM intake rows where available.
-- Report sparse-signal warnings, e.g. not enough published posts or insight snapshots to weight performance strongly.
-- Print next safe commands for collecting or reviewing missing local signals.
-- Make no network calls and mutate no state.
+- Adds `post-relay recommendations signals --db data/post_relay.sqlite`.
+- Counts candidate groups, posts by lifecycle state, selected media, accepted guided packages, published snapshots, insight snapshots, follower snapshots, approvals, revisions/invalidations, scheduled posts, opportunities, and DM threads where available.
+- Reports sparse-signal warnings, e.g. missing active goal/candidates/posts, not enough published posts or insight snapshots to weight performance strongly, and insufficient follower/package history.
+- Prints next safe commands for collecting or reviewing missing local signals.
+- Makes no network calls and mutates no posts, approvals, schedules, opportunities, publish attempts, analytics rows, Discord, R2, or Meta state.
 
 ### Milestone E: `feat/candidate-ranking-signals`
 

@@ -232,10 +232,10 @@ Run this before opening or merging any PR:
 .venv/bin/python -m pytest -q
 ```
 
-Expected current result after the R2 setup doctor milestone:
+Expected current result after the recommendation signal baseline milestone:
 
 ```text
-299 passed
+308 passed
 ```
 
 ## Milestone execution rules
@@ -1539,7 +1539,7 @@ Current branch result: `59 passed` focused; `248 passed` full suite.
 .venv/bin/python -m pytest -q
 ```
 
-### PR #87 / Current in-progress milestone: `feat/chat-goal-onboarding`
+### PR #87 / Milestone 55: `feat/chat-goal-onboarding` (merged)
 
 **Goal:** When a user starts with Post Relay through their chat platform, prompt them to fill in the active goal information before the agent recommends a first post, while still pointing them through the existing local setup path if setup is incomplete.
 
@@ -1557,6 +1557,28 @@ Current branch result: `59 passed` focused; `248 passed` full suite.
 
 ```bash
 .venv/bin/python -m pytest tests/test_dm_operating_loop.py tests/test_setup_wizard.py -q
+.venv/bin/python -m pytest -q
+```
+
+### PR #88 / Current in-progress milestone: `feat/recommendation-signal-baseline`
+
+**Goal:** Add a no-network recommendation command that summarizes available local signals and sparse/missing coverage before any candidate ranking work.
+
+**Delivered behavior in this branch:**
+- Adds `post-relay recommendations signals` as a local advisory command.
+- Reports active goal presence, candidate groups, posts by lifecycle state, selected media, accepted guided packages, published snapshots, insight snapshots, follower snapshots, approvals, approval invalidations, scheduled posts, opportunities, and DM threads.
+- Prints sparse-signal warnings for missing goals/candidates/posts and insufficient published, insight, follower, or accepted package history.
+- Prints next safe commands to collect or review missing local signals.
+- Makes no network calls and does not mutate posts, approvals, schedules, opportunities, publish attempts, analytics rows, Discord, R2, or Meta state.
+
+**Safety rule:** This milestone is local/advisory only and is a coverage baseline, not a ranking engine. Recommendation output must not create posts, change lifecycle state, approve, schedule, upload, send Discord messages, call Meta/R2, or publish.
+
+**Next after merge:** Start `feat/candidate-ranking-signals` to rank candidate groups with deterministic explainable local scoring, using this signal baseline and the active goal first.
+
+**Verification:**
+
+```bash
+.venv/bin/python -m pytest tests/test_recommendation_signals.py -q
 .venv/bin/python -m pytest -q
 ```
 

@@ -163,6 +163,7 @@ from post_relay.r2_staging_upload import (
     cleanup_r2_staged_objects_for_draft,
     upload_r2_staging_for_draft,
 )
+from post_relay.recommendations import render_signal_baseline
 from post_relay.review_artifacts import DraftNotFound as ArtifactDraftNotFound
 from post_relay.review_artifacts import (
     OversizedReviewArtifactSet,
@@ -207,6 +208,7 @@ discord_app = typer.Typer(help="Discord DM integration commands.")
 opportunities_app = typer.Typer(help="Local post opportunity commands.")
 analytics_app = typer.Typer(help="Post-publish analytics and feedback commands.")
 goals_app = typer.Typer(help="User/agent goal artifact commands.")
+recommendations_app = typer.Typer(help="Local advisory recommendation commands.")
 draft_questions_app = typer.Typer(help="Post context question commands.")
 draft_artifacts_app = typer.Typer(help="Post review artifact commands.")
 draft_final_preview_artifact_app = typer.Typer(help="Post final preview artifact commands.")
@@ -222,6 +224,7 @@ app.add_typer(discord_app, name="discord")
 app.add_typer(opportunities_app, name="opportunities")
 app.add_typer(analytics_app, name="analytics")
 app.add_typer(goals_app, name="goals")
+app.add_typer(recommendations_app, name="recommendations")
 drafts_app.add_typer(draft_questions_app, name="questions")
 drafts_app.add_typer(draft_artifacts_app, name="artifacts")
 drafts_app.add_typer(draft_final_preview_artifact_app, name="final-preview-artifact")
@@ -331,6 +334,16 @@ def goals_agent_brief(db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQL
     connection = connect_db(db)
     initialize_db(connection)
     typer.echo(render_user_goal_agent_brief(connection))
+
+
+@recommendations_app.command("signals")
+def recommendations_signals(
+    db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
+) -> None:
+    """Summarize local recommendation signal coverage without side effects."""
+    connection = connect_db(db)
+    initialize_db(connection)
+    typer.echo(render_signal_baseline(connection))
 
 
 @db_app.command("init")
