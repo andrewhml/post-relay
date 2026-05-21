@@ -9,7 +9,7 @@ Post Relay started as Andrew's personal workflow for the `andrewhml` Creator acc
 Post Relay is experimental and local-first. The current app supports:
 
 - folder-based local media indexing with dimensions/orientation and available EXIF date/camera/lens metadata
-- SQLite-backed candidates, posts, approvals, schedules, analytics snapshots, and opportunity records
+- SQLite-backed candidates, posts, approvals, schedules, analytics snapshots, opportunity records, and active user/agent goal artifacts
 - staged local review artifacts: Stage 1 selection, Stage 2 crop/framing, Stage 3 final preview
 - explicit media selection, ordering, lead image, crop/center feedback, and approval invalidation on material edits
 - hook/caption/metadata package planning and acceptance
@@ -123,9 +123,28 @@ Publishing is guarded and uses official Meta/Facebook Graph routes only. Public 
 
 ## Recommendation-engine direction
 
-Post Relay's next product direction is making the agent smarter rather than adding more staging infrastructure. See `docs/plans/recommendation-engine-roadmap.md` for the current planning baseline. Recommendation work should start from local, auditable signals already present in the system: candidate metadata, folder/year/filename descriptors, selected media order, crop/export readiness, approvals and revisions, scheduled/published payloads, stored read-only insights, and follower-growth summaries.
+Post Relay's next product direction is making the agent smarter rather than adding more staging infrastructure. See `docs/plans/recommendation-engine-roadmap.md` for the current planning baseline. Recommendation work should start from the active local user/agent goal artifact plus auditable signals already present in the system: candidate metadata, folder/year/filename descriptors, selected media order, crop/export readiness, approvals and revisions, scheduled/published payloads, stored read-only insights, and follower-growth summaries.
 
-Early recommendation milestones should stay advisory and deterministic: rank candidate groups, explain why a set is promising, suggest post type/caption angle/schedule windows, and reduce unnecessary context questions by reusing prior accepted context. They should not mutate posts, approvals, schedules, Discord state, R2 staging, or Meta state; read-only Meta collection remains behind explicit analytics `--execute` commands and recommendation commands should consume stored local snapshots by default.
+The active goal artifact gives the agent a durable north star for proactive suggestions and question reduction:
+
+```bash
+.venv/bin/post-relay goals init --db data/post_relay.sqlite \
+  --title "Travel account north star" \
+  --statement "Grow with saveable city-guide carousels." \
+  --target-audience "Travelers planning city walks." \
+  --pillar "city guides" \
+  --pillar "photo essays" \
+  --cadence "2-3 posts per week" \
+  --metric "saves" \
+  --metric "shares" \
+  --strategy-note "Recommend one best next post with rationale." \
+  --constraint "avoid places not pictured" \
+  --reviewed-by YOUR_NAME
+.venv/bin/post-relay goals show --db data/post_relay.sqlite
+.venv/bin/post-relay goals agent-brief --db data/post_relay.sqlite
+```
+
+Early recommendation milestones should stay advisory and deterministic: rank candidate groups, explain why a set is promising, suggest post type/caption angle/schedule windows, and reduce unnecessary context questions by reusing the active goal and prior accepted context. They should not mutate posts, approvals, schedules, Discord state, R2 staging, or Meta state; read-only Meta collection remains behind explicit analytics `--execute` commands and recommendation commands should consume stored local snapshots by default.
 
 ## Optional R2 staging
 

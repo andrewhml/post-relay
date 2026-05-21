@@ -1507,8 +1507,8 @@ Current branch result: `59 passed` focused; `248 passed` full suite.
 **Near-term goal:** Find higher-leverage opportunities that make Post Relay a smarter operating agent and lay the foundation for a true recommendation engine, instead of adding more setup/staging infrastructure.
 
 **Potential milestone branches to plan next:**
-- `docs/recommendation-engine-roadmap`: use `docs/plans/recommendation-engine-roadmap.md` to define recommendation inputs, scoring model, safety boundaries, and first local-only deliverables.
-- `feat/recommendation-signal-baseline`: read existing local signals such as candidate metadata, approval/revision history, post snapshots, insights, follower summaries, schedule history, and published payload traits into a deterministic advisory summary.
+- `feat/user-goal-artifact`: add the active user/agent goal artifact that future recommendation commands consult before scoring candidates, asking questions, or suggesting proactive opportunities.
+- `feat/recommendation-signal-baseline`: read existing local signals such as the active goal artifact, candidate metadata, approval/revision history, post snapshots, insights, follower summaries, schedule history, and published payload traits into a deterministic advisory summary.
 - `feat/candidate-ranking-signals`: rank candidate groups by explainable local features such as recency, media count, orientation/export readiness, prior location/topic diversity, and existing performance hints.
 - `feat/smarter-context-questions`: reduce unnecessary interview questions by reusing stored post context, folder descriptors, known trip/location hints, and prior accepted guided-package fields.
 - `feat/schedule-recommendations`: turn advisory analytics/follower summaries into local schedule suggestions without mutating posts or scheduling automatically.
@@ -1519,6 +1519,25 @@ Current branch result: `59 passed` focused; `248 passed` full suite.
 - Do not mutate posts, approvals, schedules, Discord state, R2 staging, or Meta state from a recommendation command.
 - Do not call Discord, R2, or Meta publish paths from recommendation work.
 - Read-only Meta insights/account metric collection remains explicit `--execute` only; recommendation commands should consume stored local snapshots by default.
+
+### PR #86 / Current in-progress milestone: `feat/user-goal-artifact`
+
+**Goal:** Add a durable local goal artifact that the user and agent can agree on and use as the north star for future recommendations.
+
+**Delivered behavior in this branch:**
+- Adds `user_goals` and `user_goal_versions` tables for the active goal and immutable version snapshots.
+- Adds `post-relay goals init`, `post-relay goals show`, and `post-relay goals agent-brief`.
+- Captures title, goal statement, target audience, pillars, cadence, metrics, strategy notes, constraints, reviewer, and change note.
+- Renders a compact advisory agent brief that explicitly says it made no Discord, R2, or Meta calls and did not mutate posts, approvals, schedules, or publish state.
+
+**Next after merge:** Start `feat/recommendation-signal-baseline` so recommendation commands can combine the active goal artifact with local state coverage before ranking candidates.
+
+**Verification:**
+
+```bash
+.venv/bin/python -m pytest tests/test_user_goals.py -q
+.venv/bin/python -m pytest -q
+```
 
 ## Later milestones
 

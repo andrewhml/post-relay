@@ -187,6 +187,13 @@ from post_relay.scheduling import (
 )
 from post_relay.setup_doctor import build_setup_doctor_report, render_setup_doctor_report
 from post_relay.setup_wizard import render_setup_wizard_result, run_setup_wizard
+from post_relay.user_goals import (
+    get_active_user_goal,
+    list_user_goal_versions,
+    render_user_goal,
+    render_user_goal_agent_brief,
+    upsert_active_user_goal,
+)
 
 app = typer.Typer(help="Post Relay local-first Instagram content workflow.")
 db_app = typer.Typer(help="Database commands.")
@@ -199,6 +206,7 @@ dm_app = typer.Typer(help="Private DM simulation commands.")
 discord_app = typer.Typer(help="Discord DM integration commands.")
 opportunities_app = typer.Typer(help="Local post opportunity commands.")
 analytics_app = typer.Typer(help="Post-publish analytics and feedback commands.")
+goals_app = typer.Typer(help="User/agent goal artifact commands.")
 draft_questions_app = typer.Typer(help="Post context question commands.")
 draft_artifacts_app = typer.Typer(help="Post review artifact commands.")
 draft_final_preview_artifact_app = typer.Typer(help="Post final preview artifact commands.")
@@ -213,6 +221,7 @@ app.add_typer(dm_app, name="dm")
 app.add_typer(discord_app, name="discord")
 app.add_typer(opportunities_app, name="opportunities")
 app.add_typer(analytics_app, name="analytics")
+app.add_typer(goals_app, name="goals")
 drafts_app.add_typer(draft_questions_app, name="questions")
 drafts_app.add_typer(draft_artifacts_app, name="artifacts")
 drafts_app.add_typer(draft_final_preview_artifact_app, name="final-preview-artifact")
@@ -270,6 +279,58 @@ def setup_wizard(
     typer.echo(render_setup_wizard_result(result))
     if not result.success:
         raise typer.Exit(code=1)
+
+
+@goals_app.command("init")
+def goals_init(
+    db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
+    title: str = typer.Option(..., "--title", help="Short name for the active user goal."),
+    statement: str = typer.Option(..., "--statement", help="North-star goal statement for the user and agent."),
+    target_audience: Optional[str] = typer.Option(None, "--target-audience", help="Audience the account is trying to serve."),
+    pillar: Optional[list[str]] = typer.Option(None, "--pillar", help="Repeatable content pillar for recommendations."),
+    cadence: Optional[str] = typer.Option(None, "--cadence", help="Desired posting cadence."),
+    metric: Optional[list[str]] = typer.Option(None, "--metric", help="Repeatable success metric."),
+    strategy_note: Optional[str] = typer.Option(None, "--strategy-note", help="Current strategy note for agent behavior."),
+    constraint: Optional[list[str]] = typer.Option(None, "--constraint", help="Repeatable safety/product constraint."),
+    reviewed_by: Optional[str] = typer.Option(None, "--reviewed-by", help="Person who reviewed/agreed to this goal."),
+    change_note: Optional[str] = typer.Option(None, "--change-note", help="Audit note for this version."),
+) -> None:
+    """Create or update the active local user/agent goal artifact."""
+    connection = connect_db(db)
+    initialize_db(connection)
+    goal = upsert_active_user_goal(
+        connection,
+        title=title,
+        goal_statement=statement,
+        target_audience=target_audience,
+        content_pillars=pillar or [],
+        desired_cadence=cadence,
+        success_metrics=metric or [],
+        strategy_notes=strategy_note,
+        constraints=constraint or [],
+        reviewed_by=reviewed_by,
+        change_note=change_note,
+    )
+    versions = list_user_goal_versions(connection, goal.id)
+    typer.echo(f"Saved active user goal #{goal.id} ({goal.title}) version {versions[-1].version_number}.")
+    typer.echo("This goal is advisory and local-first; it does not mutate posts, approvals, schedules, or publish state.")
+    typer.echo("No Discord, R2, or Meta network calls were made.")
+
+
+@goals_app.command("show")
+def goals_show(db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path.")) -> None:
+    """Show the active user/agent goal artifact."""
+    connection = connect_db(db)
+    initialize_db(connection)
+    typer.echo(render_user_goal(get_active_user_goal(connection)))
+
+
+@goals_app.command("agent-brief")
+def goals_agent_brief(db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path.")) -> None:
+    """Render a compact active-goal brief for future agent recommendations."""
+    connection = connect_db(db)
+    initialize_db(connection)
+    typer.echo(render_user_goal_agent_brief(connection))
 
 
 @db_app.command("init")

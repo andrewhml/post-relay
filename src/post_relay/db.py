@@ -272,6 +272,36 @@ SCHEMA_STATEMENTS = [
         created_at text not null default current_timestamp
     )
     """,
+    """
+    create table if not exists user_goals (
+        id integer primary key,
+        title text not null,
+        goal_statement text not null,
+        target_audience text,
+        content_pillars_json text not null default '[]',
+        desired_cadence text,
+        success_metrics_json text not null default '[]',
+        strategy_notes text,
+        constraints_json text not null default '[]',
+        reviewed_by text,
+        status text not null default 'active',
+        created_at text not null default current_timestamp,
+        updated_at text not null default current_timestamp
+    )
+    """,
+    """
+    create table if not exists user_goal_versions (
+        id integer primary key,
+        goal_id integer not null,
+        version_number integer not null,
+        snapshot_json text not null,
+        changed_by text,
+        change_note text,
+        created_at text not null default current_timestamp,
+        unique(goal_id, version_number),
+        foreign key(goal_id) references user_goals(id)
+    )
+    """,
 ]
 
 
