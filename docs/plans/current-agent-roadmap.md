@@ -1439,11 +1439,11 @@ Current branch result: `59 passed` focused; `248 passed` full suite.
 2. Start `docs/managed-staging-design` only after OAuth login lands.
 3. Keep live-safe defaults: no Discord sends, no R2 `--execute`, and no Meta publish `--execute` unless explicitly authorized in the active session.
 
-### PR #82 / Milestone 50: `docs/managed-staging-design` (open)
+### PR #82 / Milestone 50: `docs/managed-staging-design` (merged)
 
 **Goal:** Design managed R2 staging before implementation so friends/beta users do not need raw Cloudflare R2 credentials.
 
-**Delivered behavior in branch so far:**
+**Delivered behavior:**
 - Adds `docs/plans/managed-r2-staging-design.md`.
 - Defines a managed staging service using invite/user auth, server-owned R2 credentials, presigned direct uploads, opaque object keys, and public HTTPS URLs suitable for Meta fetchers.
 - Documents TTL and cleanup policy, quota limits, local config/env shape, staged media records, CLI milestone shape, failure modes, rollback rules, privacy copy, security checklist, and future test checklist.
@@ -1459,12 +1459,36 @@ Current branch result: `59 passed` focused; `248 passed` full suite.
 
 **Next-session start here:**
 1. Finish `docs/managed-staging-design`, run full tests, open/merge the PR, and sync `main`.
-2. Start `feat/managed-r2-staging-mvp` only after the design is reviewed.
+2. Reassess first-round staging after design review; Andrew chose BYO R2 before managed staging, so start `docs/byo-r2-friend-setup` next.
+3. Keep live-safe defaults: no Discord sends, no R2 `--execute`, and no Meta publish `--execute` unless explicitly authorized in the active session.
+
+### PR #83 / Milestone 51: `docs/byo-r2-friend-setup` (open)
+
+**Goal:** Move the first friend/beta publish-staging path to bring-your-own Cloudflare R2 bucket instead of building managed staging immediately.
+
+**Delivered behavior in branch so far:**
+- Adds `docs/byo-r2-bucket-setup.md` with a technical setup path for Cloudflare R2 bucket, S3-compatible credentials, public HTTPS access, Post Relay config, dry-run upload planning, publish preflight, cleanup, and troubleshooting.
+- Documents the Cloudflare credential UI path: `Storage & databases` -> `R2 Object Storage` -> `Overview` -> right-side `Account Details` -> `{}` `Manage` -> `Account API Tokens` -> `Create Account API Token`.
+- Updates README, setup guide, `.env.example`, and `config/photo_sources.example.yaml` to make BYO R2 the recommended first-round staging path.
+- Repositions managed staging as a later convenience layer after self-managed friend setup has been proven.
+
+**Safety rule:** Do not share Andrew's R2 credentials. Users should use their own bucket and S3-compatible R2 Access Key ID / Secret Access Key. Generic Cloudflare API tokens are not enough. R2 upload remains dry-run-first and should include selected publish media only; no Discord, Meta publish, or cleanup execution is added by this docs milestone.
+
+**Verification:**
+
+```bash
+.venv/bin/python -m pytest -q
+```
+
+**Next-session start here:**
+1. Finish `docs/byo-r2-friend-setup`, run full tests, open/merge the PR, and sync `main`.
+2. Start `feat/r2-setup-doctor` to make self-managed R2 readiness easier to diagnose before returning to managed staging.
 3. Keep live-safe defaults: no Discord sends, no R2 `--execute`, and no Meta publish `--execute` unless explicitly authorized in the active session.
 
 ## Later milestones
 
-- `feat/managed-r2-staging-mvp`: allow selected publish assets to stage through a managed path once the design is reviewed.
+- `feat/r2-setup-doctor`: extend diagnostics for self-managed R2 config/env readiness, redacting secrets and avoiding upload/delete/publish side effects.
+- `feat/managed-r2-staging-mvp`: allow selected publish assets to stage through a managed path after BYO R2 friend setup is proven and the managed design is reviewed.
 - Video/reel validation after feed/carousel path is reliable.
 - Per-media carousel alt text validation: model/store one accessibility note per selected media item, render it in final review, validate whether Instagram Graph supports any automated alt-text field for the active API/app combination, and keep unsupported fields review-only/manual without silently sending them to Meta.
 - Generated local tags or perceptual/semantic narrowing on top of the completed no-network dimensions/EXIF enrichment, if kept auditable and local-first.

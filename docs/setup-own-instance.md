@@ -152,12 +152,15 @@ Live publish commands remain explicitly gated by approvals, schedule checks, pub
 
 Meta publishing needs public HTTPS media URLs. R2 staging is one way to make selected publish assets available to Meta.
 
+For the first friend/beta round, use a bring-your-own-bucket setup. Managed staging is designed for later, but the current implementation already supports self-managed R2 well enough for technical users. The complete setup guide is `docs/byo-r2-bucket-setup.md`.
+
 For your own R2 bucket:
 
-1. Create a Cloudflare R2 bucket.
+1. Create or choose a Cloudflare R2 bucket dedicated to temporary Post Relay staging.
 2. Create S3-compatible R2 credentials. A generic Cloudflare API token is not enough.
-3. Configure `r2_staging` in `config/photo_sources.yaml`.
-4. Put secrets in `.env`:
+3. In Cloudflare, the credential path is `Storage & databases` -> `R2 Object Storage` -> `Overview` -> right-side `Account Details` -> `{}` `Manage` -> `Account API Tokens` -> `Create Account API Token`.
+4. Configure `r2_staging` in `config/photo_sources.yaml` with your bucket, S3 endpoint URL, public base URL, and Post Relay-only prefix.
+5. Put secrets in `.env`:
 
 ```bash
 POST_RELAY_R2_ACCOUNT_ID=YOUR_CLOUDFLARE_ACCOUNT_ID

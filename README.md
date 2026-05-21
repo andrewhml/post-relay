@@ -123,9 +123,9 @@ Publishing is guarded and uses official Meta/Facebook Graph routes only. Public 
 
 ## Optional R2 staging
 
-R2 staging is optional and exists to provide public HTTPS media URLs for selected publish assets.
+R2 staging is optional and exists to provide public HTTPS media URLs for selected publish assets. For the first friend/beta round, users should bring their own Cloudflare R2 bucket; see `docs/byo-r2-bucket-setup.md` for the exact Cloudflare UI path and Post Relay config.
 
-The current implementation supports self-managed R2 credentials. Managed staging for friends/beta users is designed in `docs/plans/managed-r2-staging-design.md`; it is not implemented yet and should not expose raw shared R2 credentials to users.
+The current implementation supports self-managed R2 credentials. Managed staging for friends/beta users is designed in `docs/plans/managed-r2-staging-design.md`; it remains a later convenience layer and should not expose raw shared R2 credentials to users.
 
 Configure non-secret bucket settings in `config/photo_sources.yaml` and secrets in `.env`:
 

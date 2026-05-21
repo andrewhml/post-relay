@@ -314,4 +314,4 @@ Integration tests should use a fake staging service transport before any live Cl
 
 ## Recommended next milestone
 
-Implement `feat/managed-r2-staging-mvp` only after reviewing this design. The MVP should start with fake-service tests and dry-run planning before any live upload path.
+For the first friend/beta round, do not implement managed staging yet. First document and validate bring-your-own R2 bucket setup for technical users, then add a self-managed R2 setup diagnostic. Return to `feat/managed-r2-staging-mvp` only after BYO R2 onboarding proves where the friction remains.
