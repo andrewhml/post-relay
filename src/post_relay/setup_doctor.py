@@ -4,6 +4,7 @@ import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional
+from urllib.parse import urlparse
 
 from post_relay.config import PostRelayConfig, load_config
 
@@ -78,7 +79,7 @@ def build_setup_doctor_report(config_path: Path, db_path: Path, env_file: Path) 
         checks.extend(_photo_source_checks(loaded_config))
         checks.append(_writable_path_check("review artifact root writable", loaded_config.review_artifacts.root))
         checks.append(_writable_path_check("publish export root writable", loaded_config.publish_exports.root))
-        checks.append(_r2_check(loaded_config, env_values))
+        checks.extend(_r2_checks(loaded_config, env_values))
     else:
         checks.append(DoctorCheck("SKIP", "photo sources not checked", "config unavailable"))
         checks.append(DoctorCheck("SKIP", "review artifact root not checked", "config unavailable"))
@@ -160,28 +161,64 @@ def _writable_path_check(label: str, path: Path) -> DoctorCheck:
     return DoctorCheck("FAIL", label, f"missing and parent not writable: {path.as_posix()}")
 
 
-def _r2_check(config: PostRelayConfig, env_values: Dict[str, str]) -> DoctorCheck:
+def _r2_checks(config: PostRelayConfig, env_values: Dict[str, str]) -> List[DoctorCheck]:
     r2 = config.r2_staging
     if not r2.enabled:
-        return DoctorCheck("SKIP", "R2 staging disabled", "enable r2_staging only when you need public HTTPS media URLs")
+        return [DoctorCheck("SKIP", "R2 staging disabled", "enable r2_staging only when you need public HTTPS media URLs")]
 
-    missing_config = [
-        name
-        for name, value in [
-            ("bucket", r2.bucket),
-            ("endpoint_url", r2.endpoint_url),
-            ("public_base_url", r2.public_base_url),
-        ]
-        if not value
-    ]
+    checks: List[DoctorCheck] = []
+    missing_config: List[str] = []
+    if r2.bucket:
+        checks.append(DoctorCheck("PASS", "R2 bucket configured", "bucket name present"))
+    else:
+        missing_config.append("bucket")
+    if r2.endpoint_url:
+        checks.append(DoctorCheck("PASS", "R2 S3 endpoint URL configured", "endpoint_url is used only for S3 API uploads"))
+    else:
+        missing_config.append("endpoint_url")
+    if r2.public_base_url:
+        checks.append(DoctorCheck("PASS", "R2 public base URL configured", "public_base_url is used for Meta-fetchable object URLs"))
+    else:
+        missing_config.append("public_base_url")
     if missing_config:
-        return DoctorCheck("FAIL", "R2 config missing", ", ".join(missing_config))
+        checks.append(DoctorCheck("FAIL", "R2 config missing", ", ".join(missing_config)))
 
     required_env = [r2.account_id_env, r2.access_key_id_env, r2.secret_access_key_env]
     missing_env = _missing_env(required_env, env_values)
     if missing_env:
-        return DoctorCheck("FAIL", "R2 env missing", ", ".join(missing_env))
-    return DoctorCheck("PASS", "R2 staging configured", "required config and env var names are present")
+        checks.append(DoctorCheck("FAIL", "R2 env missing", ", ".join(missing_env)))
+    else:
+        checks.append(DoctorCheck("PASS", "R2 env present", "required env var names have values; values are redacted"))
+
+    checks.extend(_r2_url_separation_checks(r2.endpoint_url, r2.public_base_url))
+    if all(check.status != "FAIL" for check in checks):
+        checks.append(DoctorCheck("PASS", "R2 staging ready", "dry-run upload planning is ready; no network check was run"))
+    return checks
+
+
+def _r2_url_separation_checks(endpoint_url: Optional[str], public_base_url: Optional[str]) -> List[DoctorCheck]:
+    if not endpoint_url or not public_base_url:
+        return []
+    endpoint = endpoint_url.rstrip("/")
+    public = public_base_url.rstrip("/")
+    if endpoint == public:
+        return [
+            DoctorCheck(
+                "FAIL",
+                "R2 endpoint/public URL separated",
+                "endpoint_url is the S3 API URL; public_base_url must be the unauthenticated public HTTPS object base",
+            )
+        ]
+    public_host = urlparse(public).hostname or ""
+    if public_host.endswith("r2.cloudflarestorage.com"):
+        return [
+            DoctorCheck(
+                "WARN",
+                "R2 public base URL likely private S3 endpoint",
+                "verify public_base_url opens without cookies or auth headers before Meta publish preflight",
+            )
+        ]
+    return [DoctorCheck("PASS", "R2 endpoint/public URL separated", "S3 API endpoint and public object base differ")]
 
 
 def _env_group_check(label: str, required: Iterable[str], env_values: Dict[str, str], *, skip_label: str) -> DoctorCheck:

@@ -232,10 +232,10 @@ Run this before opening or merging any PR:
 .venv/bin/python -m pytest -q
 ```
 
-Expected current result after the meta OAuth login milestone:
+Expected current result after the R2 setup doctor milestone:
 
 ```text
-297 passed
+299 passed
 ```
 
 ## Milestone execution rules
@@ -1462,11 +1462,11 @@ Current branch result: `59 passed` focused; `248 passed` full suite.
 2. Reassess first-round staging after design review; Andrew chose BYO R2 before managed staging, so start `docs/byo-r2-friend-setup` next.
 3. Keep live-safe defaults: no Discord sends, no R2 `--execute`, and no Meta publish `--execute` unless explicitly authorized in the active session.
 
-### PR #83 / Milestone 51: `docs/byo-r2-friend-setup` (open)
+### PR #83 / Milestone 51: `docs/byo-r2-friend-setup` (merged)
 
 **Goal:** Move the first friend/beta publish-staging path to bring-your-own Cloudflare R2 bucket instead of building managed staging immediately.
 
-**Delivered behavior in branch so far:**
+**Delivered behavior:**
 - Adds `docs/byo-r2-bucket-setup.md` with a technical setup path for Cloudflare R2 bucket, S3-compatible credentials, public HTTPS access, Post Relay config, dry-run upload planning, publish preflight, cleanup, and troubleshooting.
 - Documents the Cloudflare credential UI path: `Storage & databases` -> `R2 Object Storage` -> `Overview` -> right-side `Account Details` -> `{}` `Manage` -> `Account API Tokens` -> `Create Account API Token`.
 - Updates README, setup guide, `.env.example`, and `config/photo_sources.example.yaml` to make BYO R2 the recommended first-round staging path.
@@ -1480,14 +1480,33 @@ Current branch result: `59 passed` focused; `248 passed` full suite.
 .venv/bin/python -m pytest -q
 ```
 
+### PR #84 / Milestone 52: `feat/r2-setup-doctor` (open)
+
+**Goal:** Make self-managed R2 readiness easier to verify for technical beta users before they attempt dry-run upload planning or any live R2 upload execution.
+
+**Delivered behavior in branch so far:**
+- Extends `post-relay doctor` with detailed no-network R2 readiness checks when `r2_staging.enabled` is true.
+- Reports bucket presence, S3 `endpoint_url` presence, public `public_base_url` presence, required R2 env var names with values, and an aggregate `R2 staging ready` result.
+- Redacts all R2 secret/account/access-key values from rendered output; only env var names and safe readiness labels are printed.
+- Flags the common configuration mistake where `public_base_url` is set to the same S3 API endpoint as `endpoint_url`, with explicit guidance that `public_base_url` must be an unauthenticated public HTTPS object base.
+- Updates README/setup/BYO R2 docs to put the enhanced doctor before R2 staging dry-run upload planning.
+
+**Safety rule:** This milestone is diagnostics-only. The doctor must not call Cloudflare/R2, upload objects, delete staged objects, call Discord, call Meta, publish, mutate posts, or print credentials.
+
+**Verification:**
+
+```bash
+.venv/bin/python -m pytest tests/test_setup_doctor.py -q
+.venv/bin/python -m pytest -q
+```
+
 **Next-session start here:**
-1. Finish `docs/byo-r2-friend-setup`, run full tests, open/merge the PR, and sync `main`.
-2. Start `feat/r2-setup-doctor` to make self-managed R2 readiness easier to diagnose before returning to managed staging.
+1. Finish `feat/r2-setup-doctor`, run full tests, open/merge the PR, and sync `main`.
+2. After this lands, return to `feat/managed-r2-staging-mvp` only after self-managed friend setup has been proven enough to justify the managed convenience layer.
 3. Keep live-safe defaults: no Discord sends, no R2 `--execute`, and no Meta publish `--execute` unless explicitly authorized in the active session.
 
 ## Later milestones
 
-- `feat/r2-setup-doctor`: extend diagnostics for self-managed R2 config/env readiness, redacting secrets and avoiding upload/delete/publish side effects.
 - `feat/managed-r2-staging-mvp`: allow selected publish assets to stage through a managed path after BYO R2 friend setup is proven and the managed design is reviewed.
 - Video/reel validation after feed/carousel path is reliable.
 - Per-media carousel alt text validation: model/store one accessibility note per selected media item, render it in final review, validate whether Instagram Graph supports any automated alt-text field for the active API/app combination, and keep unsupported fields review-only/manual without silently sending them to Meta.

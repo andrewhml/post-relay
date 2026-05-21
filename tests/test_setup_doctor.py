@@ -122,11 +122,91 @@ def test_setup_doctor_reports_r2_enabled_requires_config_and_secret_env(tmp_path
     report = build_setup_doctor_report(config_path=config_path, db_path=db_path, env_file=env_path)
     rendered = render_setup_doctor_report(report)
 
+    assert "PASS R2 bucket configured" in rendered
+    assert "PASS R2 S3 endpoint URL configured" in rendered
+    assert "PASS R2 public base URL configured" in rendered
     assert "FAIL R2 env missing" in rendered
     assert "POST_RELAY_R2_ACCESS_KEY_ID" in rendered
     assert "POST_RELAY_R2_SECRET_ACCESS_KEY" in rendered
     assert "acct-only" not in rendered
+    assert "No network calls were made." in rendered
     assert report.network_calls_made is False
+
+
+def test_setup_doctor_flags_r2_public_base_that_reuses_s3_endpoint(tmp_path: Path):
+    photo_root = tmp_path / "processed"
+    photo_root.mkdir()
+    config_path = tmp_path / "photo_sources.yaml"
+    artifact_root = tmp_path / "review_artifacts"
+    export_root = tmp_path / "publish_exports"
+    endpoint_url = "https://example-account.r2.cloudflarestorage.com"
+    config_path.write_text(
+        f"""
+photo_sources:
+  - name: processed
+    root: {photo_root.as_posix()}
+    source_type: processed_folder
+review_artifacts:
+  root: {artifact_root.as_posix()}
+publish_exports:
+  root: {export_root.as_posix()}
+r2_staging:
+  enabled: true
+  bucket: beta-post-relay
+  endpoint_url: {endpoint_url}
+  public_base_url: {endpoint_url}
+  prefix: post-relay/tester-a
+""".strip()
+    )
+    env_path = tmp_path / ".env"
+    env_path.write_text(
+        "\n".join(
+            [
+                "POST_RELAY_R2_ACCOUNT_ID=example-account",
+                "POST_RELAY_R2_ACCESS_KEY_ID=access-key-id",
+                "POST_RELAY_R2_SECRET_ACCESS_KEY=secret-access-key",
+            ]
+        )
+    )
+
+    report = build_setup_doctor_report(config_path=config_path, db_path=tmp_path / "post_relay.sqlite", env_file=env_path)
+    rendered = render_setup_doctor_report(report)
+
+    assert "FAIL R2 endpoint/public URL separated" in rendered
+    assert "endpoint_url is the S3 API URL" in rendered
+    assert "public_base_url must be the unauthenticated public HTTPS object base" in rendered
+    assert "secret-access-key" not in rendered
+    assert report.network_calls_made is False
+
+
+def test_setup_doctor_reports_r2_ready_without_printing_secret_values(tmp_path: Path):
+    photo_root = tmp_path / "processed"
+    photo_root.mkdir()
+    config_path = tmp_path / "photo_sources.yaml"
+    _write_config(config_path, photo_root, tmp_path / "review_artifacts", tmp_path / "publish_exports", r2_enabled=True)
+    env_path = tmp_path / ".env"
+    env_path.write_text(
+        "\n".join(
+            [
+                "POST_RELAY_R2_ACCOUNT_ID=example-account",
+                "POST_RELAY_R2_ACCESS_KEY_ID=access-key-id",
+                "POST_RELAY_R2_SECRET_ACCESS_KEY=secret-access-key",
+            ]
+        )
+    )
+
+    report = build_setup_doctor_report(config_path=config_path, db_path=tmp_path / "post_relay.sqlite", env_file=env_path)
+    rendered = render_setup_doctor_report(report)
+
+    assert "PASS R2 bucket configured" in rendered
+    assert "PASS R2 S3 endpoint URL configured" in rendered
+    assert "PASS R2 public base URL configured" in rendered
+    assert "PASS R2 env present" in rendered
+    assert "PASS R2 staging ready" in rendered
+    assert "example-account" not in rendered
+    assert "access-key-id" not in rendered
+    assert "secret-access-key" not in rendered
+    assert "No network calls were made." in rendered
 
 
 def test_setup_doctor_cli_outputs_report(tmp_path: Path):

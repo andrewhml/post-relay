@@ -131,7 +131,7 @@ The onboarding ladder is:
 - Local DB records for managed staged media.
 - Failure modes and rollback.
 
-## Milestone 7: `docs/byo-r2-friend-setup` (in progress)
+## Milestone 7: `docs/byo-r2-friend-setup` (merged)
 
 **Goal:** Make the first friend/beta publish-staging path use each user's own Cloudflare R2 bucket before building managed staging.
 
@@ -148,9 +148,11 @@ The onboarding ladder is:
 **Goal:** Make self-managed R2 readiness easier to verify for technical beta users.
 
 **Behavior:**
-- Extend `post-relay doctor` or add a focused staging diagnostic for R2 config/env readiness.
-- Redact all secrets.
+- Extend `post-relay doctor` with more detailed self-managed R2 config/env diagnostics.
+- Redact all secrets and report only env var names/presence.
 - Validate required self-managed fields are present and distinguish S3 endpoint URL from public base URL.
+- Flag the common mistake of setting `public_base_url` to the same `*.r2.cloudflarestorage.com` S3 API endpoint used for uploads.
+- Keep all checks no-network; no upload/delete/publish side effects.
 - Optionally add an explicit network check behind a dry-run/execute gate later.
 
 **Safety:** Diagnostics must not upload, delete, publish, or print credentials.

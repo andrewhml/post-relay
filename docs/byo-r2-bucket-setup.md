@@ -114,6 +114,16 @@ The setup doctor checks whether the expected local files and env values are pres
 .venv/bin/post-relay doctor --config config/photo_sources.yaml --db data/post_relay.sqlite --env-file .env
 ```
 
+When `r2_staging.enabled` is true, the doctor checks self-managed R2 readiness without contacting Cloudflare:
+
+- bucket name is present
+- S3 `endpoint_url` is present
+- public `public_base_url` is present
+- the configured R2 env var names have local values
+- the public base URL has not accidentally been set to the same S3 API endpoint URL
+
+If the doctor reports `FAIL R2 endpoint/public URL separated`, keep `endpoint_url` as the S3 API URL (`https://YOUR_ACCOUNT_ID.r2.cloudflarestorage.com`) and set `public_base_url` to the unauthenticated public object URL base, such as your R2 custom domain.
+
 If `boto3` is missing, install the project dependencies from the repo root:
 
 ```bash
