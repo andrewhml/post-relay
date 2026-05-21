@@ -137,16 +137,17 @@ Implemented behavior in this branch:
 - Keeps sparse analytics advisory only and explicitly avoids weighting performance strongly until enough stored snapshots exist.
 - Makes no network calls and mutates no posts, approvals, schedules, opportunities, publish attempts, analytics rows, Discord, R2, or Meta state.
 
-### Milestone F: `feat/smarter-context-questions`
+### Milestone F: `feat/smarter-context-questions` (PR #90)
 
 Reduce unnecessary interview questions by using local context first.
 
-Behavior ideas:
+Implemented behavior in this branch:
 
-- Suppress questions already answered by accepted guided package fields, explicit draft content, or local folder descriptors.
-- Mark inferred facts as assumptions unless they are confirmed by stored user input.
-- Ask targeted follow-up questions only for publish-relevant uncertainty: exact location tag, story angle, people/collaborators, date-sensitive context, or accessibility details.
-- Keep freeform `location_text` local/review-only and never treat it as a Meta location tag.
+- Suppresses questions already answered by explicit draft content or local folder/year descriptors.
+- Uses local folder/year descriptors as assumptions for trip/date context instead of re-asking generic interview questions.
+- Adds a targeted `location_tag` follow-up only when an accepted guided package has freeform `location_text` but no reviewed resolved Meta Page tag.
+- Keeps freeform `location_text` local/review-only and never treats it as a Meta location tag.
+- Keeps question generation local-only and idempotent; it mutates only unresolved local context-question rows for the requested post.
 
 ### Milestone G: `feat/schedule-recommendations`
 

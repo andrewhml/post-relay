@@ -232,10 +232,10 @@ Run this before opening or merging any PR:
 .venv/bin/python -m pytest -q
 ```
 
-Expected current result after the candidate ranking signals milestone:
+Expected current result after the smarter context questions milestone:
 
 ```text
-311 passed
+314 passed
 ```
 
 ## Milestone execution rules
@@ -1571,11 +1571,11 @@ Current branch result: `59 passed` focused; `248 passed` full suite.
 - Prints next safe commands to collect or review missing local signals.
 - Makes no network calls and does not mutate posts, approvals, schedules, opportunities, publish attempts, analytics rows, Discord, R2, or Meta state.
 
-### PR #89 / Current in-progress milestone: `feat/candidate-ranking-signals`
+### PR #89 / `feat/candidate-ranking-signals` (merged)
 
 **Goal:** Rank candidate groups with deterministic explainable local scoring, using the signal baseline and active goal first.
 
-**Delivered behavior in this branch:**
+**Delivered behavior:**
 - Adds `post-relay recommendations candidates` as a local advisory command.
 - Scores candidate groups from local-only readiness, content-potential, active-goal, effort, and sparse-learning signals.
 - Explains every score contribution, warning, and next safe command per ranked candidate.
@@ -1583,14 +1583,26 @@ Current branch result: `59 passed` focused; `248 passed` full suite.
 - Keeps sparse analytics advisory only and does not weight performance strongly until enough stored snapshots exist.
 - Makes no network calls and does not mutate posts, approvals, schedules, opportunities, publish attempts, analytics rows, Discord, R2, or Meta state.
 
-**Safety rule:** Recommendation milestones are local/advisory only. Candidate ranking output must not create posts, change lifecycle state, approve, schedule, upload, send Discord messages, call Meta/R2, or publish.
+### PR #90 / Current in-progress milestone: `feat/smarter-context-questions`
 
-**Next after merge:** Start `feat/smarter-context-questions` to reduce unnecessary interview questions by reusing active goals, folder descriptors, and accepted local context before asking Andrew for missing publish-relevant facts.
+**Goal:** Reduce unnecessary interview questions by reusing stored local context before asking Andrew for missing publish-relevant facts.
+
+**Delivered behavior in this branch:**
+- `drafts questions generate` now suppresses generic trip/date questions when candidate folder/year descriptors already provide local assumptions.
+- Suppresses place, mood, and story-angle questions when explicit draft content already contains location and caption context.
+- Adds a targeted `location_tag` follow-up only after an accepted guided package has freeform `location_text` but no reviewed resolved Meta Page tag.
+- Keeps freeform `location_text` local/review-only; the targeted follow-up asks whether to search Meta Pages instead of treating the text as a Meta tag.
+- Keeps generation idempotent and local-only; no posts, approvals, schedules, Discord state, R2 staging, or Meta state are mutated.
+
+**Safety rule:** Recommendation/question-reduction milestones are local/advisory only. Context question generation must not create or approve posts, schedule, upload, send Discord messages, call Meta/R2, or publish.
+
+**Next after merge:** Start `feat/schedule-recommendations` to suggest local posting windows from stored queue/account/post signals and priors without scheduling automatically.
 
 **Verification:**
 
 ```bash
-.venv/bin/python -m pytest tests/test_candidate_ranking_signals.py -q
+.venv/bin/python -m pytest tests/test_context_questions.py tests/test_draft_review_package.py tests/test_cli.py::test_cli_draft_context_questions_generate_and_list -q
+.venv/bin/post-relay drafts questions generate --post-id 1 --db data/post_relay.sqlite
 .venv/bin/python -m pytest -q
 ```
 
