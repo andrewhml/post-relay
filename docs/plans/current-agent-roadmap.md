@@ -1462,7 +1462,7 @@ Current branch result: `59 passed` focused; `248 passed` full suite.
 2. Reassess first-round staging after design review; Andrew chose BYO R2 before managed staging, so start `docs/byo-r2-friend-setup` next.
 3. Keep live-safe defaults: no Discord sends, no R2 `--execute`, and no Meta publish `--execute` unless explicitly authorized in the active session.
 
-### PR TBD / Milestone 51: `docs/byo-r2-friend-setup` (in progress)
+### PR #83 / Milestone 51: `docs/byo-r2-friend-setup` (open)
 
 **Goal:** Move the first friend/beta publish-staging path to bring-your-own Cloudflare R2 bucket instead of building managed staging immediately.
 
