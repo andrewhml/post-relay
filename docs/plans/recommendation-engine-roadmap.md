@@ -20,6 +20,7 @@ Post Relay should become better at answering:
 
 Start with signals already in the local database or deterministic local files:
 
+- Active user/agent goal artifact: north-star statement, audience, content pillars, cadence, success metrics, strategy notes, constraints, and version history.
 - Candidate group features: source folder, year, file count, media type mix, filename descriptors, local aliases, and candidate post type.
 - Media features: dimensions, orientation, aspect ratio, EXIF date/camera/lens fields when available, crop feedback, inclusion/order/lead state, export readiness, missing-file status.
 - Draft/post lifecycle: status, selected post type, caption, hashtags, location text, resolved location tag if any, schedule, content approval, publish approval, material-edit invalidations.
@@ -38,6 +39,8 @@ Do not require live network calls to produce a recommendation. Recommendation co
 Potential CLI surfaces, to be chosen milestone-by-milestone:
 
 ```bash
+.venv/bin/post-relay goals show --db data/post_relay.sqlite
+.venv/bin/post-relay goals agent-brief --db data/post_relay.sqlite
 .venv/bin/post-relay recommendations signals --db data/post_relay.sqlite
 .venv/bin/post-relay recommendations candidates --limit 10 --db data/post_relay.sqlite
 .venv/bin/post-relay recommendations for-post --post-id 1 --db data/post_relay.sqlite
@@ -67,7 +70,29 @@ Verification:
 .venv/bin/python -m pytest -q
 ```
 
-### Milestone B: `feat/recommendation-signal-baseline`
+### Milestone B: `feat/user-goal-artifact`
+
+Add a durable local goal artifact that the user and agent can agree on before deeper recommendation work.
+
+Implemented behavior:
+
+- Store one active user/agent goal with title, goal statement, target audience, content pillars, desired cadence, success metrics, strategy notes, constraints, reviewer, and timestamps.
+- Store immutable goal versions on each create/update so recommendation behavior can cite the current agreed north star and preserve an audit trail.
+- Add local-only CLI commands:
+  - `goals init`
+  - `goals show`
+  - `goals agent-brief`
+- Render a compact agent brief that future recommendation commands can read before suggesting content, asking questions, or proposing proactive opportunities.
+- Make no network calls and mutate no posts, approvals, schedules, opportunities, Discord, R2, Meta, or publish state.
+
+Verification:
+
+```bash
+.venv/bin/python -m pytest tests/test_user_goals.py -q
+.venv/bin/python -m pytest -q
+```
+
+### Milestone C: `feat/recommendation-signal-baseline`
 
 Add a no-network command that summarizes available recommendation signals and data coverage. It should answer which local signals exist, which are missing, and which are too sparse to trust.
 
@@ -78,7 +103,7 @@ Initial behavior:
 - Print next safe commands for collecting or reviewing missing local signals.
 - Make no network calls and mutate no state.
 
-### Milestone C: `feat/candidate-ranking-signals`
+### Milestone D: `feat/candidate-ranking-signals`
 
 Rank candidate groups with deterministic, explainable local scoring.
 
@@ -92,7 +117,7 @@ Initial scoring dimensions:
 
 The command should explain every score contribution and avoid pretending sparse analytics are conclusive.
 
-### Milestone D: `feat/smarter-context-questions`
+### Milestone E: `feat/smarter-context-questions`
 
 Reduce unnecessary interview questions by using local context first.
 
@@ -103,7 +128,7 @@ Behavior ideas:
 - Ask targeted follow-up questions only for publish-relevant uncertainty: exact location tag, story angle, people/collaborators, date-sensitive context, or accessibility details.
 - Keep freeform `location_text` local/review-only and never treat it as a Meta location tag.
 
-### Milestone E: `feat/schedule-recommendations`
+### Milestone F: `feat/schedule-recommendations`
 
 Suggest schedule windows from stored local account/post signals and priors.
 
@@ -115,7 +140,7 @@ Behavior ideas:
 - Explain why a slot is suggested and list conflicts.
 - Do not schedule automatically.
 
-### Milestone F: `feat/caption-style-recommendations`
+### Milestone G: `feat/caption-style-recommendations`
 
 Use approval/revision/published feedback to advise caption direction.
 
@@ -136,7 +161,6 @@ Behavior ideas:
 
 ## Open questions
 
-- Which first command should anchor the recommendation namespace: `recommendations signals`, `recommendations candidates`, or a planning-only doc milestone first?
 - Which local tables contain enough revision/approval history today to support useful scoring without schema changes?
 - Should recommendation output be stored for audit, or recomputed on demand until the scoring model stabilizes?
 - How should Andrew's qualitative taste feedback be captured without creating a heavy labeling workflow?
