@@ -168,6 +168,12 @@ POST_RELAY_R2_ACCESS_KEY_ID=YOUR_R2_ACCESS_KEY_ID
 POST_RELAY_R2_SECRET_ACCESS_KEY=YOUR_R2_SECRET_ACCESS_KEY
 ```
 
+Then run the setup doctor. With R2 enabled, it performs no-network checks for the bucket, S3 endpoint URL, public base URL, required env values, and the common mistake of reusing the S3 API endpoint as the public object URL base:
+
+```bash
+.venv/bin/post-relay doctor --config config/photo_sources.yaml --db data/post_relay.sqlite --env-file .env
+```
+
 Always inspect the plan first:
 
 ```bash

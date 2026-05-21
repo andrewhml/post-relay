@@ -138,9 +138,12 @@ POST_RELAY_R2_SECRET_ACCESS_KEY=YOUR_R2_SECRET_ACCESS_KEY
 Plan before upload:
 
 ```bash
+.venv/bin/post-relay doctor --config config/photo_sources.yaml --db data/post_relay.sqlite --env-file .env
 .venv/bin/post-relay drafts r2-stage-plan --post-id 1 --config config/photo_sources.yaml --db data/post_relay.sqlite
 .venv/bin/post-relay drafts r2-stage-upload --post-id 1 --config config/photo_sources.yaml --db data/post_relay.sqlite
 ```
+
+With `r2_staging.enabled`, `post-relay doctor` now performs a no-network R2 readiness check: bucket, S3 endpoint URL, public base URL, required env values, and the common mistake of using the S3 API endpoint as the public object URL base.
 
 Execute only after inspecting the dry-run output:
 
