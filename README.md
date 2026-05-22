@@ -130,6 +130,7 @@ The local signal baseline command summarizes which recommendation inputs are pre
 ```bash
 .venv/bin/post-relay recommendations signals --db data/post_relay.sqlite
 .venv/bin/post-relay recommendations candidates --limit 5 --db data/post_relay.sqlite
+.venv/bin/post-relay recommendations schedule --limit 3 --db data/post_relay.sqlite
 .venv/bin/post-relay drafts questions generate --post-id 1 --db data/post_relay.sqlite
 ```
 

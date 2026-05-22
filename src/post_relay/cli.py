@@ -164,7 +164,7 @@ from post_relay.r2_staging_upload import (
     cleanup_r2_staged_objects_for_draft,
     upload_r2_staging_for_draft,
 )
-from post_relay.recommendations import render_candidate_rankings, render_signal_baseline
+from post_relay.recommendations import render_candidate_rankings, render_schedule_recommendations, render_signal_baseline
 from post_relay.review_artifacts import DraftNotFound as ArtifactDraftNotFound
 from post_relay.review_artifacts import (
     OversizedReviewArtifactSet,
@@ -356,6 +356,18 @@ def recommendations_candidates(
     connection = connect_db(db)
     initialize_db(connection)
     typer.echo(render_candidate_rankings(connection, limit=limit))
+
+
+@recommendations_app.command("schedule")
+def recommendations_schedule(
+    limit: int = typer.Option(3, "--limit", min=1, help="Maximum number of schedule windows to suggest."),
+    now: Optional[str] = typer.Option(None, "--now", help="ISO timestamp to anchor deterministic schedule suggestions."),
+    db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
+) -> None:
+    """Suggest schedule windows using local advisory signals without scheduling posts."""
+    connection = connect_db(db)
+    initialize_db(connection)
+    typer.echo(render_schedule_recommendations(connection, now=now, limit=limit))
 
 
 @db_app.command("init")

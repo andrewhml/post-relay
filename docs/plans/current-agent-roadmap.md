@@ -1627,11 +1627,31 @@ Current branch result: `59 passed` focused; `248 passed` full suite.
 .venv/bin/python -m pytest -q
 ```
 
-### PR #92 / Current docs refresh: `docs/post-pr91-roadmap-refresh`
+### PR #92 / Docs refresh: `docs/post-pr91-roadmap-refresh` (merged)
 
 **Goal:** Sync handoff docs after PR #91 merged and confirm `feat/schedule-recommendations` as the next milestone.
 
 **Verification:** `.venv/bin/python -m pytest -q` (`317 passed`).
+
+### Current in-progress milestone: `feat/schedule-recommendations`
+
+**Goal:** Add local/no-network schedule-window recommendations that read the existing scheduled queue before suggesting another slot.
+
+**Delivered behavior in this branch:**
+- Adds `post-relay recommendations schedule` as a local advisory command.
+- Shows the active goal when available and surfaces the existing scheduled queue before recommended windows.
+- Suggests deterministic conservative morning slots while performance/follower timing data is sparse.
+- Skips same-day conflicts with already queued scheduled posts.
+- Prints a manual `drafts schedule --post-id ... --scheduled-for ...` next safe command without scheduling automatically.
+- Makes no network calls and does not mutate posts, approvals, schedules, opportunities, publish attempts, analytics rows, Discord, R2, or Meta state.
+
+**Verification:**
+
+```bash
+.venv/bin/python -m pytest tests/test_recommendation_signals.py -q
+.venv/bin/post-relay recommendations schedule --now 2026-05-30T08:00:00-07:00 --limit 2 --db data/post_relay.sqlite
+.venv/bin/python -m pytest -q
+```
 
 ## Later milestones
 
