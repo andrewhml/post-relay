@@ -1653,6 +1653,12 @@ Current branch result: `59 passed` focused; `248 passed` full suite.
 .venv/bin/python -m pytest -q
 ```
 
+### PR #94 / Current docs refresh: `docs/post-pr93-roadmap-refresh`
+
+**Goal:** Sync handoff docs after PR #93 merged and confirm `feat/caption-style-recommendations` as the next milestone.
+
+**Verification:** `.venv/bin/python -m pytest -q` (`320 passed`).
+
 ## Later milestones
 
 - **Next:** `feat/caption-style-recommendations` — use approval/revision/published feedback to advise hook/caption style, length, itinerary/saveability, specificity, and hashtag count. It should stay local/advisory, compare draft captions to historically accepted traits when enough signal exists, and never overwrite copy without a separate explicit edit command.
