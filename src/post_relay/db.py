@@ -273,6 +273,18 @@ SCHEMA_STATEMENTS = [
     )
     """,
     """
+    create table if not exists caption_feedback (
+        id integer primary key,
+        draft_id integer not null,
+        sentiment text not null,
+        signal text not null,
+        note text not null,
+        reviewed_by text,
+        created_at text not null default current_timestamp,
+        foreign key(draft_id) references drafts(id)
+    )
+    """,
+    """
     create table if not exists user_goals (
         id integer primary key,
         title text not null,

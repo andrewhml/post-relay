@@ -175,9 +175,20 @@ Delivered behavior:
 - Includes guardrails that location text stays review-only unless a resolved Meta Page location tag is explicitly selected.
 - Does not overwrite captions, mutate approvals/lifecycle/schedules/opportunities/publish attempts/analytics rows, send Discord, call R2, or call Meta.
 
-### Possible next recommendation milestone
+### Milestone I: `feat/caption-feedback-capture` (implemented in PR #TBD)
 
-Capture lightweight qualitative caption feedback after review without creating a heavy labeling workflow, or wire advisory recommendations into a DM planning surface without live proactive sends.
+Capture lightweight qualitative caption feedback after review without creating a heavy labeling workflow.
+
+Delivered behavior:
+
+- Adds `post-relay recommendations caption-feedback --post-id N --sentiment <label> --signal <label> --note <text> --reviewed-by <name> --db data/post_relay.sqlite`.
+- Stores only a compact local `caption_feedback` row for future advisory recommendations.
+- Keeps caption/style recommendations aware of qualitative feedback counts and tags.
+- Does not rewrite captions, mutate posts, approvals, schedules, opportunities, publish attempts, analytics rows, Discord, R2, or Meta state.
+
+### Next recommendation milestone
+
+Wire advisory recommendations into a local/DM planning surface without live proactive sends, then add an explicit proactive Discord suggestion setup path that creates plans/operator controls before any send.
 
 ## Safety rules
 
