@@ -1633,7 +1633,7 @@ Current branch result: `59 passed` focused; `248 passed` full suite.
 
 **Verification:** `.venv/bin/python -m pytest -q` (`317 passed`).
 
-### Current in-progress milestone: `feat/schedule-recommendations`
+### PR #93 / Current in-progress milestone: `feat/schedule-recommendations`
 
 **Goal:** Add local/no-network schedule-window recommendations that read the existing scheduled queue before suggesting another slot.
 
