@@ -809,11 +809,13 @@ photo_sources:
     )
 
     assert generate_result.exit_code == 0
-    assert "Generated 5 unresolved context questions for post #1" in generate_result.output
+    assert "Generated 3 unresolved context questions for post #1" in generate_result.output
     assert list_result.exit_code == 0
     assert "[place] Where exactly was this photo set taken?" in list_result.output
-    assert "[trip_name] What trip or collection should this post be associated with?" in list_result.output
-    assert "[approximate_date] Should this be described as part of the 2023 trip" in list_result.output
+    assert "[mood] What mood should the caption convey?" in list_result.output
+    assert "[story_angle] What story or takeaway should this post highlight?" in list_result.output
+    assert "[trip_name]" not in list_result.output
+    assert "[approximate_date]" not in list_result.output
 
 
 def test_cli_controlled_carousel_publish_dry_run_records_sanitized_plan(tmp_path: Path):

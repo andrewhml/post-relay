@@ -105,8 +105,6 @@ def test_build_draft_review_package_includes_persisted_context_questions(tmp_pat
 
     assert [question.field_name for question in package.context_questions] == [
         "place",
-        "trip_name",
-        "approximate_date",
         "mood",
         "story_angle",
     ]
