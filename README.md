@@ -203,7 +203,7 @@ The local DM harness can be used without live Discord:
 .venv/bin/post-relay dm next-action --discord-channel-id local-test --db data/post_relay.sqlite
 ```
 
-Live Discord DM sends require a private bot token and explicit live-capable commands. Keep bot credentials in `.env`. If `dm next-action` is started before any active goal exists, it returns a local `goal_onboarding` prompt that asks the user to fill in the goal statement, audience, content pillars, cadence, success metrics, strategy notes, and constraints before the agent recommends a first post.
+Live Discord DM sends require a private bot token and explicit live-capable commands. Keep bot credentials in `.env`. If `dm next-action` is started before any active goal exists, it returns a local `goal_onboarding` prompt that asks the user to fill in the goal statement, audience, content pillars, cadence, success metrics, strategy notes, and constraints before the agent recommends a first post. Local `dm next-action` now also embeds advisory recommendation context: candidate rankings before intake when no post is active, and caption-style advice for post-scoped planning. This is still a no-send planning surface; it prints "No proactive Discord send was performed."
 
 ## Review and publish workflow
 

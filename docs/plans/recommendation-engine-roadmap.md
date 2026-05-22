@@ -186,9 +186,20 @@ Delivered behavior:
 - Keeps caption/style recommendations aware of qualitative feedback counts and tags.
 - Does not rewrite captions, mutate posts, approvals, schedules, opportunities, publish attempts, analytics rows, Discord, R2, or Meta state.
 
+### Milestone J: `feat/dm-advisory-recommendations` (implemented in PR #97)
+
+Wire advisory recommendations into a local/DM planning surface without live proactive sends.
+
+Delivered behavior:
+
+- `dm next-action` includes local candidate recommendations before intake when no post is active and an active goal exists.
+- Post-scoped `dm next-action` includes caption-style recommendations for the current post.
+- The embedded advice stays local/no-network and prints that no proactive Discord send was performed.
+- No posts, approvals, schedules, opportunities, publish attempts, analytics rows, Discord, R2, or Meta state are mutated by adding advisory context.
+
 ### Next recommendation milestone
 
-Wire advisory recommendations into a local/DM planning surface without live proactive sends, then add an explicit proactive Discord suggestion setup path that creates plans/operator controls before any send.
+Add an explicit proactive Discord suggestion setup path that creates reviewed opportunity/DM plans and operator controls before any live send.
 
 ## Safety rules
 

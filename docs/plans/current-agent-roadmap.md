@@ -1698,7 +1698,7 @@ Current branch result: `59 passed` focused; `248 passed` full suite.
 
 ## Later milestones
 
-- **Next:** after this PR merges, start `feat/dm-advisory-recommendations` to wire advisory recommendations into local/DM planning without proactive live sends, then `feat/proactive-discord-suggestion-setup`.
+- **Next:** after this PR merges, start `feat/proactive-discord-suggestion-setup` to add explicit proactive Discord suggestion setup controls before any live sends.
 - `feat/managed-r2-staging-mvp` (paused): allow selected publish assets to stage through a managed path only if Andrew reactivates the managed staging direction after BYO R2 friction justifies it.
 - Video/reel validation after feed/carousel path is reliable.
 - Per-media carousel alt text validation: model/store one accessibility note per selected media item, render it in final review, validate whether Instagram Graph supports any automated alt-text field for the active API/app combination, and keep unsupported fields review-only/manual without silently sending them to Meta.
