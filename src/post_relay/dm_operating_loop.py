@@ -12,6 +12,7 @@ from post_relay.repository import (
     list_candidate_group_photo_items,
     list_drafts,
 )
+from post_relay.recommendations import render_candidate_rankings, render_caption_style_recommendations
 from post_relay.scheduled_posts import build_scheduled_post_feedback
 from post_relay.state import ApprovalType, DraftState
 from post_relay.user_goals import get_active_user_goal
@@ -32,6 +33,7 @@ class DmNextActionPlan:
     rationale: list[str]
     safety_notes: list[str]
     scheduled_posts_text: Optional[str] = None
+    advisory_recommendations_text: Optional[str] = None
 
     def to_text(self) -> str:
         lines = ["Post Relay DM next action", f"Action: {self.action}", self.summary]
@@ -47,6 +49,9 @@ class DmNextActionPlan:
         if self.command:
             lines.append("Suggested command:")
             lines.append(f"  {self.command}")
+        if self.advisory_recommendations_text:
+            lines.append("Advisory recommendations:")
+            lines.append(self.advisory_recommendations_text)
         if self.scheduled_posts_text:
             lines.append(self.scheduled_posts_text)
         if self.safety_notes:
@@ -144,10 +149,22 @@ def _resolve_thread(connection, discord_channel_id: Optional[str]) -> Optional[C
 
 
 def _with_schedule_feedback(connection, plan: DmNextActionPlan) -> DmNextActionPlan:
+    plan = _with_advisory_recommendations(connection, plan)
     feedback = build_scheduled_post_feedback(connection)
     if not feedback.items:
         return plan
     return replace(plan, scheduled_posts_text=feedback.to_text())
+
+
+def _with_advisory_recommendations(connection, plan: DmNextActionPlan) -> DmNextActionPlan:
+    if plan.draft_id is not None:
+        recommendation_text = render_caption_style_recommendations(connection, post_id=plan.draft_id)
+    elif plan.action in {"start_intake", "candidate_selection"}:
+        recommendation_text = render_candidate_rankings(connection, limit=3)
+    else:
+        return plan
+    recommendation_text = f"{recommendation_text}\nNo proactive Discord send was performed."
+    return replace(plan, advisory_recommendations_text=recommendation_text)
 
 
 def _plan_for_draft(

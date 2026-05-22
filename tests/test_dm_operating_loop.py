@@ -100,6 +100,48 @@ def test_dm_next_action_starts_intake_after_goal_exists(tmp_path: Path):
     assert plan.action == "start_intake"
 
 
+
+def test_dm_next_action_includes_local_candidate_recommendations_before_starting_intake(tmp_path: Path):
+    connection, root = _build_fixture_library(tmp_path)
+    upsert_active_user_goal(
+        connection,
+        title="Travel north star",
+        goal_statement="Grow with saveable travel carousels.",
+        target_audience="Travelers planning trips.",
+        content_pillars=["city guides"],
+        desired_cadence="2 posts per week",
+        success_metrics=["saves"],
+        strategy_notes="Suggest one best next post.",
+        constraints=["avoid places not pictured"],
+        reviewed_by="tester",
+    )
+
+    plan = build_dm_next_action_plan(connection, discord_channel_id="dm-new-user")
+    text = plan.to_text()
+
+    assert plan.action == "start_intake"
+    assert "Advisory recommendations:" in text
+    assert "Candidate recommendations" in text
+    assert "Next safe command: post-relay drafts create --candidate-id" in text
+    assert "No proactive Discord send was performed." in text
+    assert root.as_posix() not in text
+
+
+def test_dm_next_action_includes_caption_style_advice_for_drafting_post_without_sending(tmp_path: Path):
+    connection, draft, root = _create_draft(tmp_path)
+
+    plan = build_dm_next_action_plan(connection, draft_id=draft.id, target_count=3)
+    text = plan.to_text()
+
+    assert plan.action == "media_selection"
+    assert "Advisory recommendations:" in text
+    assert "Caption style recommendations" in text
+    assert f"Post: {draft.id}" in text
+    assert "No caption was rewritten or saved." in text
+    assert "No proactive Discord send was performed." in text
+    assert root.as_posix() not in text
+
+
 def test_dm_next_action_routes_drafting_post_to_photo_selection_and_guided_package(tmp_path: Path):
     connection, draft, root = _create_draft(tmp_path)
 
