@@ -125,7 +125,7 @@ Publishing is guarded and uses official Meta/Facebook Graph routes only. Public 
 
 Post Relay's next product direction is making the agent smarter rather than adding more staging infrastructure. See `docs/plans/recommendation-engine-roadmap.md` for the current planning baseline. Recommendation work should start from the active local user/agent goal artifact plus auditable signals already present in the system: candidate metadata, folder/year/filename descriptors, selected media order, crop/export readiness, approvals and revisions, scheduled/published payloads, stored read-only insights, and follower-growth summaries.
 
-The local signal baseline command summarizes which recommendation inputs are present, sparse, or missing without making network calls or mutating state. The candidate ranking command then scores candidate groups with deterministic local signals and explains every contribution without creating or changing posts. Context question generation reuses explicit draft content plus folder/year descriptors before asking only targeted remaining gaps, such as an accepted freeform location that still needs an optional reviewed Meta Page tag:
+The local signal baseline command summarizes which recommendation inputs are present, sparse, or missing without making network calls or mutating state. The candidate ranking command then scores candidate groups with deterministic local signals and explains every contribution without creating or changing posts. Context question generation reuses explicit draft content plus folder/year descriptors before asking only targeted remaining gaps, such as an accepted freeform location that still needs an optional reviewed Meta Page tag. The next recommendation slice is local schedule-window suggestions that surface the existing scheduled queue before recommending another slot:
 
 ```bash
 .venv/bin/post-relay recommendations signals --db data/post_relay.sqlite
@@ -152,7 +152,7 @@ The active goal artifact gives the agent a durable north star for proactive sugg
 .venv/bin/post-relay goals agent-brief --db data/post_relay.sqlite
 ```
 
-Early recommendation milestones should stay advisory and deterministic: rank candidate groups, explain why a set is promising, suggest post type/caption angle/schedule windows, and reduce unnecessary context questions by reusing the active goal and prior accepted context. They should not mutate posts, approvals, schedules, Discord state, R2 staging, or Meta state; read-only Meta collection remains behind explicit analytics `--execute` commands and recommendation commands should consume stored local snapshots by default.
+Early recommendation milestones should stay advisory and deterministic: rank candidate groups, explain why a set is promising, suggest post type/caption angle/schedule windows, and reduce unnecessary context questions by reusing the active goal and prior accepted context. They should not mutate posts, approvals, schedules, Discord state, R2 staging, or Meta state; read-only Meta collection remains behind explicit analytics `--execute` commands and recommendation commands should consume stored local snapshots by default. Schedule recommendations must show already scheduled posts before proposing a new slot and must not schedule automatically.
 
 ## Optional R2 staging
 
