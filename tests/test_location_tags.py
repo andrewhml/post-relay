@@ -14,6 +14,7 @@ from post_relay.location_tags import (
     build_location_candidate_review,
     search_location_pages,
     set_draft_location_tag,
+    skip_draft_location_tag,
 )
 from post_relay.meta_graph import MetaGraphClient, MetaGraphConfig
 from post_relay.publishing import execute_carousel_publish_validation
@@ -237,6 +238,60 @@ def test_drafts_location_tag_set_cli_persists_resolved_page_and_warns_reapproval
     initialize_db(reopened)
     assert get_draft_location_tag(reopened, draft.id).name == "Seoul, Korea"
     assert get_draft(reopened, draft.id).status == DraftState.NEEDS_EDITS.value
+
+
+def test_skipping_location_tag_records_explicit_bypass_without_clearing_location_context(tmp_path: Path):
+    connection, draft, _candidate = _build_ready_carousel(tmp_path)
+    connection.execute(
+        "update drafts set location_text = ? where id = ?",
+        ("That Wanaka Tree, Wānaka, New Zealand", draft.id),
+    )
+    connection.commit()
+
+    tag = skip_draft_location_tag(
+        connection,
+        draft.id,
+        reason="User will add manually after publishing if needed.",
+    )
+
+    assert tag.status == "skipped"
+    assert tag.page_id == ""
+    assert tag.name == "Location tag skipped"
+    assert tag.skip_reason == "User will add manually after publishing if needed."
+    updated = get_draft(connection, draft.id)
+    assert updated.location_text == "That Wanaka Tree, Wānaka, New Zealand"
+    assert updated.status == DraftState.NEEDS_EDITS.value
+    assert list_active_approvals(connection, draft.id) == []
+
+
+def test_drafts_location_tag_skip_cli_persists_explicit_bypass(tmp_path: Path):
+    connection, draft, _candidate = _build_ready_carousel(tmp_path)
+    db_path = tmp_path / "post_relay.sqlite"
+    connection.close()
+
+    result = runner.invoke(
+        app,
+        [
+            "drafts",
+            "location-tag-skip",
+            "--post-id",
+            str(draft.id),
+            "--reason",
+            "No reliable Meta Page match; add manually later if needed.",
+            "--db",
+            str(db_path),
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Skipped Meta location tag for post" in result.output
+    assert "No reliable Meta Page match" in result.output
+    assert "Prior approvals were invalidated" in result.output
+    reopened = connect_db(db_path)
+    initialize_db(reopened)
+    tag = get_draft_location_tag(reopened, draft.id)
+    assert tag.status == "skipped"
+    assert tag.skip_reason == "No reliable Meta Page match; add manually later if needed."
 
 
 def test_final_preview_shows_resolved_location_tag_payload_after_reapproval(tmp_path: Path):

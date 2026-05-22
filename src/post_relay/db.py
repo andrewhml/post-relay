@@ -336,6 +336,7 @@ def initialize_db(connection: sqlite3.Connection) -> None:
     _ensure_column(connection, "candidate_group_items", "crop_tightness", "real")
     _ensure_column(connection, "r2_staged_objects", "deleted_at", "text")
     _ensure_column(connection, "r2_staged_objects", "cleanup_reason", "text")
+    _ensure_column(connection, "draft_location_tags", "skip_reason", "text")
     connection.commit()
 
 

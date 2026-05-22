@@ -7,6 +7,7 @@ from post_relay.db import connect_db, initialize_db
 from post_relay.drafts import create_draft_from_candidate
 from post_relay.final_publish_preview import build_final_publish_preview, compose_final_meta_caption
 from post_relay.indexer import index_photo_sources
+from post_relay.location_tags import skip_draft_location_tag
 from post_relay.repository import (
     create_r2_staged_object_record,
     get_draft,
@@ -90,7 +91,7 @@ def test_final_publish_preview_shows_meta_bound_caption_and_review_only_metadata
     assert preview.post_type == "carousel"
     assert preview.meta_caption == "Night market glow.\n\n#travelphotography #Seoul"
     assert preview.hashtags_embedded_in_caption == ["#travelphotography", "#Seoul"]
-    assert preview.location_handling == "local/review-only"
+    assert preview.location_handling == "unresolved Meta location tag choice"
     assert preview.location_text == "Seoul, South Korea"
     assert preview.review_only_fields["alt_text"] == "Review-only accessibility note for the selected market photos."
     assert preview.image_urls == [
@@ -101,6 +102,31 @@ def test_final_publish_preview_shows_meta_bound_caption_and_review_only_metadata
     assert "Final publish preview" in rendered
     assert "Exact Meta-bound caption:" in rendered
     assert "#travelphotography #Seoul" in rendered
-    assert "Location handling: local/review-only" in rendered
+    assert "Location handling: unresolved Meta location tag choice" in rendered
+    assert "No Meta location_id will be sent" in rendered
+    assert "Next safe action: search Meta Pages for a publishable location tag or run drafts location-tag-skip" in rendered
     assert "No Meta publishing endpoints were called." in rendered
     assert "secret" not in rendered
+
+
+def test_final_publish_preview_shows_intentionally_skipped_location_tag(tmp_path: Path):
+    connection, draft, r2_config = _build_ready_carousel_with_metadata(tmp_path)
+    skip_draft_location_tag(
+        connection,
+        draft.id,
+        reason="No reliable Meta Page match; user can add manually after publish.",
+    )
+    submit_draft_for_review(connection, draft.id)
+    approve_draft_content(connection, draft.id, approved_by="andrew")
+    schedule_draft(connection, draft.id, scheduled_for="2026-05-05T09:30:00-07:00")
+    request_publish_approval(connection, draft.id)
+    approve_draft_for_publishing(connection, draft.id, approved_by="andrew")
+
+    preview = build_final_publish_preview(connection, draft.id, r2_config=r2_config)
+
+    assert preview.location_handling == "intentionally skipped Meta location tag"
+    assert preview.location_skip_reason == "No reliable Meta Page match; user can add manually after publish."
+    rendered = preview.to_text()
+    assert "Location handling: intentionally skipped Meta location tag" in rendered
+    assert "Location tag skip reason: No reliable Meta Page match; user can add manually after publish." in rendered
+    assert "No Meta location_id will be sent; user may add a location manually after publishing." in rendered

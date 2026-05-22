@@ -21,6 +21,7 @@ from post_relay.publishing import (
 )
 from post_relay.repository import (
     get_draft,
+    get_draft_location_tag,
     list_active_approvals,
     list_candidate_group_photo_paths,
 )
@@ -39,6 +40,10 @@ class ScheduledPublishPreflightResult:
     scheduled_for: str
     image_urls: list[str]
     caption: str
+    location_status: str
+    location_text: Optional[str]
+    location_tag_name: Optional[str]
+    location_skip_reason: Optional[str]
 
     def to_text(self) -> str:
         lines = [
@@ -53,6 +58,12 @@ class ScheduledPublishPreflightResult:
         lines.extend(
             [
                 f"Caption: {self.caption}",
+                _location_status_text(
+                    self.location_status,
+                    location_text=self.location_text,
+                    location_tag_name=self.location_tag_name,
+                    location_skip_reason=self.location_skip_reason,
+                ),
                 "No Discord network calls were made.",
                 "No R2 upload or cleanup calls were made.",
                 "No Meta publishing endpoints were called.",
@@ -70,6 +81,10 @@ class ScriptlessScheduledPublishPlan:
     image_urls: list[str]
     publish_command: str
     hermes_cron_prompt: str
+    location_status: str
+    location_text: Optional[str]
+    location_tag_name: Optional[str]
+    location_skip_reason: Optional[str]
 
     def to_text(self) -> str:
         lines = [
@@ -85,6 +100,12 @@ class ScriptlessScheduledPublishPlan:
             [
                 "Publish command for the scheduled job:",
                 self.publish_command,
+                _location_status_text(
+                    self.location_status,
+                    location_text=self.location_text,
+                    location_tag_name=self.location_tag_name,
+                    location_skip_reason=self.location_skip_reason,
+                ),
                 "Hermes cron prompt:",
                 self.hermes_cron_prompt,
                 "No per-post script is required.",
@@ -112,6 +133,10 @@ def preflight_due_scheduled_publish(
         now=now,
         require_due=True,
     )
+    location_status, location_text, location_tag_name, location_skip_reason = _location_decision_summary(
+        connection,
+        draft.id,
+    )
     return ScheduledPublishPreflightResult(
         draft_id=draft.id,
         ready=True,
@@ -119,6 +144,10 @@ def preflight_due_scheduled_publish(
         scheduled_for=draft.scheduled_for or "",
         image_urls=[_sanitize_url(url) for url in image_urls],
         caption=caption,
+        location_status=location_status,
+        location_text=location_text,
+        location_tag_name=location_tag_name,
+        location_skip_reason=location_skip_reason,
     )
 
 
@@ -136,6 +165,10 @@ def build_scriptless_scheduled_publish_plan(
         draft_id,
         r2_config=r2_config,
         require_due=False,
+    )
+    location_status, location_text, location_tag_name, location_skip_reason = _location_decision_summary(
+        connection,
+        draft.id,
     )
     publish_command = _build_publish_command(
         draft.id,
@@ -155,6 +188,10 @@ def build_scriptless_scheduled_publish_plan(
         image_urls=[_sanitize_url(url) for url in image_urls],
         publish_command=publish_command,
         hermes_cron_prompt=hermes_cron_prompt,
+        location_status=location_status,
+        location_text=location_text,
+        location_tag_name=location_tag_name,
+        location_skip_reason=location_skip_reason,
     )
 
 
@@ -249,6 +286,42 @@ def _resolve_staged_urls(connection, draft_id: int, r2_config: R2StagingConfig) 
         return resolve_staged_r2_publish_image_urls(connection, draft_id, r2_config)
     except (DraftNotFound, UnsupportedPublishDraft) as error:
         raise ScheduledPublishNotReady(str(error)) from error
+
+
+def _location_decision_summary(connection, draft_id: int):
+    draft = get_draft(connection, draft_id)
+    tag = get_draft_location_tag(connection, draft_id)
+    if tag and tag.status == "resolved":
+        return "resolved", None, tag.name, None
+    if tag and tag.status == "skipped":
+        return "skipped", draft.location_text if draft else None, None, tag.skip_reason
+    if draft and draft.location_text:
+        return "unresolved", draft.location_text, None, None
+    return "none", None, None, None
+
+
+def _location_status_text(
+    status: str,
+    *,
+    location_text: Optional[str],
+    location_tag_name: Optional[str],
+    location_skip_reason: Optional[str],
+) -> str:
+    if status == "resolved":
+        return f"Meta location tag: resolved ({location_tag_name})"
+    if status == "skipped":
+        return (
+            "Meta location tag: intentionally skipped. "
+            f"Reason: {location_skip_reason or '<none>'}. "
+            "No Meta location_id will be sent; the user can add a location manually after publishing."
+        )
+    if status == "unresolved":
+        return (
+            "Meta location tag: unresolved. "
+            f"Location context: {location_text}. "
+            "Next safe action: search Meta Pages for a publishable location tag or run drafts location-tag-skip."
+        )
+    return "Meta location tag: none; no location context found."
 
 
 def _build_publish_command(

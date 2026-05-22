@@ -1121,7 +1121,8 @@ r2_staging:
     assert "Exact Meta-bound caption:" in result.output
     assert "Kyoto garden sequence." in result.output
     assert "#travelphotography #Kyoto" in result.output
-    assert "Location handling: local/review-only" in result.output
+    assert "Location handling: unresolved Meta location tag choice" in result.output
+    assert "No Meta location_id will be sent unless a publishable Meta location tag is selected." in result.output
     assert "Review-only fields:" in result.output
     assert "alt_text: Review-only accessibility note" in result.output
     assert "https://peddocks.net/post-relay/staging/drafts/1/media/01-image.jpg?token=<redacted>" in result.output
