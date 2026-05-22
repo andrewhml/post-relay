@@ -138,11 +138,13 @@ from post_relay.publish_exports import (
 )
 from post_relay.post_opportunities import (
     PostOpportunityError,
+    build_proactive_discord_suggestion_setup_plan,
     convert_post_opportunity_to_draft,
     create_post_opportunity_result,
     dismiss_post_opportunity,
     mark_post_opportunity_dm_sent,
     plan_proactive_opportunity_dm,
+    render_proactive_discord_suggestion_setup_plan,
     snooze_post_opportunity,
 )
 from post_relay.repository import (
@@ -1234,6 +1236,26 @@ def opportunities_list(
         )
     typer.echo("No Discord or Meta network calls were made.")
 
+
+
+@opportunities_app.command("proactive-setup")
+def opportunities_proactive_setup(
+    opportunity_id: int = typer.Option(..., "--opportunity-id", help="Opportunity id."),
+    discord_channel_id: Optional[str] = typer.Option(None, "--discord-channel-id", help="Optional target Discord DM/channel id for operator notes."),
+    db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
+) -> None:
+    """Render the explicit proactive Discord suggestion setup path without sending."""
+    connection = connect_db(db)
+    initialize_db(connection)
+    try:
+        plan = build_proactive_discord_suggestion_setup_plan(
+            connection,
+            opportunity_id=opportunity_id,
+            discord_channel_id=discord_channel_id,
+        )
+    except PostOpportunityError as error:
+        raise typer.BadParameter(str(error), param_hint="--opportunity-id") from error
+    typer.echo(render_proactive_discord_suggestion_setup_plan(plan))
 
 @opportunities_app.command("dm-plan")
 def opportunities_dm_plan(
