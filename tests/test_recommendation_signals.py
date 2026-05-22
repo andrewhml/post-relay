@@ -4,7 +4,12 @@ from typer.testing import CliRunner
 
 from post_relay.cli import app
 from post_relay.db import connect_db, initialize_db
-from post_relay.recommendations import build_signal_baseline, render_signal_baseline
+from post_relay.recommendations import (
+    build_schedule_recommendations,
+    build_signal_baseline,
+    render_schedule_recommendations,
+    render_signal_baseline,
+)
 from post_relay.user_goals import upsert_active_user_goal
 
 
@@ -87,6 +92,96 @@ def test_cli_recommendations_signals_is_local_advisory_only(tmp_path: Path):
     assert "posts_total: 3" in result.output
     assert "Post lifecycle states:" in result.output
     assert "ready_to_publish: 1" in result.output
+    assert "No Discord, R2, or Meta network calls were made." in result.output
+
+
+def test_build_schedule_recommendations_surfaces_queue_and_avoids_conflicts(tmp_path: Path):
+    connection = connect_db(tmp_path / "post_relay.sqlite")
+    initialize_db(connection)
+    upsert_active_user_goal(
+        connection,
+        title="Travel account north star",
+        goal_statement="Grow with saveable route carousels.",
+        target_audience="Travelers planning city walks.",
+        content_pillars=["city guides"],
+        desired_cadence="2 posts per week",
+        success_metrics=["saves", "shares"],
+        strategy_notes="Recommend one best next post.",
+        constraints=["avoid places not pictured"],
+        reviewed_by="andrew",
+        change_note="initial agreement",
+    )
+    _seed_signal_rows(connection)
+
+    plan = build_schedule_recommendations(
+        connection,
+        now="2026-05-30T08:00:00-07:00",
+        limit=3,
+    )
+
+    assert plan.active_goal_title == "Travel account north star"
+    assert len(plan.scheduled_posts) == 1
+    assert plan.scheduled_posts[0].post_id == 2
+    assert plan.scheduled_posts[0].scheduled_for == "2026-06-01T09:00:00-07:00"
+    assert len(plan.recommendations) == 3
+    assert all(not slot.scheduled_for.startswith("2026-06-01") for slot in plan.recommendations)
+    assert plan.recommendations[0].next_safe_command.startswith("post-relay drafts schedule --post-id")
+    assert any("existing scheduled queue" in rationale for rationale in plan.recommendations[0].rationale)
+    assert any("Performance/follower timing data is sparse" in warning for warning in plan.warnings)
+    assert plan.mutation_statement == (
+        "No Discord, R2, or Meta network calls were made. No posts, approvals, "
+        "schedules, opportunities, publish attempts, or analytics rows were mutated."
+    )
+
+
+def test_render_schedule_recommendations_is_advisory_and_queue_first(tmp_path: Path):
+    connection = connect_db(tmp_path / "post_relay.sqlite")
+    initialize_db(connection)
+    _seed_signal_rows(connection)
+
+    rendered = render_schedule_recommendations(
+        connection,
+        now="2026-05-30T08:00:00-07:00",
+        limit=2,
+    )
+
+    assert "Schedule recommendations" in rendered
+    assert "Existing scheduled queue:" in rendered
+    assert "Post 2: 2026-06-01T09:00:00-07:00" in rendered
+    assert "Suggested windows:" in rendered
+    assert "No automatic scheduling was performed." in rendered
+    assert "post-relay drafts schedule --post-id" in rendered
+    assert "No Discord, R2, or Meta network calls were made." in rendered
+
+
+def test_cli_recommendations_schedule_is_local_advisory_only(tmp_path: Path):
+    db_path = tmp_path / "post_relay.sqlite"
+    connection = connect_db(db_path)
+    initialize_db(connection)
+    _seed_signal_rows(connection)
+
+    before_scheduled = connection.execute("select count(*) from drafts where scheduled_for is not null").fetchone()[0]
+
+    result = runner.invoke(
+        app,
+        [
+            "recommendations",
+            "schedule",
+            "--now",
+            "2026-05-30T08:00:00-07:00",
+            "--limit",
+            "2",
+            "--db",
+            str(db_path),
+        ],
+    )
+
+    after_scheduled = connection.execute("select count(*) from drafts where scheduled_for is not null").fetchone()[0]
+    assert result.exit_code == 0
+    assert before_scheduled == after_scheduled == 1
+    assert "Schedule recommendations" in result.output
+    assert "Existing scheduled queue:" in result.output
+    assert "No automatic scheduling was performed." in result.output
     assert "No Discord, R2, or Meta network calls were made." in result.output
 
 

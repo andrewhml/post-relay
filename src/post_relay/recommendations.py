@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, time, timedelta
 import re
 from pathlib import Path
 from typing import Optional
@@ -41,6 +42,34 @@ class CandidateRanking:
     score_breakdown: list[str]
     warnings: list[str]
     next_safe_command: str
+
+
+@dataclass(frozen=True)
+class ScheduledPostSummary:
+    post_id: int
+    scheduled_for: str
+    status: str
+    post_type: str
+    title: Optional[str]
+
+
+@dataclass(frozen=True)
+class ScheduleWindowRecommendation:
+    rank: int
+    scheduled_for: str
+    label: str
+    rationale: list[str]
+    conflicts: list[str]
+    next_safe_command: str
+
+
+@dataclass(frozen=True)
+class ScheduleRecommendationPlan:
+    active_goal_title: Optional[str]
+    scheduled_posts: list[ScheduledPostSummary]
+    recommendations: list[ScheduleWindowRecommendation]
+    warnings: list[str]
+    mutation_statement: str = NO_MUTATION_STATEMENT
 
 
 def build_signal_baseline(connection) -> SignalBaseline:
@@ -195,6 +224,102 @@ def render_candidate_rankings(connection, *, limit: int = 10) -> str:
     return "\n".join(lines)
 
 
+def build_schedule_recommendations(
+    connection,
+    *,
+    now: Optional[str] = None,
+    limit: int = 3,
+) -> ScheduleRecommendationPlan:
+    goal = get_active_user_goal(connection)
+    scheduled_posts = _list_scheduled_posts(connection)
+    scheduled_dates = {_parse_iso_datetime(post.scheduled_for).date() for post in scheduled_posts}
+    reference_time = _parse_iso_datetime(now) if now else datetime.now().astimezone()
+    post_id = _next_unscheduled_post_id(connection)
+    warnings: list[str] = []
+    if goal is None:
+        warnings.append("Active goal is missing; schedule suggestions should be treated as generic cadence priors.")
+    if _count(connection, "published_post_snapshots") < 3 or _count(connection, "media_insight_snapshots") < 3:
+        warnings.append("Performance/follower timing data is sparse; using conservative cadence priors.")
+    if _count(connection, "account_metric_snapshots") < 2:
+        warnings.append("Follower trend history is sparse; avoid making account-growth timing claims.")
+
+    recommendations: list[ScheduleWindowRecommendation] = []
+    candidate_day = reference_time.date() + timedelta(days=1)
+    while len(recommendations) < limit:
+        if candidate_day.weekday() in _PREFERRED_SCHEDULE_WEEKDAYS:
+            slot = datetime.combine(candidate_day, time(9, 0), tzinfo=reference_time.tzinfo)
+            conflicts = []
+            if candidate_day in scheduled_dates:
+                conflicts.append("Existing scheduled queue already has a post on this date.")
+            else:
+                rank = len(recommendations) + 1
+                rationale = [
+                    "Checked the existing scheduled queue before suggesting this slot.",
+                    "Uses conservative morning cadence prior while local timing data is sparse.",
+                ]
+                if goal and goal.desired_cadence:
+                    rationale.append(f"Active goal cadence: {goal.desired_cadence}.")
+                recommendations.append(
+                    ScheduleWindowRecommendation(
+                        rank=rank,
+                        scheduled_for=slot.isoformat(timespec="seconds"),
+                        label=_weekday_label(slot),
+                        rationale=rationale,
+                        conflicts=conflicts,
+                        next_safe_command=(
+                            f"post-relay drafts schedule --post-id {post_id or '<post-id>'} "
+                            f"--scheduled-for \"{slot.isoformat(timespec='seconds')}\" --db data/post_relay.sqlite"
+                        ),
+                    )
+                )
+        candidate_day += timedelta(days=1)
+    return ScheduleRecommendationPlan(
+        active_goal_title=goal.title if goal else None,
+        scheduled_posts=scheduled_posts,
+        recommendations=recommendations,
+        warnings=warnings,
+    )
+
+
+def render_schedule_recommendations(connection, *, now: Optional[str] = None, limit: int = 3) -> str:
+    plan = build_schedule_recommendations(connection, now=now, limit=limit)
+    lines = ["Schedule recommendations", "Local schedule-window suggestions; advisory only."]
+    lines.append(f"Active goal: {plan.active_goal_title or '<missing>'}")
+    lines.append("")
+    lines.append("Existing scheduled queue:")
+    if plan.scheduled_posts:
+        for post in plan.scheduled_posts:
+            title = f" — {post.title}" if post.title else ""
+            lines.append(f"- Post {post.post_id}: {post.scheduled_for} ({post.status}, {post.post_type}){title}")
+    else:
+        lines.append("- <none>")
+    lines.append("")
+    lines.append("Warnings:")
+    if plan.warnings:
+        for warning in plan.warnings:
+            lines.append(f"- {warning}")
+    else:
+        lines.append("- No schedule-specific warnings from local stored signals.")
+    lines.append("")
+    lines.append("Suggested windows:")
+    for recommendation in plan.recommendations:
+        lines.append(f"#{recommendation.rank} {recommendation.scheduled_for} ({recommendation.label})")
+        lines.append("Rationale:")
+        for rationale in recommendation.rationale:
+            lines.append(f"- {rationale}")
+        lines.append("Conflicts:")
+        if recommendation.conflicts:
+            for conflict in recommendation.conflicts:
+                lines.append(f"- {conflict}")
+        else:
+            lines.append("- No same-day conflict with the existing scheduled queue.")
+        lines.append(f"Next safe command: {recommendation.next_safe_command}")
+    lines.append("")
+    lines.append("No automatic scheduling was performed.")
+    lines.append(plan.mutation_statement)
+    return "\n".join(lines)
+
+
 @dataclass(frozen=True)
 class _CandidateScore:
     candidate_id: int
@@ -309,6 +434,67 @@ def _rank_candidate(row, goal_terms: set[str], analytics_sparse: bool) -> _Candi
         warnings=warnings,
         next_safe_command=next_safe_command,
     )
+
+def _list_scheduled_posts(connection) -> list[ScheduledPostSummary]:
+    rows = connection.execute(
+        """
+        select d.id,
+               d.scheduled_for,
+               d.status,
+               d.post_type,
+               cg.title
+        from drafts d
+        left join candidate_groups cg on cg.id = d.candidate_group_id
+        where d.scheduled_for is not null
+          and d.status not in ('posted', 'published')
+        order by d.scheduled_for asc, d.id asc
+        """
+    ).fetchall()
+    return [
+        ScheduledPostSummary(
+            post_id=int(row[0]),
+            scheduled_for=str(row[1]),
+            status=str(row[2]),
+            post_type=str(row[3]),
+            title=str(row[4]) if row[4] is not None else None,
+        )
+        for row in rows
+    ]
+
+
+def _next_unscheduled_post_id(connection) -> Optional[int]:
+    row = connection.execute(
+        """
+        select id
+        from drafts
+        where scheduled_for is null
+          and status in ('ready_to_publish', 'approved', 'awaiting_publish_approval', 'drafting', 'needs_edits', 'awaiting_review')
+        order by case status
+            when 'ready_to_publish' then 0
+            when 'approved' then 1
+            when 'awaiting_publish_approval' then 2
+            else 3
+        end,
+        id asc
+        limit 1
+        """
+    ).fetchone()
+    return int(row[0]) if row else None
+
+
+def _parse_iso_datetime(value: str) -> datetime:
+    parsed = datetime.fromisoformat(value)
+    if parsed.tzinfo is None:
+        return parsed.astimezone()
+    return parsed
+
+
+def _weekday_label(value: datetime) -> str:
+    return value.strftime("%A morning")
+
+
+_PREFERRED_SCHEDULE_WEEKDAYS = {1, 3, 6}
+
 
 _COUNT_ORDER = [
     "candidate_groups",

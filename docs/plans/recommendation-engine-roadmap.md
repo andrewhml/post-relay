@@ -149,18 +149,18 @@ Implemented behavior in this branch:
 - Keeps freeform `location_text` local/review-only and never treats it as a Meta location tag.
 - Keeps question generation local-only and idempotent; it mutates only unresolved local context-question rows for the requested post.
 
-### Milestone G: `feat/schedule-recommendations` (next)
+### Milestone G: `feat/schedule-recommendations` (in progress)
 
 Suggest schedule windows from stored local account/post signals and priors.
 
-Planned behavior:
+Implemented behavior in this branch:
 
-- Add a local/no-network recommendation command, likely `post-relay recommendations schedule`.
-- Read the active goal and local scheduled queue before suggesting another posting slot.
-- Use stored post/publish history, schedule cadence hints, follower summaries, and read-only insight snapshots where available.
-- Prefer conservative priors while account data is sparse and label sparse assumptions clearly.
-- Explain why each slot is suggested, list conflicts with already scheduled posts, and print the next safe command if the user chooses to schedule manually.
-- Do not schedule automatically or mutate posts, approvals, lifecycle state, opportunities, publish attempts, Discord, R2, or Meta state.
+- Adds `post-relay recommendations schedule --limit 3 --db data/post_relay.sqlite` as a local/no-network advisory command.
+- Reads the active goal and existing non-posted scheduled queue before suggesting another posting slot.
+- Uses deterministic conservative morning cadence priors while stored performance/follower timing data is sparse.
+- Skips same-day conflicts with already queued scheduled posts.
+- Explains rationale, lists conflicts, and prints a manual `drafts schedule` next safe command.
+- Does not schedule automatically or mutate posts, approvals, lifecycle state, opportunities, publish attempts, analytics rows, Discord, R2, or Meta state.
 
 ### Milestone H: `feat/caption-style-recommendations`
 
