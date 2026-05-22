@@ -175,7 +175,7 @@ Delivered behavior:
 - Includes guardrails that location text stays review-only unless a resolved Meta Page location tag is explicitly selected.
 - Does not overwrite captions, mutate approvals/lifecycle/schedules/opportunities/publish attempts/analytics rows, send Discord, call R2, or call Meta.
 
-### Milestone I: `feat/caption-feedback-capture` (implemented in PR #TBD)
+### Milestone I: `feat/caption-feedback-capture` (implemented in PR #96)
 
 Capture lightweight qualitative caption feedback after review without creating a heavy labeling workflow.
 

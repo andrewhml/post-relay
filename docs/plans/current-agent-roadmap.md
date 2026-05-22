@@ -1679,7 +1679,7 @@ Current branch result: `59 passed` focused; `248 passed` full suite.
 .venv/bin/python -m pytest -q
 ```
 
-### PR #TBD / Current milestone: `feat/caption-feedback-capture`
+### PR #96 / Current milestone: `feat/caption-feedback-capture`
 
 **Goal:** Capture lightweight qualitative caption feedback after review without creating a heavy labeling workflow.
 
