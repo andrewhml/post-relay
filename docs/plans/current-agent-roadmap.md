@@ -1606,11 +1606,11 @@ Current branch result: `59 passed` focused; `248 passed` full suite.
 .venv/bin/python -m pytest -q
 ```
 
-### PR #91 / Current in-progress milestone: `fix/meta-location-tag-choice`
+### PR #91 / Completed milestone: `fix/meta-location-tag-choice` (merged)
 
 **Goal:** Prevent posts with meaningful freeform location context from silently publishing without an Instagram-visible location tag.
 
-**Delivered behavior in this branch:**
+**Delivered behavior:**
 - Added an explicit `drafts location-tag-skip --post-id ... --reason ...` command that records a deliberate bypass when the user wants to publish without a Meta/Facebook Page location tag.
 - Persisted skipped location decisions in `draft_location_tags` with `status='skipped'` and `skip_reason`, separate from resolved `location_id` choices and freeform `drafts.location_text`.
 - Kept setting or skipping a location tag as a material publish-payload decision that invalidates active approvals and moves the post back to `needs_edits` when necessary.
@@ -1629,6 +1629,7 @@ Current branch result: `59 passed` focused; `248 passed` full suite.
 
 ## Later milestones
 
+- **Next:** `feat/schedule-recommendations` — add a local/no-network recommendation command that reads the active goal, scheduled queue, stored post/publish history, and sparse analytics/follower signals before suggesting schedule windows. It should surface all already scheduled posts before recommending another slot, explain rationale/conflicts, and remain advisory with no automatic scheduling, approval mutation, lifecycle mutation, Discord, R2, Meta, or publish side effects.
 - `feat/managed-r2-staging-mvp` (paused): allow selected publish assets to stage through a managed path only if Andrew reactivates the managed staging direction after BYO R2 friction justifies it.
 - Video/reel validation after feed/carousel path is reliable.
 - Per-media carousel alt text validation: model/store one accessibility note per selected media item, render it in final review, validate whether Instagram Graph supports any automated alt-text field for the active API/app combination, and keep unsupported fields review-only/manual without silently sending them to Meta.
