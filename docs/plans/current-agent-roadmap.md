@@ -1633,11 +1633,11 @@ Current branch result: `59 passed` focused; `248 passed` full suite.
 
 **Verification:** `.venv/bin/python -m pytest -q` (`317 passed`).
 
-### PR #93 / Current in-progress milestone: `feat/schedule-recommendations`
+### PR #93 / Completed milestone: `feat/schedule-recommendations` (merged)
 
 **Goal:** Add local/no-network schedule-window recommendations that read the existing scheduled queue before suggesting another slot.
 
-**Delivered behavior in this branch:**
+**Delivered behavior:**
 - Adds `post-relay recommendations schedule` as a local advisory command.
 - Shows the active goal when available and surfaces the existing scheduled queue before recommended windows.
 - Suggests deterministic conservative morning slots while performance/follower timing data is sparse.
@@ -1655,7 +1655,7 @@ Current branch result: `59 passed` focused; `248 passed` full suite.
 
 ## Later milestones
 
-- **Next:** `feat/schedule-recommendations` — add a local/no-network recommendation command that reads the active goal, scheduled queue, stored post/publish history, and sparse analytics/follower signals before suggesting schedule windows. It should surface all already scheduled posts before recommending another slot, explain rationale/conflicts, and remain advisory with no automatic scheduling, approval mutation, lifecycle mutation, Discord, R2, Meta, or publish side effects.
+- **Next:** `feat/caption-style-recommendations` — use approval/revision/published feedback to advise hook/caption style, length, itinerary/saveability, specificity, and hashtag count. It should stay local/advisory, compare draft captions to historically accepted traits when enough signal exists, and never overwrite copy without a separate explicit edit command.
 - `feat/managed-r2-staging-mvp` (paused): allow selected publish assets to stage through a managed path only if Andrew reactivates the managed staging direction after BYO R2 friction justifies it.
 - Video/reel validation after feed/carousel path is reliable.
 - Per-media carousel alt text validation: model/store one accessibility note per selected media item, render it in final review, validate whether Instagram Graph supports any automated alt-text field for the active API/app combination, and keep unsupported fields review-only/manual without silently sending them to Meta.
