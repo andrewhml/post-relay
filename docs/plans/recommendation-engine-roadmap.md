@@ -162,7 +162,7 @@ Implemented behavior:
 - Explains rationale, lists conflicts, and prints a manual `drafts schedule` next safe command.
 - Does not schedule automatically or mutate posts, approvals, lifecycle state, opportunities, publish attempts, analytics rows, Discord, R2, or Meta state.
 
-### Milestone H: `feat/caption-style-recommendations` (implemented in current PR)
+### Milestone H: `feat/caption-style-recommendations` (implemented in PR #95)
 
 Use approval/revision/published feedback to advise caption direction.
 

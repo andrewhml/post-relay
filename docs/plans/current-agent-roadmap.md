@@ -1659,7 +1659,7 @@ Current branch result: `59 passed` focused; `248 passed` full suite.
 
 **Verification:** `.venv/bin/python -m pytest -q` (`320 passed`).
 
-### Current PR / Completed milestone: `feat/caption-style-recommendations`
+### PR #95 / Completed milestone: `feat/caption-style-recommendations`
 
 **Goal:** Use local approval/revision/published feedback to advise caption direction without overwriting copy automatically.
 
