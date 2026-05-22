@@ -1627,6 +1627,12 @@ Current branch result: `59 passed` focused; `248 passed` full suite.
 .venv/bin/python -m pytest -q
 ```
 
+### PR #92 / Current docs refresh: `docs/post-pr91-roadmap-refresh`
+
+**Goal:** Sync handoff docs after PR #91 merged and confirm `feat/schedule-recommendations` as the next milestone.
+
+**Verification:** `.venv/bin/python -m pytest -q` (`317 passed`).
+
 ## Later milestones
 
 - **Next:** `feat/schedule-recommendations` — add a local/no-network recommendation command that reads the active goal, scheduled queue, stored post/publish history, and sparse analytics/follower signals before suggesting schedule windows. It should surface all already scheduled posts before recommending another slot, explain rationale/conflicts, and remain advisory with no automatic scheduling, approval mutation, lifecycle mutation, Discord, R2, Meta, or publish side effects.
