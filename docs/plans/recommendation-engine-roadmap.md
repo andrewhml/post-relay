@@ -197,9 +197,19 @@ Delivered behavior:
 - The embedded advice stays local/no-network and prints that no proactive Discord send was performed.
 - No posts, approvals, schedules, opportunities, publish attempts, analytics rows, Discord, R2, or Meta state are mutated by adding advisory context.
 
-### Next recommendation milestone
+### Milestone K: `feat/proactive-discord-suggestion-setup` (implemented in PR #TBD)
 
 Add an explicit proactive Discord suggestion setup path that creates reviewed opportunity/DM plans and operator controls before any live send.
+
+Delivered behavior:
+
+- Adds `post-relay opportunities proactive-setup --opportunity-id N --discord-channel-id <dm-channel-id> --db data/post_relay.sqlite`.
+- Renders a local setup path: inspect `opportunities dm-plan`, copy/send only after separate explicit authorization, then record with `opportunities mark-dm-sent`.
+- Does not send Discord, upload R2, call Meta, mutate opportunity status, mutate posts/approvals/schedules/publish attempts/analytics, or publish.
+
+### Next recommendation milestone
+
+Use the new setup path operationally only after explicit authorization, or continue improving recommendation quality with local qualitative feedback and stored analytics.
 
 ## Safety rules
 

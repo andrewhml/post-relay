@@ -68,6 +68,34 @@ class PostOpportunityCommandResult:
 
 
 @dataclass(frozen=True)
+class ProactiveDiscordSuggestionSetupPlan:
+    opportunity_id: int
+    title: str
+    status: str
+    discord_channel_id: Optional[str]
+    setup_commands: list[str]
+    operator_notes: list[str]
+    safety_notes: list[str]
+
+
+def render_proactive_discord_suggestion_setup_plan(plan: ProactiveDiscordSuggestionSetupPlan) -> str:
+    lines = [
+        f"Proactive Discord suggestion setup for opportunity #{plan.opportunity_id}: {plan.title}",
+        f"Status: {plan.status}",
+        f"Discord channel: {plan.discord_channel_id or '<operator-selected DM>'}",
+        "Setup path:",
+    ]
+    lines.extend(f"  - {command}" for command in plan.setup_commands)
+    lines.append("Operator notes:")
+    lines.extend(f"  - {note}" for note in plan.operator_notes)
+    lines.append("Safety:")
+    lines.extend(f"  - {note}" for note in plan.safety_notes)
+    lines.append("No Discord, R2, or Meta network calls were made.")
+    lines.append("No opportunity status was changed.")
+    return "\n".join(lines)
+
+
+@dataclass(frozen=True)
 class ProactiveOpportunityDmPlan:
     opportunity: PostOpportunityRecord
     suggested_dm_copy: str
@@ -213,6 +241,44 @@ def convert_post_opportunity_to_draft(connection, opportunity_id: int) -> PostOp
         draft_id=draft.id,
     )
 
+
+
+def build_proactive_discord_suggestion_setup_plan(
+    connection,
+    *,
+    opportunity_id: int,
+    discord_channel_id: Optional[str] = None,
+) -> ProactiveDiscordSuggestionSetupPlan:
+    opportunity = _require_opportunity(connection, opportunity_id)
+    if opportunity.status not in {"new", "dm_sent"}:
+        raise PostOpportunityError(
+            f"Opportunity #{opportunity_id} is {opportunity.status} and cannot be set up for a proactive Discord suggestion"
+        )
+    channel_arg = f" --discord-channel-id {discord_channel_id}" if discord_channel_id else ""
+    setup_commands = [
+        f"post-relay opportunities dm-plan --opportunity-id {opportunity.id} --db data/post_relay.sqlite",
+        "copy the Suggested DM copy into an explicitly authorized Discord send" + channel_arg,
+        f"post-relay opportunities mark-dm-sent --opportunity-id {opportunity.id} --db data/post_relay.sqlite",
+    ]
+    operator_notes = [
+        "Review the local DM plan before sending anything.",
+        "Use private-DM-first delivery and keep the suggestion exact-opportunity scoped.",
+        "If Andrew says yes, convert or continue with the printed opportunity controls; if not, snooze or dismiss locally.",
+    ]
+    safety_notes = [
+        "This command only renders the setup path; it does not send Discord messages.",
+        "Run mark-dm-sent only after a separately authorized send has actually happened.",
+        "Do not upload R2 assets, call Meta, approve, schedule, or publish from this setup plan.",
+    ]
+    return ProactiveDiscordSuggestionSetupPlan(
+        opportunity_id=opportunity.id,
+        title=opportunity.title,
+        status=opportunity.status,
+        discord_channel_id=discord_channel_id,
+        setup_commands=setup_commands,
+        operator_notes=operator_notes,
+        safety_notes=safety_notes,
+    )
 
 def plan_proactive_opportunity_dm(connection, opportunity_id: int) -> ProactiveOpportunityDmPlan:
     opportunity = _require_opportunity(connection, opportunity_id)

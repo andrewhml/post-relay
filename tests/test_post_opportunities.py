@@ -8,12 +8,14 @@ from post_relay.config import PhotoSource, PostRelayConfig
 from post_relay.db import connect_db, initialize_db
 from post_relay.indexer import index_photo_sources
 from post_relay.post_opportunities import (
+    build_proactive_discord_suggestion_setup_plan,
     create_post_opportunity,
     dismiss_post_opportunity,
     snooze_post_opportunity,
     convert_post_opportunity_to_draft,
     mark_post_opportunity_dm_sent,
     plan_proactive_opportunity_dm,
+    render_proactive_discord_suggestion_setup_plan,
 )
 from post_relay.repository import get_draft, list_post_opportunities
 
@@ -205,6 +207,74 @@ def test_mark_opportunity_dm_sent_is_explicit_local_state_only_and_blocks_termin
         assert "cannot be marked DM sent" in str(error)
     else:
         raise AssertionError("dismissed opportunities must not be markable as sent")
+
+
+
+def test_proactive_discord_suggestion_setup_plan_lists_safe_operator_path_without_sending(tmp_path: Path):
+    connection, root = _build_fixture_library(tmp_path)
+    opportunity = create_post_opportunity(
+        connection,
+        trigger_type="cadence_due",
+        trigger_key="weekly-2026-05-20",
+        title="Weekly posting window",
+        summary="Queue a reviewed travel set.",
+        rationale="Maintain posting cadence.",
+        suggested_next_action="Ask Andrew whether to review one backlog option.",
+    )
+
+    plan = build_proactive_discord_suggestion_setup_plan(
+        connection,
+        opportunity_id=opportunity.id,
+        discord_channel_id="dm-andrew",
+    )
+    text = render_proactive_discord_suggestion_setup_plan(plan)
+
+    assert plan.opportunity_id == opportunity.id
+    assert plan.discord_channel_id == "dm-andrew"
+    assert "Proactive Discord suggestion setup" in text
+    assert "post-relay opportunities dm-plan --opportunity-id" in text
+    assert "copy the Suggested DM copy into an explicitly authorized Discord send" in text
+    assert "post-relay opportunities mark-dm-sent --opportunity-id" in text
+    assert "No Discord, R2, or Meta network calls were made." in text
+    assert "No opportunity status was changed." in text
+    assert root.as_posix() not in text
+
+
+def test_cli_opportunities_proactive_setup_is_local_plan_only(tmp_path: Path):
+    connection, _root = _build_fixture_library(tmp_path)
+    db_path = tmp_path / "post_relay.sqlite"
+    opportunity = create_post_opportunity(
+        connection,
+        trigger_type="cadence_due",
+        trigger_key="weekly-2026-05-21",
+        title="Weekly posting window",
+        summary="Queue a reviewed travel set.",
+        rationale="Maintain posting cadence.",
+        suggested_next_action="Ask Andrew whether to review one backlog option.",
+    )
+    connection.commit()
+    status_before = connection.execute("select status from post_opportunities where id = ?", (opportunity.id,)).fetchone()[0]
+
+    result = runner.invoke(
+        app,
+        [
+            "opportunities",
+            "proactive-setup",
+            "--opportunity-id",
+            str(opportunity.id),
+            "--discord-channel-id",
+            "dm-andrew",
+            "--db",
+            str(db_path),
+        ],
+    )
+
+    status_after = connection.execute("select status from post_opportunities where id = ?", (opportunity.id,)).fetchone()[0]
+    assert result.exit_code == 0
+    assert status_before == status_after == "new"
+    assert "Proactive Discord suggestion setup" in result.output
+    assert "No opportunity status was changed." in result.output
+    assert "No Discord, R2, or Meta network calls were made." in result.output
 
 
 def test_cli_opportunities_create_list_dismiss_and_convert_without_network_calls(tmp_path: Path):
