@@ -1679,9 +1679,26 @@ Current branch result: `59 passed` focused; `248 passed` full suite.
 .venv/bin/python -m pytest -q
 ```
 
+### PR #96 / Current milestone: `feat/caption-feedback-capture`
+
+**Goal:** Capture lightweight qualitative caption feedback after review without creating a heavy labeling workflow.
+
+**Delivered behavior:**
+- Adds `post-relay recommendations caption-feedback --post-id N --sentiment <label> --signal <label> --note <text> --reviewed-by <name>` as a local feedback-capture command.
+- Adds a local `caption_feedback` table and includes feedback counts/tags in caption-style advisory output.
+- Does not rewrite captions, mutate post lifecycle/approvals/schedules/opportunities/publish attempts/analytics rows, send Discord, upload R2, or call Meta.
+
+**Verification:**
+
+```bash
+.venv/bin/python -m pytest tests/test_recommendation_signals.py::test_record_caption_feedback_captures_lightweight_review_signal_without_changing_caption tests/test_recommendation_signals.py::test_render_caption_feedback_result_is_safe_and_concise tests/test_recommendation_signals.py::test_caption_style_recommendations_include_qualitative_caption_feedback tests/test_recommendation_signals.py::test_cli_recommendations_caption_feedback_records_only_feedback_row -q
+.venv/bin/python -m pytest tests/test_recommendation_signals.py -q
+.venv/bin/python -m pytest -q
+```
+
 ## Later milestones
 
-- **Next:** decide whether to capture lightweight qualitative caption feedback after review, wire recommendation summaries into local/DM planning without proactive live sends, or continue with the next recommender slice from `docs/plans/recommendation-engine-roadmap.md`.
+- **Next:** after this PR merges, start `feat/dm-advisory-recommendations` to wire advisory recommendations into local/DM planning without proactive live sends, then `feat/proactive-discord-suggestion-setup`.
 - `feat/managed-r2-staging-mvp` (paused): allow selected publish assets to stage through a managed path only if Andrew reactivates the managed staging direction after BYO R2 friction justifies it.
 - Video/reel validation after feed/carousel path is reliable.
 - Per-media carousel alt text validation: model/store one accessibility note per selected media item, render it in final review, validate whether Instagram Graph supports any automated alt-text field for the active API/app combination, and keep unsupported fields review-only/manual without silently sending them to Meta.

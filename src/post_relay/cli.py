@@ -165,7 +165,9 @@ from post_relay.r2_staging_upload import (
     upload_r2_staging_for_draft,
 )
 from post_relay.recommendations import (
+    record_caption_feedback,
     render_candidate_rankings,
+    render_caption_feedback_result,
     render_caption_style_recommendations,
     render_schedule_recommendations,
     render_signal_baseline,
@@ -374,6 +376,32 @@ def recommendations_schedule(
     initialize_db(connection)
     typer.echo(render_schedule_recommendations(connection, now=now, limit=limit))
 
+
+
+@recommendations_app.command("caption-feedback")
+def recommendations_caption_feedback(
+    post_id: int = typer.Option(..., "--post-id", help="Post id to attach qualitative caption feedback to."),
+    sentiment: str = typer.Option(..., "--sentiment", help="Short sentiment label, e.g. positive or needs_work."),
+    signal: str = typer.Option(..., "--signal", help="Short feedback signal label, e.g. hook_first or too_generic."),
+    note: str = typer.Option(..., "--note", help="Short human feedback note."),
+    reviewed_by: Optional[str] = typer.Option(None, "--reviewed-by", help="Reviewer name or handle."),
+    db_path: Path = typer.Option(Path("data/post_relay.sqlite"), "--db", help="SQLite database path."),
+):
+    """Record lightweight qualitative caption feedback for future advisory recommendations."""
+    connection = connect_db(db_path)
+    initialize_db(connection)
+    try:
+        result = record_caption_feedback(
+            connection,
+            post_id=post_id,
+            sentiment=sentiment,
+            signal=signal,
+            note=note,
+            reviewed_by=reviewed_by,
+        )
+    except ValueError as error:
+        raise typer.BadParameter(str(error)) from error
+    typer.echo(render_caption_feedback_result(result))
 
 @recommendations_app.command("caption-style")
 def recommendations_caption_style(

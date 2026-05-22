@@ -8,6 +8,8 @@ from post_relay.recommendations import (
     build_caption_style_recommendations,
     build_schedule_recommendations,
     build_signal_baseline,
+    record_caption_feedback,
+    render_caption_feedback_result,
     render_caption_style_recommendations,
     render_schedule_recommendations,
     render_signal_baseline,
@@ -244,6 +246,116 @@ def test_cli_recommendations_caption_style_is_local_advisory_only(tmp_path: Path
     assert approval_count_before == approval_count_after
     assert "Caption style recommendations" in result.output
     assert "No caption was rewritten or saved." in result.output
+    assert "No Discord, R2, or Meta network calls were made." in result.output
+
+
+def test_record_caption_feedback_captures_lightweight_review_signal_without_changing_caption(tmp_path: Path):
+    connection = connect_db(tmp_path / "post_relay.sqlite")
+    initialize_db(connection)
+    _seed_caption_style_rows(connection)
+    caption_before = connection.execute("select caption from drafts where id = 4").fetchone()[0]
+
+    result = record_caption_feedback(
+        connection,
+        post_id=4,
+        sentiment="positive",
+        signal="saveable_route",
+        note="This framing feels useful enough to save.",
+        reviewed_by="andrew",
+    )
+
+    caption_after = connection.execute("select caption from drafts where id = 4").fetchone()[0]
+    stored = connection.execute(
+        "select draft_id, sentiment, signal, note, reviewed_by from caption_feedback"
+    ).fetchone()
+    assert result.post_id == 4
+    assert result.sentiment == "positive"
+    assert result.signal == "saveable_route"
+    assert caption_before == caption_after == "Another temple sequence."
+    assert stored == (4, "positive", "saveable_route", "This framing feels useful enough to save.", "andrew")
+    assert "No captions, posts, approvals, schedules, Discord, R2, or Meta state were changed." in result.mutation_statement
+
+
+def test_render_caption_feedback_result_is_safe_and_concise(tmp_path: Path):
+    connection = connect_db(tmp_path / "post_relay.sqlite")
+    initialize_db(connection)
+    _seed_caption_style_rows(connection)
+    result = record_caption_feedback(
+        connection,
+        post_id=4,
+        sentiment="needs_work",
+        signal="too_generic",
+        note="Needs a sharper opening hook.",
+        reviewed_by="andrew",
+    )
+
+    rendered = render_caption_feedback_result(result)
+
+    assert "Caption feedback recorded for post 4" in rendered
+    assert "Sentiment: needs_work" in rendered
+    assert "Signal: too_generic" in rendered
+    assert "Needs a sharper opening hook." in rendered
+    assert "No Discord, R2, or Meta network calls were made." in rendered
+
+
+def test_caption_style_recommendations_include_qualitative_caption_feedback(tmp_path: Path):
+    connection = connect_db(tmp_path / "post_relay.sqlite")
+    initialize_db(connection)
+    _seed_caption_style_rows(connection)
+    record_caption_feedback(
+        connection,
+        post_id=4,
+        sentiment="positive",
+        signal="hook_first",
+        note="The first line is finally concrete.",
+        reviewed_by="andrew",
+    )
+
+    plan = build_caption_style_recommendations(connection, post_id=4)
+    rendered = render_caption_style_recommendations(connection, post_id=4)
+
+    assert plan.caption_feedback_count == 1
+    assert any("hook_first" in pattern for pattern in plan.local_patterns)
+    assert "Caption feedback rows: 1" in rendered
+    assert "hook_first" in rendered
+
+
+def test_cli_recommendations_caption_feedback_records_only_feedback_row(tmp_path: Path):
+    db_path = tmp_path / "post_relay.sqlite"
+    connection = connect_db(db_path)
+    initialize_db(connection)
+    _seed_caption_style_rows(connection)
+    caption_before = connection.execute("select caption from drafts where id = 4").fetchone()[0]
+    approval_count_before = connection.execute("select count(*) from approvals").fetchone()[0]
+
+    result = runner.invoke(
+        app,
+        [
+            "recommendations",
+            "caption-feedback",
+            "--post-id",
+            "4",
+            "--sentiment",
+            "positive",
+            "--signal",
+            "saveable_route",
+            "--note",
+            "Keep this route framing.",
+            "--reviewed-by",
+            "andrew",
+            "--db",
+            str(db_path),
+        ],
+    )
+
+    caption_after = connection.execute("select caption from drafts where id = 4").fetchone()[0]
+    approval_count_after = connection.execute("select count(*) from approvals").fetchone()[0]
+    feedback_count = connection.execute("select count(*) from caption_feedback").fetchone()[0]
+    assert result.exit_code == 0
+    assert caption_before == caption_after == "Another temple sequence."
+    assert approval_count_before == approval_count_after
+    assert feedback_count == 1
+    assert "Caption feedback recorded for post 4" in result.output
     assert "No Discord, R2, or Meta network calls were made." in result.output
 
 

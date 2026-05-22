@@ -74,6 +74,20 @@ class ScheduleRecommendationPlan:
 
 
 @dataclass(frozen=True)
+class CaptionFeedbackResult:
+    id: int
+    post_id: int
+    sentiment: str
+    signal: str
+    note: str
+    reviewed_by: Optional[str]
+    mutation_statement: str = (
+        "No Discord, R2, or Meta network calls were made. "
+        "No captions, posts, approvals, schedules, Discord, R2, or Meta state were changed."
+    )
+
+
+@dataclass(frozen=True)
 class CaptionStyleRecommendationPlan:
     active_goal_title: Optional[str]
     post_id: Optional[int]
@@ -82,6 +96,7 @@ class CaptionStyleRecommendationPlan:
     approved_post_count: int
     published_snapshot_count: int
     insight_snapshot_count: int
+    caption_feedback_count: int
     local_patterns: list[str]
     recommended_direction: list[str]
     guardrails: list[str]
@@ -337,6 +352,53 @@ def render_schedule_recommendations(connection, *, now: Optional[str] = None, li
     return "\n".join(lines)
 
 
+
+def record_caption_feedback(
+    connection,
+    *,
+    post_id: int,
+    sentiment: str,
+    signal: str,
+    note: str,
+    reviewed_by: Optional[str] = None,
+) -> CaptionFeedbackResult:
+    if _draft_exists(connection, post_id) is False:
+        raise ValueError(f"Post #{post_id} was not found")
+    sentiment = _normalize_caption_feedback_token(sentiment, field_name="sentiment")
+    signal = _normalize_caption_feedback_token(signal, field_name="signal")
+    note = note.strip()
+    if not note:
+        raise ValueError("Caption feedback note must not be empty")
+    cursor = connection.execute(
+        """
+        insert into caption_feedback (draft_id, sentiment, signal, note, reviewed_by)
+        values (?, ?, ?, ?, ?)
+        """,
+        (post_id, sentiment, signal, note[:500], (reviewed_by or "").strip() or None),
+    )
+    connection.commit()
+    return CaptionFeedbackResult(
+        id=int(cursor.lastrowid),
+        post_id=post_id,
+        sentiment=sentiment,
+        signal=signal,
+        note=note[:500],
+        reviewed_by=(reviewed_by or "").strip() or None,
+    )
+
+
+def render_caption_feedback_result(result: CaptionFeedbackResult) -> str:
+    lines = [
+        f"Caption feedback recorded for post {result.post_id}",
+        f"Sentiment: {result.sentiment}",
+        f"Signal: {result.signal}",
+        f"Note: {result.note}",
+    ]
+    if result.reviewed_by:
+        lines.append(f"Reviewed by: {result.reviewed_by}")
+    lines.append(result.mutation_statement)
+    return "\n".join(lines)
+
 def build_caption_style_recommendations(connection, *, post_id: Optional[int] = None) -> CaptionStyleRecommendationPlan:
     goal = get_active_user_goal(connection)
     current_caption = _current_caption(connection, post_id)
@@ -348,6 +410,7 @@ def build_caption_style_recommendations(connection, *, post_id: Optional[int] = 
     )
     published_snapshot_count = _count(connection, "published_post_snapshots")
     insight_snapshot_count = _count(connection, "media_insight_snapshots")
+    caption_feedback = _caption_feedback_rows(connection, post_id=post_id)
     example_captions = _published_caption_examples(connection) + accepted_captions
     local_patterns = _caption_local_patterns(
         accepted_caption_count=len(accepted_captions),
@@ -355,6 +418,7 @@ def build_caption_style_recommendations(connection, *, post_id: Optional[int] = 
         published_snapshot_count=published_snapshot_count,
         insight_snapshot_count=insight_snapshot_count,
         example_captions=example_captions,
+        caption_feedback=caption_feedback,
     )
     recommended_direction = _caption_recommended_direction(goal, current_caption, example_captions)
     guardrails = [
@@ -370,6 +434,7 @@ def build_caption_style_recommendations(connection, *, post_id: Optional[int] = 
         approved_post_count=approved_post_count,
         published_snapshot_count=published_snapshot_count,
         insight_snapshot_count=insight_snapshot_count,
+        caption_feedback_count=len(caption_feedback),
         local_patterns=local_patterns,
         recommended_direction=recommended_direction,
         guardrails=guardrails,
@@ -389,6 +454,7 @@ def render_caption_style_recommendations(connection, *, post_id: Optional[int] =
     lines.append(f"- Currently approved posts: {plan.approved_post_count}")
     lines.append(f"- Published snapshots: {plan.published_snapshot_count}")
     lines.append(f"- Insight snapshots: {plan.insight_snapshot_count}")
+    lines.append(f"- Caption feedback rows: {plan.caption_feedback_count}")
     lines.append("")
     lines.append("Observed local patterns:")
     for pattern in plan.local_patterns:
@@ -529,6 +595,42 @@ def _rank_candidate(row, goal_terms: set[str], analytics_sparse: bool) -> _Candi
         next_safe_command=next_safe_command,
     )
 
+
+def _draft_exists(connection, post_id: int) -> bool:
+    row = connection.execute("select 1 from drafts where id = ?", (post_id,)).fetchone()
+    return row is not None
+
+
+def _normalize_caption_feedback_token(value: str, *, field_name: str) -> str:
+    token = re.sub(r"[^a-z0-9_]+", "_", value.strip().lower()).strip("_")
+    if not token:
+        raise ValueError(f"Caption feedback {field_name} must not be empty")
+    return token[:60]
+
+
+def _caption_feedback_rows(connection, *, post_id: Optional[int]) -> list[tuple[str, str, str]]:
+    if post_id is not None:
+        rows = connection.execute(
+            """
+            select sentiment, signal, note
+            from caption_feedback
+            where draft_id = ?
+            order by id desc
+            limit 10
+            """,
+            (post_id,),
+        ).fetchall()
+    else:
+        rows = connection.execute(
+            """
+            select sentiment, signal, note
+            from caption_feedback
+            order by id desc
+            limit 10
+            """
+        ).fetchall()
+    return [(str(row[0]), str(row[1]), str(row[2])) for row in rows]
+
 def _current_caption(connection, post_id: Optional[int]) -> str:
     if post_id is None:
         return ""
@@ -577,6 +679,7 @@ def _caption_local_patterns(
     published_snapshot_count: int,
     insight_snapshot_count: int,
     example_captions: list[str],
+    caption_feedback: list[tuple[str, str, str]],
 ) -> list[str]:
     patterns: list[str] = []
     if accepted_caption_count:
@@ -589,6 +692,14 @@ def _caption_local_patterns(
         patterns.append("Published snapshots provide real local examples of final Meta-bound captions.")
     if insight_snapshot_count:
         patterns.append("Insight snapshots exist, but use them conservatively until history is larger.")
+    if caption_feedback:
+        signal_counts: dict[str, int] = {}
+        for sentiment, signal, _note in caption_feedback:
+            key = f"{sentiment}:{signal}"
+            signal_counts[key] = signal_counts.get(key, 0) + 1
+        for key, count in sorted(signal_counts.items()):
+            sentiment, signal = key.split(":", 1)
+            patterns.append(f"Qualitative caption feedback: {count} {sentiment} note(s) tagged {signal}.")
     if any(_caption_starts_with_hook(caption) for caption in example_captions):
         patterns.append("Local examples often start with a concrete travel hook or planning promise.")
     return patterns
