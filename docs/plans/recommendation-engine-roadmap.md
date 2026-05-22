@@ -186,7 +186,7 @@ Delivered behavior:
 - Keeps caption/style recommendations aware of qualitative feedback counts and tags.
 - Does not rewrite captions, mutate posts, approvals, schedules, opportunities, publish attempts, analytics rows, Discord, R2, or Meta state.
 
-### Milestone J: `feat/dm-advisory-recommendations` (implemented in PR #TBD)
+### Milestone J: `feat/dm-advisory-recommendations` (implemented in PR #97)
 
 Wire advisory recommendations into a local/DM planning surface without live proactive sends.
 
