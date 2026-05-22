@@ -164,7 +164,12 @@ from post_relay.r2_staging_upload import (
     cleanup_r2_staged_objects_for_draft,
     upload_r2_staging_for_draft,
 )
-from post_relay.recommendations import render_candidate_rankings, render_schedule_recommendations, render_signal_baseline
+from post_relay.recommendations import (
+    render_candidate_rankings,
+    render_caption_style_recommendations,
+    render_schedule_recommendations,
+    render_signal_baseline,
+)
 from post_relay.review_artifacts import DraftNotFound as ArtifactDraftNotFound
 from post_relay.review_artifacts import (
     OversizedReviewArtifactSet,
@@ -368,6 +373,17 @@ def recommendations_schedule(
     connection = connect_db(db)
     initialize_db(connection)
     typer.echo(render_schedule_recommendations(connection, now=now, limit=limit))
+
+
+@recommendations_app.command("caption-style")
+def recommendations_caption_style(
+    post_id: Optional[int] = typer.Option(None, "--post-id", "--draft-id", help="Optional post id to compare against local caption feedback."),
+    db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
+) -> None:
+    """Advise caption style from local approvals, revisions, and published feedback without rewriting copy."""
+    connection = connect_db(db)
+    initialize_db(connection)
+    typer.echo(render_caption_style_recommendations(connection, post_id=post_id))
 
 
 @db_app.command("init")

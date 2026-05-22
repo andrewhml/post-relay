@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, time, timedelta
+import json
 import re
 from pathlib import Path
 from typing import Optional
@@ -69,6 +70,22 @@ class ScheduleRecommendationPlan:
     scheduled_posts: list[ScheduledPostSummary]
     recommendations: list[ScheduleWindowRecommendation]
     warnings: list[str]
+    mutation_statement: str = NO_MUTATION_STATEMENT
+
+
+@dataclass(frozen=True)
+class CaptionStyleRecommendationPlan:
+    active_goal_title: Optional[str]
+    post_id: Optional[int]
+    current_caption: str
+    accepted_caption_count: int
+    approved_post_count: int
+    published_snapshot_count: int
+    insight_snapshot_count: int
+    local_patterns: list[str]
+    recommended_direction: list[str]
+    guardrails: list[str]
+    example_captions: list[str]
     mutation_statement: str = NO_MUTATION_STATEMENT
 
 
@@ -320,6 +337,83 @@ def render_schedule_recommendations(connection, *, now: Optional[str] = None, li
     return "\n".join(lines)
 
 
+def build_caption_style_recommendations(connection, *, post_id: Optional[int] = None) -> CaptionStyleRecommendationPlan:
+    goal = get_active_user_goal(connection)
+    current_caption = _current_caption(connection, post_id)
+    accepted_captions = _accepted_caption_examples(connection)
+    approved_post_count = _count(
+        connection,
+        "approvals",
+        "approval_type = 'draft' and invalidated_at is null",
+    )
+    published_snapshot_count = _count(connection, "published_post_snapshots")
+    insight_snapshot_count = _count(connection, "media_insight_snapshots")
+    example_captions = _published_caption_examples(connection) + accepted_captions
+    local_patterns = _caption_local_patterns(
+        accepted_caption_count=len(accepted_captions),
+        approved_post_count=approved_post_count,
+        published_snapshot_count=published_snapshot_count,
+        insight_snapshot_count=insight_snapshot_count,
+        example_captions=example_captions,
+    )
+    recommended_direction = _caption_recommended_direction(goal, current_caption, example_captions)
+    guardrails = [
+        "Do not overwrite the current caption automatically; treat this as review guidance.",
+        "Keep claims grounded in visible photos and confirmed local context.",
+        "Freeform location text remains review-only unless a resolved Meta Page location tag is explicitly selected.",
+    ]
+    return CaptionStyleRecommendationPlan(
+        active_goal_title=goal.title if goal else None,
+        post_id=post_id,
+        current_caption=current_caption,
+        accepted_caption_count=len(accepted_captions),
+        approved_post_count=approved_post_count,
+        published_snapshot_count=published_snapshot_count,
+        insight_snapshot_count=insight_snapshot_count,
+        local_patterns=local_patterns,
+        recommended_direction=recommended_direction,
+        guardrails=guardrails,
+        example_captions=example_captions[:3],
+    )
+
+
+def render_caption_style_recommendations(connection, *, post_id: Optional[int] = None) -> str:
+    plan = build_caption_style_recommendations(connection, post_id=post_id)
+    lines = ["Caption style recommendations", "Local caption-direction guidance; advisory only."]
+    lines.append(f"Active goal: {plan.active_goal_title or '<missing>'}")
+    lines.append(f"Post: {plan.post_id if plan.post_id is not None else '<not specified>'}")
+    lines.append(f"Current caption: {plan.current_caption or '<empty>'}")
+    lines.append("")
+    lines.append("Local feedback signals:")
+    lines.append(f"- Accepted caption packages: {plan.accepted_caption_count}")
+    lines.append(f"- Currently approved posts: {plan.approved_post_count}")
+    lines.append(f"- Published snapshots: {plan.published_snapshot_count}")
+    lines.append(f"- Insight snapshots: {plan.insight_snapshot_count}")
+    lines.append("")
+    lines.append("Observed local patterns:")
+    for pattern in plan.local_patterns:
+        lines.append(f"- {pattern}")
+    lines.append("")
+    lines.append("Recommended direction:")
+    for direction in plan.recommended_direction:
+        lines.append(f"- {direction}")
+    lines.append("")
+    lines.append("Example local captions considered:")
+    if plan.example_captions:
+        for caption in plan.example_captions:
+            lines.append(f"- {caption}")
+    else:
+        lines.append("- <none yet>")
+    lines.append("")
+    lines.append("Guardrails:")
+    for guardrail in plan.guardrails:
+        lines.append(f"- {guardrail}")
+    lines.append("")
+    lines.append("No caption was rewritten or saved.")
+    lines.append(plan.mutation_statement)
+    return "\n".join(lines)
+
+
 @dataclass(frozen=True)
 class _CandidateScore:
     candidate_id: int
@@ -434,6 +528,89 @@ def _rank_candidate(row, goal_terms: set[str], analytics_sparse: bool) -> _Candi
         warnings=warnings,
         next_safe_command=next_safe_command,
     )
+
+def _current_caption(connection, post_id: Optional[int]) -> str:
+    if post_id is None:
+        return ""
+    row = connection.execute("select caption from drafts where id = ?", (post_id,)).fetchone()
+    return str(row[0] or "") if row else ""
+
+
+def _accepted_caption_examples(connection) -> list[str]:
+    rows = connection.execute(
+        """
+        select caption_options_json, accepted_caption_index
+        from guided_draft_packages
+        where accepted_at is not null
+        order by accepted_at desc, id desc
+        """
+    ).fetchall()
+    captions: list[str] = []
+    for row in rows:
+        try:
+            options = json.loads(row[0] or "[]")
+        except json.JSONDecodeError:
+            options = []
+        index = int(row[1] or 0)
+        if 0 <= index < len(options) and str(options[index]).strip():
+            captions.append(str(options[index]).strip())
+    return captions
+
+
+def _published_caption_examples(connection) -> list[str]:
+    rows = connection.execute(
+        """
+        select coalesce(final_caption, '')
+        from published_post_snapshots
+        where final_caption is not null and trim(final_caption) != ''
+        order by actual_published_at desc, id desc
+        limit 5
+        """
+    ).fetchall()
+    return [str(row[0]).strip() for row in rows if str(row[0]).strip()]
+
+
+def _caption_local_patterns(
+    *,
+    accepted_caption_count: int,
+    approved_post_count: int,
+    published_snapshot_count: int,
+    insight_snapshot_count: int,
+    example_captions: list[str],
+) -> list[str]:
+    patterns: list[str] = []
+    if accepted_caption_count:
+        patterns.append("Accepted guided packages provide local evidence for caption tone and structure.")
+    else:
+        patterns.append("No accepted guided caption packages yet; style advice should remain generic.")
+    if approved_post_count:
+        patterns.append("Active content approvals indicate some caption directions already passed review.")
+    if published_snapshot_count:
+        patterns.append("Published snapshots provide real local examples of final Meta-bound captions.")
+    if insight_snapshot_count:
+        patterns.append("Insight snapshots exist, but use them conservatively until history is larger.")
+    if any(_caption_starts_with_hook(caption) for caption in example_captions):
+        patterns.append("Local examples often start with a concrete travel hook or planning promise.")
+    return patterns
+
+
+def _caption_recommended_direction(goal, current_caption: str, example_captions: list[str]) -> list[str]:
+    directions = ["Lead with a concrete hook in the first sentence."]
+    goal_terms = _goal_terms(goal)
+    caption_terms = _terms(" ".join(example_captions + [current_caption]))
+    if {"saveable", "route", "routes", "itinerary", "guide", "guides"}.intersection(goal_terms | caption_terms):
+        directions.append("Lean into saveable route/itinerary framing when the photos support it.")
+    if current_caption and len(current_caption.split()) < 8:
+        directions.append("Expand the current caption with one specific why-this-moment-matters detail.")
+    directions.append("Keep the caption human and specific; avoid generic travel-superlative filler.")
+    return directions
+
+
+def _caption_starts_with_hook(caption: str) -> bool:
+    first_sentence = caption.strip().split(".", 1)[0].lower()
+    hook_words = {"save", "start", "first", "before", "three", "one", "walk", "route"}
+    return bool(_terms(first_sentence).intersection(hook_words))
+
 
 def _list_scheduled_posts(connection) -> list[ScheduledPostSummary]:
     rows = connection.execute(

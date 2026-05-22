@@ -162,15 +162,22 @@ Implemented behavior:
 - Explains rationale, lists conflicts, and prints a manual `drafts schedule` next safe command.
 - Does not schedule automatically or mutate posts, approvals, lifecycle state, opportunities, publish attempts, analytics rows, Discord, R2, or Meta state.
 
-### Milestone H: `feat/caption-style-recommendations` (next)
+### Milestone H: `feat/caption-style-recommendations` (implemented in PR #95)
 
 Use approval/revision/published feedback to advise caption direction.
 
-Behavior ideas:
+Delivered behavior:
 
-- Track hook style, length, pun/wit level, itinerary/saveability, location specificity, and hashtag count from accepted/published posts.
-- Compare draft captions to historically approved traits.
-- Suggest edits as advisory text only; do not overwrite copy unless a separate explicit edit command is run.
+- Adds `post-relay recommendations caption-style --post-id N --db data/post_relay.sqlite` as a local/no-network advisory command.
+- Reads accepted guided caption packages, active content approvals, published post snapshots, and stored insight snapshots.
+- Shows the current post caption when `--post-id` is provided and compares it to local style signals.
+- Advises hook-first, saveable route/itinerary, specificity, and human tone direction without rewriting saved copy.
+- Includes guardrails that location text stays review-only unless a resolved Meta Page location tag is explicitly selected.
+- Does not overwrite captions, mutate approvals/lifecycle/schedules/opportunities/publish attempts/analytics rows, send Discord, call R2, or call Meta.
+
+### Possible next recommendation milestone
+
+Capture lightweight qualitative caption feedback after review without creating a heavy labeling workflow, or wire advisory recommendations into a DM planning surface without live proactive sends.
 
 ## Safety rules
 

@@ -1659,9 +1659,29 @@ Current branch result: `59 passed` focused; `248 passed` full suite.
 
 **Verification:** `.venv/bin/python -m pytest -q` (`320 passed`).
 
+### PR #95 / Completed milestone: `feat/caption-style-recommendations`
+
+**Goal:** Use local approval/revision/published feedback to advise caption direction without overwriting copy automatically.
+
+**Delivered behavior:**
+- Adds `post-relay recommendations caption-style --post-id N` as a local advisory command.
+- Reads accepted guided caption packages, active content approvals, published post snapshots, and stored insight snapshots.
+- Shows the current post caption for comparison when a post id is provided.
+- Advises hook-first, saveable route/itinerary, specificity, and grounded human tone direction.
+- Prints explicit guardrails and a no-mutation statement; no caption is rewritten or saved.
+- Makes no network calls and does not mutate posts, approvals, schedules, opportunities, publish attempts, analytics rows, Discord, R2, or Meta state.
+
+**Verification:**
+
+```bash
+.venv/bin/python -m pytest tests/test_recommendation_signals.py::test_build_caption_style_recommendations_uses_local_feedback_without_rewriting_copy tests/test_recommendation_signals.py::test_render_caption_style_recommendations_is_advisory tests/test_recommendation_signals.py::test_cli_recommendations_caption_style_is_local_advisory_only -q
+.venv/bin/python -m pytest tests/test_recommendation_signals.py -q
+.venv/bin/python -m pytest -q
+```
+
 ## Later milestones
 
-- **Next:** `feat/caption-style-recommendations` — use approval/revision/published feedback to advise hook/caption style, length, itinerary/saveability, specificity, and hashtag count. It should stay local/advisory, compare draft captions to historically accepted traits when enough signal exists, and never overwrite copy without a separate explicit edit command.
+- **Next:** decide whether to capture lightweight qualitative caption feedback after review, wire recommendation summaries into local/DM planning without proactive live sends, or continue with the next recommender slice from `docs/plans/recommendation-engine-roadmap.md`.
 - `feat/managed-r2-staging-mvp` (paused): allow selected publish assets to stage through a managed path only if Andrew reactivates the managed staging direction after BYO R2 friction justifies it.
 - Video/reel validation after feed/carousel path is reliable.
 - Per-media carousel alt text validation: model/store one accessibility note per selected media item, render it in final review, validate whether Instagram Graph supports any automated alt-text field for the active API/app combination, and keep unsupported fields review-only/manual without silently sending them to Meta.
