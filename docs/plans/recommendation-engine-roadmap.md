@@ -197,7 +197,7 @@ Delivered behavior:
 - The embedded advice stays local/no-network and prints that no proactive Discord send was performed.
 - No posts, approvals, schedules, opportunities, publish attempts, analytics rows, Discord, R2, or Meta state are mutated by adding advisory context.
 
-### Milestone K: `feat/proactive-discord-suggestion-setup` (implemented in PR #TBD)
+### Milestone K: `feat/proactive-discord-suggestion-setup` (implemented in PR #98)
 
 Add an explicit proactive Discord suggestion setup path that creates reviewed opportunity/DM plans and operator controls before any live send.
 
