@@ -1583,7 +1583,7 @@ Current branch result: `59 passed` focused; `248 passed` full suite.
 - Keeps sparse analytics advisory only and does not weight performance strongly until enough stored snapshots exist.
 - Makes no network calls and does not mutate posts, approvals, schedules, opportunities, publish attempts, analytics rows, Discord, R2, or Meta state.
 
-### PR #90 / Current in-progress milestone: `feat/smarter-context-questions`
+### PR #90 / Completed milestone: `feat/smarter-context-questions`
 
 **Goal:** Reduce unnecessary interview questions by reusing stored local context before asking Andrew for missing publish-relevant facts.
 
@@ -1596,13 +1596,34 @@ Current branch result: `59 passed` focused; `248 passed` full suite.
 
 **Safety rule:** Recommendation/question-reduction milestones are local/advisory only. Context question generation must not create or approve posts, schedule, upload, send Discord messages, call Meta/R2, or publish.
 
-**Next after merge:** Start `feat/schedule-recommendations` to suggest local posting windows from stored queue/account/post signals and priors without scheduling automatically.
+**Next after merge:** A live post showed that freeform `location_text` can still be missed during final publish, so the next milestone became PR #91 / `fix/meta-location-tag-choice` before schedule recommendations.
 
 **Verification:**
 
 ```bash
 .venv/bin/python -m pytest tests/test_context_questions.py tests/test_draft_review_package.py tests/test_cli.py::test_cli_draft_context_questions_generate_and_list -q
 .venv/bin/post-relay drafts questions generate --post-id 1 --db data/post_relay.sqlite
+.venv/bin/python -m pytest -q
+```
+
+### PR #91 / Current in-progress milestone: `fix/meta-location-tag-choice`
+
+**Goal:** Prevent posts with meaningful freeform location context from silently publishing without an Instagram-visible location tag.
+
+**Delivered behavior in this branch:**
+- Added an explicit `drafts location-tag-skip --post-id ... --reason ...` command that records a deliberate bypass when the user wants to publish without a Meta/Facebook Page location tag.
+- Persisted skipped location decisions in `draft_location_tags` with `status='skipped'` and `skip_reason`, separate from resolved `location_id` choices and freeform `drafts.location_text`.
+- Kept setting or skipping a location tag as a material publish-payload decision that invalidates active approvals and moves the post back to `needs_edits` when necessary.
+- Updated final publish preview to distinguish resolved location payloads, intentionally skipped tags, unresolved freeform location context, and no-context states.
+- Updated scheduled publish preflight and scriptless unattended publish plans to warn when location context exists but no publishable `location_id` will be sent, and to show the skip reason when bypassed.
+- Kept Meta/R2/Discord operations dry-run/no-network in this milestone; `location-candidates` remains the explicit read-only Meta Page search surface.
+
+**Safety rule:** Freeform `location_text` is never sent to Meta. A visible Instagram location tag requires an explicitly reviewed Facebook Page `location_id`, while publishing without one requires either no meaningful location context or an explicit skip/bypass decision.
+
+**Verification:**
+
+```bash
+.venv/bin/python -m pytest tests/test_location_tags.py tests/test_final_publish_preview.py tests/test_scheduled_publish_runner.py -q
 .venv/bin/python -m pytest -q
 ```
 

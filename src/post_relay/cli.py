@@ -94,6 +94,7 @@ from post_relay.location_tags import (
     DraftNotFound as LocationTagDraftNotFound,
     build_location_candidate_review,
     set_draft_location_tag,
+    skip_draft_location_tag,
 )
 from post_relay.meta_graph import (
     AccountDiscoveryResult,
@@ -2182,6 +2183,30 @@ def drafts_location_tag_set(
             f"Prior approvals were invalidated: {invalidated_count}. Re-submit/reapprove before publishing with this location tag."
         )
     typer.echo("Freeform location_text remains local/review-only and was not changed.")
+
+
+@drafts_app.command("location-tag-skip")
+def drafts_location_tag_skip(
+    draft_id: int = typer.Option(..., "--post-id", "--draft-id", help="Post id (legacy --draft-id alias)."),
+    reason: str = typer.Option(..., "--reason", help="Why the Meta location tag is being skipped."),
+    db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
+) -> None:
+    """Record an explicit choice to publish without a Meta location tag."""
+    connection = connect_db(db)
+    initialize_db(connection)
+    active_before = len(list_active_approvals(connection, draft_id))
+    try:
+        tag = skip_draft_location_tag(connection, draft_id, reason=reason)
+    except LocationTagDraftNotFound as error:
+        raise typer.BadParameter(str(error), param_hint="--post-id") from error
+    invalidated_count = active_before - len(list_active_approvals(connection, draft_id))
+    typer.echo(f"Skipped Meta location tag for post #{tag.draft_id}.")
+    typer.echo(f"Reason: {tag.skip_reason or '<none>'}")
+    typer.echo("No location_id will be sent to Meta; the user can add a location manually after publishing.")
+    if invalidated_count:
+        typer.echo(
+            f"Prior approvals were invalidated: {invalidated_count}. Re-submit/reapprove before publishing with this location decision."
+        )
 
 
 @drafts_app.command("schedule")

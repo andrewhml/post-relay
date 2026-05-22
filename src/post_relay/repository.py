@@ -183,6 +183,7 @@ class DraftLocationTagRecord:
     name: str
     source: str
     status: str
+    skip_reason: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -698,19 +699,21 @@ def upsert_draft_location_tag(
     name: str,
     source: str,
     status: str = "resolved",
+    skip_reason: Optional[str] = None,
 ) -> DraftLocationTagRecord:
     connection.execute(
         """
-        insert into draft_location_tags (draft_id, page_id, name, source, status)
-        values (?, ?, ?, ?, ?)
+        insert into draft_location_tags (draft_id, page_id, name, source, status, skip_reason)
+        values (?, ?, ?, ?, ?, ?)
         on conflict(draft_id) do update set
             page_id = excluded.page_id,
             name = excluded.name,
             source = excluded.source,
             status = excluded.status,
+            skip_reason = excluded.skip_reason,
             updated_at = current_timestamp
         """,
-        (draft_id, page_id, name, source, status),
+        (draft_id, page_id, name, source, status, skip_reason),
     )
     return get_draft_location_tag(connection, draft_id)
 
@@ -718,7 +721,7 @@ def upsert_draft_location_tag(
 def get_draft_location_tag(connection, draft_id: int) -> Optional[DraftLocationTagRecord]:
     row = connection.execute(
         """
-        select id, draft_id, page_id, name, source, status
+        select id, draft_id, page_id, name, source, status, skip_reason
         from draft_location_tags
         where draft_id = ?
         """,
@@ -1743,6 +1746,7 @@ def _draft_location_tag_from_row(row) -> DraftLocationTagRecord:
         name=row[3],
         source=row[4],
         status=row[5],
+        skip_reason=row[6] if len(row) > 6 else None,
     )
 
 

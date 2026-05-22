@@ -21,6 +21,7 @@ class FinalPublishPreview:
     location_handling: str
     location_text: Optional[str]
     location_tag_payload: Optional[dict[str, str]]
+    location_skip_reason: Optional[str]
     review_only_fields: dict[str, str]
 
     def to_text(self) -> str:
@@ -52,8 +53,15 @@ class FinalPublishPreview:
                 "Meta location tag payload: "
                 f"location_id={self.location_tag_payload['location_id']} ({self.location_tag_payload['name']})"
             )
+        elif self.location_handling == "intentionally skipped Meta location tag":
+            lines.append(f"Location tag skip reason: {self.location_skip_reason or '<none>'}")
+            lines.append("No Meta location_id will be sent; user may add a location manually after publishing.")
         elif self.location_text:
             lines.append(f"Location text: {self.location_text} (local/review-only; not sent as a Meta location tag)")
+            lines.append("No Meta location_id will be sent unless a publishable Meta location tag is selected.")
+            lines.append(
+                "Next safe action: search Meta Pages for a publishable location tag or run drafts location-tag-skip."
+            )
         else:
             lines.append("Location text: <none>")
         lines.append("Review-only fields:")
@@ -93,11 +101,15 @@ def build_final_publish_preview(
         review_only_fields["growth_rationale"] = guided_package.growth_rationale
     location_tag = get_draft_location_tag(connection, draft_id)
     location_tag_payload = None
+    location_skip_reason = None
     if location_tag and location_tag.status == "resolved":
         location_handling = "resolved Meta location tag"
         location_tag_payload = {"location_id": location_tag.page_id, "name": location_tag.name}
+    elif location_tag and location_tag.status == "skipped":
+        location_handling = "intentionally skipped Meta location tag"
+        location_skip_reason = location_tag.skip_reason
     else:
-        location_handling = "local/review-only" if draft.location_text else "local/review-only (unconfirmed)"
+        location_handling = "unresolved Meta location tag choice" if draft.location_text else "local/review-only (unconfirmed)"
     return FinalPublishPreview(
         draft_id=draft.id,
         post_type=draft.post_type,
@@ -108,6 +120,7 @@ def build_final_publish_preview(
         location_handling=location_handling,
         location_text=draft.location_text,
         location_tag_payload=location_tag_payload,
+        location_skip_reason=location_skip_reason,
         review_only_fields=review_only_fields,
     )
 

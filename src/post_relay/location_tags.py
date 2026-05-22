@@ -260,17 +260,50 @@ def set_draft_location_tag(
         name=name,
         source=source,
         status="resolved",
+        skip_reason=None,
     )
-    if list_active_approvals(connection, draft.id):
-        invalidate_active_approvals(
-            connection,
-            draft.id,
-            reason="resolved Meta location tag edit",
-        )
-        update_draft_status(
-            connection,
-            draft.id,
-            transition_draft_state(DraftState(draft.status), DraftState.NEEDS_EDITS).value,
-        )
+    _invalidate_approval_after_location_choice(
+        connection,
+        draft,
+        reason="resolved Meta location tag edit",
+    )
     connection.commit()
     return tag
+
+
+def skip_draft_location_tag(
+    connection,
+    draft_id: int,
+    *,
+    reason: str,
+) -> DraftLocationTagRecord:
+    draft = get_draft(connection, draft_id)
+    if draft is None:
+        raise DraftNotFound(f"Post #{draft_id} was not found")
+    tag = upsert_draft_location_tag(
+        connection,
+        draft_id=draft.id,
+        page_id="",
+        name="Location tag skipped",
+        source="user_skip",
+        status="skipped",
+        skip_reason=reason.strip(),
+    )
+    _invalidate_approval_after_location_choice(
+        connection,
+        draft,
+        reason="Meta location tag skipped",
+    )
+    connection.commit()
+    return tag
+
+
+def _invalidate_approval_after_location_choice(connection, draft, *, reason: str) -> None:
+    if not list_active_approvals(connection, draft.id):
+        return
+    invalidate_active_approvals(connection, draft.id, reason=reason)
+    update_draft_status(
+        connection,
+        draft.id,
+        transition_draft_state(DraftState(draft.status), DraftState.NEEDS_EDITS).value,
+    )

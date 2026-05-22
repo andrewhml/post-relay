@@ -9,6 +9,7 @@ from post_relay.config import PhotoSource, PostRelayConfig, R2StagingConfig
 from post_relay.db import connect_db, initialize_db
 from post_relay.drafts import create_draft_from_candidate
 from post_relay.indexer import index_photo_sources
+from post_relay.location_tags import skip_draft_location_tag
 from post_relay.meta_graph import MetaGraphClient, MetaGraphConfig
 from post_relay.repository import (
     create_r2_staged_object_record,
@@ -154,8 +155,8 @@ def test_preflight_due_scheduled_publish_requires_complete_uploaded_staged_r2_me
 def test_preflight_due_scheduled_publish_reports_due_plan_without_network_or_attempt(tmp_path: Path):
     connection, draft, r2_config = _build_ready_draft(tmp_path)
     connection.execute(
-        "update drafts set hashtags_json = ? where id = ?",
-        (json.dumps(["#travelphotography", "#Kyoto"]), draft.id),
+        "update drafts set hashtags_json = ?, location_text = ? where id = ?",
+        (json.dumps(["#travelphotography", "#Kyoto"]), "Kyoto, Japan", draft.id),
     )
     connection.commit()
 
@@ -173,6 +174,10 @@ def test_preflight_due_scheduled_publish_reports_due_plan_without_network_or_att
         "https://peddocks.net/post-relay/staging/drafts/1/media/02-image.jpg?token=<redacted>",
     ]
     assert result.caption == "A scheduled post.\n\n#travelphotography #Kyoto"
+    assert result.location_status == "unresolved"
+    assert "Meta location tag: unresolved" in result.to_text()
+    assert "Kyoto, Japan" in result.to_text()
+    assert "search Meta Pages for a publishable location tag or run drafts location-tag-skip" in result.to_text()
     assert "No Meta publishing endpoints were called." in result.to_text()
     assert "secret" not in result.to_text()
     assert list_publish_attempts(connection, draft.id) == []
@@ -259,6 +264,11 @@ def test_execute_due_scheduled_publish_refuses_before_schedule_without_network(t
 
 def test_scriptless_scheduled_publish_plan_verifies_ready_state_without_due_time(tmp_path: Path):
     connection, draft, r2_config = _build_ready_draft(tmp_path)
+    connection.execute(
+        "update drafts set location_text = ? where id = ?",
+        ("Kyoto, Japan", draft.id),
+    )
+    connection.commit()
 
     plan = build_scriptless_scheduled_publish_plan(
         connection,
@@ -276,6 +286,9 @@ def test_scriptless_scheduled_publish_plan_verifies_ready_state_without_due_time
     assert "post_relay_publish_draft" not in plan.to_text()
     assert "No per-post script is required." in plan.to_text()
     assert "Approved assets have been staged" in plan.to_text()
+    assert "Meta location tag: unresolved" in plan.to_text()
+    assert "Kyoto, Japan" in plan.to_text()
+    assert "run drafts location-tag-skip" in plan.to_text()
     assert "will publish automatically at 2026-05-05T09:30:00-07:00" in plan.to_text()
     assert "You can still make changes any time before publishing" in plan.to_text()
     assert "remove the publish approval" in plan.to_text()
