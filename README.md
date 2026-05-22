@@ -125,12 +125,13 @@ Publishing is guarded and uses official Meta/Facebook Graph routes only. Public 
 
 Post Relay's next product direction is making the agent smarter rather than adding more staging infrastructure. See `docs/plans/recommendation-engine-roadmap.md` for the current planning baseline. Recommendation work should start from the active local user/agent goal artifact plus auditable signals already present in the system: candidate metadata, folder/year/filename descriptors, selected media order, crop/export readiness, approvals and revisions, scheduled/published payloads, stored read-only insights, and follower-growth summaries.
 
-The local signal baseline command summarizes which recommendation inputs are present, sparse, or missing without making network calls or mutating state. The candidate ranking command then scores candidate groups with deterministic local signals and explains every contribution without creating or changing posts. Context question generation reuses explicit draft content plus folder/year descriptors before asking only targeted remaining gaps, such as an accepted freeform location that still needs an optional reviewed Meta Page tag. The next recommendation slice is local schedule-window suggestions that surface the existing scheduled queue before recommending another slot:
+The local signal baseline command summarizes which recommendation inputs are present, sparse, or missing without making network calls or mutating state. The candidate ranking command then scores candidate groups with deterministic local signals and explains every contribution without creating or changing posts. Context question generation reuses explicit draft content plus folder/year descriptors before asking only targeted remaining gaps, such as an accepted freeform location that still needs an optional reviewed Meta Page tag. Schedule-window suggestions surface the existing scheduled queue before recommending another slot. Caption-style recommendations read accepted guided packages, active approvals, published snapshots, and stored insight snapshots to advise direction without rewriting saved copy:
 
 ```bash
 .venv/bin/post-relay recommendations signals --db data/post_relay.sqlite
 .venv/bin/post-relay recommendations candidates --limit 5 --db data/post_relay.sqlite
 .venv/bin/post-relay recommendations schedule --limit 3 --db data/post_relay.sqlite
+.venv/bin/post-relay recommendations caption-style --post-id 1 --db data/post_relay.sqlite
 .venv/bin/post-relay drafts questions generate --post-id 1 --db data/post_relay.sqlite
 ```
 

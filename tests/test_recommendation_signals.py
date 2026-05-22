@@ -5,8 +5,10 @@ from typer.testing import CliRunner
 from post_relay.cli import app
 from post_relay.db import connect_db, initialize_db
 from post_relay.recommendations import (
+    build_caption_style_recommendations,
     build_schedule_recommendations,
     build_signal_baseline,
+    render_caption_style_recommendations,
     render_schedule_recommendations,
     render_signal_baseline,
 )
@@ -184,6 +186,161 @@ def test_cli_recommendations_schedule_is_local_advisory_only(tmp_path: Path):
     assert "No automatic scheduling was performed." in result.output
     assert "No Discord, R2, or Meta network calls were made." in result.output
 
+
+def test_build_caption_style_recommendations_uses_local_feedback_without_rewriting_copy(tmp_path: Path):
+    connection = connect_db(tmp_path / "post_relay.sqlite")
+    initialize_db(connection)
+    _seed_caption_style_rows(connection)
+
+    plan = build_caption_style_recommendations(connection, post_id=4)
+
+    assert plan.active_goal_title == "Travel account north star"
+    assert plan.post_id == 4
+    assert plan.current_caption == "Another temple sequence."
+    assert plan.accepted_caption_count == 2
+    assert plan.approved_post_count == 1
+    assert plan.published_snapshot_count == 2
+    assert plan.insight_snapshot_count == 2
+    assert "Lead with a concrete hook in the first sentence." in plan.recommended_direction
+    assert "Lean into saveable route/itinerary framing when the photos support it." in plan.recommended_direction
+    assert "Do not overwrite the current caption automatically; treat this as review guidance." in plan.guardrails
+    assert plan.mutation_statement == (
+        "No Discord, R2, or Meta network calls were made. No posts, approvals, "
+        "schedules, opportunities, publish attempts, or analytics rows were mutated."
+    )
+
+
+def test_render_caption_style_recommendations_is_advisory(tmp_path: Path):
+    connection = connect_db(tmp_path / "post_relay.sqlite")
+    initialize_db(connection)
+    _seed_caption_style_rows(connection)
+
+    rendered = render_caption_style_recommendations(connection, post_id=4)
+
+    assert "Caption style recommendations" in rendered
+    assert "Post: 4" in rendered
+    assert "Local feedback signals:" in rendered
+    assert "Accepted caption packages: 2" in rendered
+    assert "Recommended direction:" in rendered
+    assert "Lead with a concrete hook" in rendered
+    assert "No caption was rewritten or saved." in rendered
+    assert "No Discord, R2, or Meta network calls were made." in rendered
+
+
+def test_cli_recommendations_caption_style_is_local_advisory_only(tmp_path: Path):
+    db_path = tmp_path / "post_relay.sqlite"
+    connection = connect_db(db_path)
+    initialize_db(connection)
+    _seed_caption_style_rows(connection)
+    caption_before = connection.execute("select caption from drafts where id = 4").fetchone()[0]
+    approval_count_before = connection.execute("select count(*) from approvals").fetchone()[0]
+
+    result = runner.invoke(app, ["recommendations", "caption-style", "--post-id", "4", "--db", str(db_path)])
+
+    caption_after = connection.execute("select caption from drafts where id = 4").fetchone()[0]
+    approval_count_after = connection.execute("select count(*) from approvals").fetchone()[0]
+    assert result.exit_code == 0
+    assert caption_before == caption_after == "Another temple sequence."
+    assert approval_count_before == approval_count_after
+    assert "Caption style recommendations" in result.output
+    assert "No caption was rewritten or saved." in result.output
+    assert "No Discord, R2, or Meta network calls were made." in result.output
+
+
+def _seed_caption_style_rows(connection):
+    upsert_active_user_goal(
+        connection,
+        title="Travel account north star",
+        goal_statement="Grow with saveable route carousels and practical city guides.",
+        target_audience="Travelers planning city walks.",
+        content_pillars=["city guides", "route carousels"],
+        desired_cadence="2 posts per week",
+        success_metrics=["saves", "shares"],
+        strategy_notes="Favor hook-first captions with itinerary utility.",
+        constraints=["avoid places not pictured"],
+        reviewed_by="andrew",
+        change_note="initial agreement",
+    )
+    connection.execute(
+        "insert into photo_sources (id, name, root, source_type) values (1, 'processed', '/tmp/photos', 'local')"
+    )
+    for group_id, title in [(1, "Kyoto route"), (2, "Seoul market"), (3, "Lisbon overlook"), (4, "Nara temples")]:
+        connection.execute(
+            """
+            insert into candidate_groups (id, title, source_name, source_folder, source_year, post_type_recommendation)
+            values (?, ?, 'processed', ?, 2026, 'carousel')
+            """,
+            (group_id, title, f"/tmp/photos/{title.lower().replace(' ', '-')}")
+        )
+    connection.execute(
+        """
+        insert into drafts (id, candidate_group_id, post_type, status, caption)
+        values (1, 1, 'carousel', 'posted', 'Start with Fushimi Inari before the tour buses arrive. Save this half-day Kyoto shrine route.')
+        """
+    )
+    connection.execute(
+        """
+        insert into drafts (id, candidate_group_id, post_type, status, caption)
+        values (2, 2, 'carousel', 'posted', 'A market walk for people who plan trips around snacks and neon.')
+        """
+    )
+    connection.execute(
+        """
+        insert into drafts (id, candidate_group_id, post_type, status, caption)
+        values (3, 3, 'carousel', 'approved_for_queue', 'Three viewpoints, one lazy afternoon.')
+        """
+    )
+    connection.execute(
+        """
+        insert into drafts (id, candidate_group_id, post_type, status, caption)
+        values (4, 4, 'carousel', 'drafting', 'Another temple sequence.')
+        """
+    )
+    for package_id, draft_id, caption in [
+        (1, 1, "Save this Kyoto shrine walk before your next trip."),
+        (2, 3, "The Lisbon overlook route I would repeat."),
+    ]:
+        connection.execute(
+            """
+            insert into guided_draft_packages (
+                id, draft_id, post_type_recommendation, post_type_rationale, caption_options_json,
+                hashtag_suggestions_json, alt_text, growth_rationale, context_questions_json, accepted_caption_index, accepted_at
+            ) values (?, ?, 'carousel', 'route utility', ?, '["#travel"]', 'local alt', 'saveable route framing', '[]', 0, '2026-05-01T09:00:00-07:00')
+            """,
+            (package_id, draft_id, f'["{caption}"]'),
+        )
+    connection.execute(
+        """
+        insert into approvals (draft_id, approval_type, approved_by, notes)
+        values (3, 'draft', 'andrew', 'approved concise route angle')
+        """
+    )
+    for attempt_id, draft_id in [(1, 1), (2, 2)]:
+        connection.execute(
+            """
+            insert into publish_attempts (id, draft_id, post_type, status, published_media_id, caption)
+            values (?, ?, 'carousel', 'published', ?, (select caption from drafts where id = ?))
+            """,
+            (attempt_id, draft_id, f"ig-media-{attempt_id}", draft_id),
+        )
+        connection.execute(
+            """
+            insert into published_post_snapshots (
+                id, draft_id, publish_attempt_id, published_media_id, post_type, final_caption,
+                media_urls_json, media_dimensions_json, actual_published_at
+            ) values (?, ?, ?, ?, 'carousel', (select caption from drafts where id = ?), '["https://example.test/1.jpg"]', '[{"width":1080,"height":1440}]', '2026-05-01T09:00:00-07:00')
+            """,
+            (attempt_id, draft_id, attempt_id, f"ig-media-{attempt_id}", draft_id),
+        )
+        connection.execute(
+            """
+            insert into media_insight_snapshots (
+                draft_id, published_post_snapshot_id, published_media_id, metrics_json, raw_payload_json, collected_at
+            ) values (?, ?, ?, '{"reach":100,"saved":12,"shares":3}', '{}', '2026-05-02T09:00:00-07:00')
+            """,
+            (draft_id, attempt_id, f"ig-media-{attempt_id}"),
+        )
+    connection.commit()
 
 def _seed_signal_rows(connection):
     connection.execute(
