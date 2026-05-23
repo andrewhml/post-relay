@@ -285,6 +285,23 @@ SCHEMA_STATEMENTS = [
     )
     """,
     """
+    create table if not exists user_media_usage (
+        id integer primary key,
+        user_key text not null default 'default',
+        photo_id integer not null,
+        usage_status text not null,
+        source text not null default 'manual_mark',
+        draft_id integer,
+        used_at text not null default current_timestamp,
+        note text,
+        created_at text not null default current_timestamp,
+        updated_at text not null default current_timestamp,
+        unique(user_key, photo_id),
+        foreign key(photo_id) references photos(id),
+        foreign key(draft_id) references drafts(id)
+    )
+    """,
+    """
     create table if not exists user_goals (
         id integer primary key,
         title text not null,

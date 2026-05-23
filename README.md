@@ -9,7 +9,7 @@ Post Relay started as Andrew's personal workflow for the `andrewhml` Creator acc
 Post Relay is experimental and local-first. The current app supports:
 
 - folder-based local media indexing with dimensions/orientation and available EXIF date/camera/lens metadata
-- SQLite-backed candidates, posts, approvals, schedules, analytics snapshots, opportunity records, and active user/agent goal artifacts
+- SQLite-backed candidates, posts, approvals, schedules, analytics snapshots, opportunity records, active user/agent goal artifacts, and user-scoped media-awareness memory
 - staged local review artifacts: Stage 1 selection, Stage 2 crop/framing, Stage 3 final preview
 - explicit media selection, ordering, lead image, crop/center feedback, and approval invalidation on material edits
 - hook/caption/metadata package planning and acceptance
@@ -125,11 +125,14 @@ Publishing is guarded and uses official Meta/Facebook Graph routes only. Public 
 
 Post Relay's next product direction is making the agent smarter rather than adding more staging infrastructure. See `docs/plans/recommendation-engine-roadmap.md` for the current planning baseline. Recommendation work should start from the active local user/agent goal artifact plus auditable signals already present in the system: candidate metadata, folder/year/filename descriptors, selected media order, crop/export readiness, approvals and revisions, scheduled/published payloads, stored read-only insights, and follower-growth summaries.
 
-The local signal baseline command summarizes which recommendation inputs are present, sparse, or missing without making network calls or mutating state. The candidate ranking command then scores candidate groups with deterministic local signals and explains every contribution without creating or changing posts. Context question generation reuses explicit draft content plus folder/year descriptors before asking only targeted remaining gaps, such as an accepted freeform location that still needs an optional reviewed Meta Page tag. Schedule-window suggestions surface the existing scheduled queue before recommending another slot. Caption-style recommendations read accepted guided packages, active approvals, published snapshots, stored insight snapshots, and lightweight qualitative caption feedback to advise direction without rewriting saved copy:
+The local signal baseline command summarizes which recommendation inputs are present, sparse, or missing without making network calls or mutating state. The candidate ranking command then scores candidate groups with deterministic local signals and explains every contribution without creating or changing posts. It now consults user-scoped Media Awareness memory so previously posted, scheduled, queued, or manually excluded images are warned about and penalized by default; use `--include-used` only for audits or intentional reuse. Context question generation reuses explicit draft content plus folder/year descriptors before asking only targeted remaining gaps, such as an accepted freeform location that still needs an optional reviewed Meta Page tag. Schedule-window suggestions surface the existing scheduled queue before recommending another slot. Caption-style recommendations read accepted guided packages, active approvals, published snapshots, stored insight snapshots, and lightweight qualitative caption feedback to advise direction without rewriting saved copy:
 
 ```bash
 .venv/bin/post-relay recommendations signals --db data/post_relay.sqlite
+.venv/bin/post-relay media mark-used --path /path/to/already-posted.jpg --user-key YOUR_NAME --reason "posted before Post Relay" --db data/post_relay.sqlite
+.venv/bin/post-relay media used-summary --user-key YOUR_NAME --db data/post_relay.sqlite
 .venv/bin/post-relay recommendations candidates --limit 5 --db data/post_relay.sqlite
+.venv/bin/post-relay recommendations candidates --limit 5 --include-used --db data/post_relay.sqlite
 .venv/bin/post-relay recommendations schedule --limit 3 --db data/post_relay.sqlite
 .venv/bin/post-relay recommendations caption-style --post-id 1 --db data/post_relay.sqlite
 .venv/bin/post-relay recommendations caption-feedback --post-id 1 --sentiment positive --signal hook_first --note "Hook landed" --reviewed-by YOUR_NAME --db data/post_relay.sqlite

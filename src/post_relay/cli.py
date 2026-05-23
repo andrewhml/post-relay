@@ -118,6 +118,12 @@ from post_relay.media_selection import (
     apply_draft_media_selection,
     build_draft_media_plan,
 )
+from post_relay.media_awareness import (
+    mark_media_used,
+    render_media_usage_record,
+    render_media_usage_summary,
+    summarize_media_usage,
+)
 from post_relay.publishing import (
     DraftNotFound as PublishDraftNotFound,
     DraftNotReadyForImagePublish,
@@ -210,6 +216,7 @@ app = typer.Typer(help="Post Relay local-first Instagram content workflow.")
 db_app = typer.Typer(help="Database commands.")
 index_app = typer.Typer(help="Media indexing commands.")
 library_app = typer.Typer(help="Library inspection commands.")
+media_app = typer.Typer(help="User-scoped media awareness commands.")
 meta_app = typer.Typer(help="Meta Graph validation commands.")
 candidates_app = typer.Typer(help="Candidate post group commands.")
 drafts_app = typer.Typer(help="Post lifecycle commands; records still use the existing drafts CLI namespace.")
@@ -226,6 +233,7 @@ draft_publish_exports_app = typer.Typer(help="Post publish export commands.")
 app.add_typer(db_app, name="db")
 app.add_typer(index_app, name="index")
 app.add_typer(library_app, name="library")
+app.add_typer(media_app, name="media")
 app.add_typer(meta_app, name="meta")
 app.add_typer(candidates_app, name="candidates")
 app.add_typer(drafts_app, name="drafts")
@@ -359,12 +367,14 @@ def recommendations_signals(
 @recommendations_app.command("candidates")
 def recommendations_candidates(
     limit: int = typer.Option(10, "--limit", min=1, help="Maximum number of candidate groups to rank."),
+    include_used: bool = typer.Option(False, "--include-used", help="Show previously used media for audit or intentional reuse."),
+    user_key: str = typer.Option("default", "--user-key", help="User/account memory scope for media awareness."),
     db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
 ) -> None:
     """Rank candidate groups using deterministic local advisory signals."""
     connection = connect_db(db)
     initialize_db(connection)
-    typer.echo(render_candidate_rankings(connection, limit=limit))
+    typer.echo(render_candidate_rankings(connection, limit=limit, include_used=include_used, user_key=user_key))
 
 
 @recommendations_app.command("schedule")
@@ -461,6 +471,48 @@ def library_stats(
         for year, count in stats.by_year.items():
             year_label: Optional[int | str] = year if year is not None else "unknown"
             typer.echo(f"  {year_label}: {count}")
+
+
+@media_app.command("mark-used")
+def media_mark_used(
+    path: Path = typer.Option(..., "--path", help="Indexed local media path to mark as used."),
+    user_key: str = typer.Option("default", "--user-key", help="User/account memory scope."),
+    status: str = typer.Option("posted", "--status", help="Usage status: posted, scheduled, queued, manually_excluded, or allowed_reuse."),
+    reason: Optional[str] = typer.Option(None, "--reason", help="Human note explaining why the media is used."),
+    post_id: Optional[int] = typer.Option(None, "--post-id", help="Optional Post Relay post id related to this usage."),
+    db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
+) -> None:
+    """Record user-scoped memory that an indexed media item was used elsewhere."""
+    connection = connect_db(db)
+    initialize_db(connection)
+    try:
+        record = mark_media_used(
+            connection,
+            local_file_path=path.as_posix(),
+            user_key=user_key,
+            usage_status=status,
+            draft_id=post_id,
+            note=reason,
+        )
+    except ValueError as error:
+        raise typer.BadParameter(str(error)) from error
+    typer.echo(render_media_usage_record(record))
+
+
+@media_app.command("used-summary")
+def media_used_summary(
+    user_key: str = typer.Option("default", "--user-key", help="User/account memory scope."),
+    post_id: Optional[int] = typer.Option(None, "--post-id", help="Optionally mark included media from this posted Post Relay post before summarizing."),
+    db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
+) -> None:
+    """Summarize user-scoped media usage memory without source-file mutation."""
+    connection = connect_db(db)
+    initialize_db(connection)
+    try:
+        summary = summarize_media_usage(connection, user_key=user_key, post_id=post_id)
+    except ValueError as error:
+        raise typer.BadParameter(str(error)) from error
+    typer.echo(render_media_usage_summary(summary))
 
 
 @analytics_app.command("snapshot")

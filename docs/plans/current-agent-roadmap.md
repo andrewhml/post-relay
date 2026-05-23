@@ -31,6 +31,15 @@ If these files conflict, prefer the newest concrete implementation facts in `REA
 
 ## Completed milestones
 
+### PR #99 / Milestone: `feat/media-awareness-posted`
+
+Implemented in this branch:
+- Added user-scoped `user_media_usage` local memory for indexed photos, keyed by `(user_key, photo_id)` so recommendations can remember posted/scheduled/queued/manually excluded media without moving source files.
+- Added `media mark-used` and `media used-summary` CLI commands for backfilling already-posted images and summarizing a user's media-awareness memory.
+- Added `media used-summary --post-id` support to mark all included original post media as posted from an existing Post Relay post.
+- Updated `recommendations candidates` to consult Media Awareness by default, add used/fresh media counts, penalize already-used media, and expose `--include-used` only for audits or intentional reuse.
+- Preserved local/no-network behavior: no Discord, R2, or Meta calls, and no source media mutation.
+
 ### PR #2 / earlier: Python SQLite scaffold
 
 Implemented:
@@ -232,10 +241,10 @@ Run this before opening or merging any PR:
 .venv/bin/python -m pytest -q
 ```
 
-Expected current result after the smarter context questions milestone:
+Expected current result after the Media Awareness milestone:
 
 ```text
-314 passed
+336 passed
 ```
 
 ## Milestone execution rules

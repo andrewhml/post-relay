@@ -38,6 +38,8 @@ class CandidateRanking:
     included_media_count: int
     missing_file_count: int
     dimensions_known_count: int
+    used_media_count: int
+    fresh_media_count: int
     draft_id: Optional[int]
     draft_status: Optional[str]
     score_breakdown: list[str]
@@ -169,7 +171,7 @@ def render_signal_baseline(connection) -> str:
     return "\n".join(lines)
 
 
-def build_candidate_rankings(connection, *, limit: int = 10) -> list[CandidateRanking]:
+def build_candidate_rankings(connection, *, limit: int = 10, include_used: bool = False, user_key: str = "default") -> list[CandidateRanking]:
     goal = get_active_user_goal(connection)
     goal_terms = _goal_terms(goal)
     analytics_sparse = _count(connection, "published_post_snapshots") < 3 or _count(connection, "media_insight_snapshots") < 3
@@ -185,16 +187,19 @@ def build_candidate_rankings(connection, *, limit: int = 10) -> list[CandidateRa
                count(cgi.photo_id) as media_count,
                sum(case when cgi.include_status = 'included' then 1 else 0 end) as included_media_count,
                sum(case when cgi.include_status = 'included' and p.width is not null and p.height is not null then 1 else 0 end) as dimensions_known_count,
-               group_concat(case when cgi.include_status = 'included' then p.local_file_path end, '\n') as included_paths
+               group_concat(case when cgi.include_status = 'included' then p.local_file_path end, '\n') as included_paths,
+               sum(case when cgi.include_status = 'included' and umu.usage_status in ('posted', 'scheduled', 'queued', 'manually_excluded') then 1 else 0 end) as used_media_count
         from candidate_groups cg
         left join candidate_group_items cgi on cgi.group_id = cg.id
         left join photos p on p.id = cgi.photo_id
+        left join user_media_usage umu on umu.photo_id = p.id and umu.user_key = ?
         left join drafts d on d.candidate_group_id = cg.id
         where cg.status = 'candidate'
         group by cg.id, d.id
-        """
+        """,
+        ((user_key or "default").strip() or "default",),
     ).fetchall()
-    rankings = [_rank_candidate(row, goal_terms, analytics_sparse) for row in rows]
+    rankings = [_rank_candidate(row, goal_terms, analytics_sparse, include_used=include_used) for row in rows]
     rankings.sort(key=lambda ranking: (-ranking.score, ranking.candidate_id))
     return [
         CandidateRanking(
@@ -207,6 +212,8 @@ def build_candidate_rankings(connection, *, limit: int = 10) -> list[CandidateRa
             included_media_count=ranking.included_media_count,
             missing_file_count=ranking.missing_file_count,
             dimensions_known_count=ranking.dimensions_known_count,
+            used_media_count=ranking.used_media_count,
+            fresh_media_count=ranking.fresh_media_count,
             draft_id=ranking.draft_id,
             draft_status=ranking.draft_status,
             score_breakdown=ranking.score_breakdown,
@@ -217,9 +224,11 @@ def build_candidate_rankings(connection, *, limit: int = 10) -> list[CandidateRa
     ]
 
 
-def render_candidate_rankings(connection, *, limit: int = 10) -> str:
-    rankings = build_candidate_rankings(connection, limit=limit)
+def render_candidate_rankings(connection, *, limit: int = 10, include_used: bool = False, user_key: str = "default") -> str:
+    rankings = build_candidate_rankings(connection, limit=limit, include_used=include_used, user_key=user_key)
     lines = ["Candidate recommendations", "Local deterministic ranking; advisory only."]
+    if include_used:
+        lines.append("Include-used mode: previously used media are visible for audit or intentional reuse.")
     if not rankings:
         lines.extend(
             [
@@ -239,6 +248,7 @@ def render_candidate_rankings(connection, *, limit: int = 10) -> str:
                 f"Score: {ranking.score}",
                 f"Post type: {ranking.post_type}",
                 f"Media: {ranking.included_media_count} included / {ranking.media_count} total; missing files: {ranking.missing_file_count}; dimensions known: {ranking.dimensions_known_count}",
+                f"Used media: {ranking.used_media_count} used / {ranking.included_media_count} included; fresh: {ranking.fresh_media_count}",
             ]
         )
         if ranking.draft_id is not None:
@@ -490,6 +500,8 @@ class _CandidateScore:
     included_media_count: int
     missing_file_count: int
     dimensions_known_count: int
+    used_media_count: int
+    fresh_media_count: int
     draft_id: Optional[int]
     draft_status: Optional[str]
     score_breakdown: list[str]
@@ -497,7 +509,7 @@ class _CandidateScore:
     next_safe_command: str
 
 
-def _rank_candidate(row, goal_terms: set[str], analytics_sparse: bool) -> _CandidateScore:
+def _rank_candidate(row, goal_terms: set[str], analytics_sparse: bool, *, include_used: bool = False) -> _CandidateScore:
     candidate_id = int(row[0])
     title = str(row[1])
     source_folder = row[2] or ""
@@ -509,6 +521,8 @@ def _rank_candidate(row, goal_terms: set[str], analytics_sparse: bool) -> _Candi
     included_media_count = int(row[8] or 0)
     dimensions_known_count = int(row[9] or 0)
     included_paths = [path for path in (row[10] or "").split("\n") if path]
+    used_media_count = int(row[11] or 0)
+    fresh_media_count = max(included_media_count - used_media_count, 0)
     missing_file_count = sum(1 for path in included_paths if not Path(path).exists())
     score = 0
     breakdown: list[str] = []
@@ -536,6 +550,23 @@ def _rank_candidate(row, goal_terms: set[str], analytics_sparse: bool) -> _Candi
     elif included_media_count > 0:
         score -= 5
         breakdown.append("Readiness: missing dimensions for some included media")
+
+    if used_media_count and used_media_count == included_media_count:
+        if include_used:
+            score -= 10
+            breakdown.append("Media awareness: all included media already marked used for this user")
+            warnings.append("All included media are already marked used; include-used mode is for audits or intentional reuse.")
+        else:
+            score -= 60
+            breakdown.append("Media awareness: all included media already marked used for this user")
+            warnings.append("All included media are already marked used; use --include-used only for audits or intentional reuse.")
+    elif used_media_count:
+        score -= 20
+        breakdown.append("Media awareness: some included media were already used by this user")
+        warnings.append(f"{used_media_count} included media item(s) are already marked used; narrow to fresh media before review.")
+    elif included_media_count > 0:
+        score += 6
+        breakdown.append("Media awareness: included media are fresh for this user")
 
     if included_media_count > 60:
         score -= 15
@@ -588,6 +619,8 @@ def _rank_candidate(row, goal_terms: set[str], analytics_sparse: bool) -> _Candi
         included_media_count=included_media_count,
         missing_file_count=missing_file_count,
         dimensions_known_count=dimensions_known_count,
+        used_media_count=used_media_count,
+        fresh_media_count=fresh_media_count,
         draft_id=draft_id,
         draft_status=draft_status,
         score_breakdown=breakdown,
