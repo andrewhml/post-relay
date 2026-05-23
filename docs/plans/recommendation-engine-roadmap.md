@@ -22,7 +22,7 @@ Start with signals already in the local database or deterministic local files:
 
 - Active user/agent goal artifact: north-star statement, audience, content pillars, cadence, success metrics, strategy notes, constraints, and version history.
 - Candidate group features: source folder, year, file count, media type mix, filename descriptors, local aliases, and candidate post type.
-- Media features: dimensions, orientation, aspect ratio, EXIF date/camera/lens fields when available, crop feedback, inclusion/order/lead state, export readiness, missing-file status.
+- Media features: dimensions, orientation, aspect ratio, EXIF date/camera/lens fields when available, crop feedback, inclusion/order/lead state, export readiness, missing-file status, and user-scoped Media Awareness usage status.
 - Draft/post lifecycle: status, selected post type, caption, hashtags, location text, resolved location tag if any, schedule, content approval, publish approval, material-edit invalidations.
 - Review artifacts: whether selection/crop/final preview artifacts exist and whether a post is blocked on a review gate.
 - Guided package history: accepted location/story/mood/hook/caption/hashtag/local alt-text fields.
@@ -41,8 +41,11 @@ Potential CLI surfaces, to be chosen milestone-by-milestone:
 ```bash
 .venv/bin/post-relay goals show --db data/post_relay.sqlite
 .venv/bin/post-relay goals agent-brief --db data/post_relay.sqlite
+.venv/bin/post-relay media mark-used --path /path/to/already-posted.jpg --user-key YOUR_NAME --reason "posted before Post Relay" --db data/post_relay.sqlite
+.venv/bin/post-relay media used-summary --user-key YOUR_NAME --db data/post_relay.sqlite
 .venv/bin/post-relay recommendations signals --db data/post_relay.sqlite
 .venv/bin/post-relay recommendations candidates --limit 10 --db data/post_relay.sqlite
+.venv/bin/post-relay recommendations candidates --limit 10 --include-used --db data/post_relay.sqlite
 .venv/bin/post-relay recommendations for-post --post-id 1 --db data/post_relay.sqlite
 .venv/bin/post-relay recommendations schedule --post-id 1 --db data/post_relay.sqlite
 .venv/bin/post-relay recommendations questions --post-id 1 --db data/post_relay.sqlite
@@ -136,6 +139,18 @@ Implemented behavior in this branch:
 - Penalizes oversized sets that need narrowing and existing posts that are already queued or completed.
 - Keeps sparse analytics advisory only and explicitly avoids weighting performance strongly until enough stored snapshots exist.
 - Makes no network calls and mutates no posts, approvals, schedules, opportunities, publish attempts, analytics rows, Discord, R2, or Meta state.
+
+### Milestone E2: `feat/media-awareness-posted`
+
+Build the first robust user-scoped memory primitive for already-used media.
+
+Implemented behavior in this branch:
+
+- Adds `user_media_usage`, keyed by `(user_key, photo_id)`, to remember indexed media marked posted, scheduled, queued, manually excluded, or allowed for reuse.
+- Adds `post-relay media mark-used` for manual backfill of photos posted before Post Relay and `post-relay media used-summary` for local usage coverage.
+- Adds `media used-summary --post-id` to mark all included original media for a posted Post Relay post.
+- Extends `recommendations candidates` with Media Awareness counts, default penalties/warnings for used media, and `--include-used` for audits or intentional reuse.
+- Keeps source folders immutable and performs no Discord, R2, or Meta network calls.
 
 ### Milestone F: `feat/smarter-context-questions` (PR #90)
 
