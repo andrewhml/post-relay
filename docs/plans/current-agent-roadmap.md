@@ -31,7 +31,7 @@ If these files conflict, prefer the newest concrete implementation facts in `REA
 
 ## Completed milestones
 
-### Open milestone: `feat/media-awareness-posted`
+### PR #99 / Milestone: `feat/media-awareness-posted`
 
 Implemented in this branch:
 - Added user-scoped `user_media_usage` local memory for indexed photos, keyed by `(user_key, photo_id)` so recommendations can remember posted/scheduled/queued/manually excluded media without moving source files.

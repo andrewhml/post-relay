@@ -140,7 +140,7 @@ Implemented behavior in this branch:
 - Keeps sparse analytics advisory only and explicitly avoids weighting performance strongly until enough stored snapshots exist.
 - Makes no network calls and mutates no posts, approvals, schedules, opportunities, publish attempts, analytics rows, Discord, R2, or Meta state.
 
-### Milestone E2: `feat/media-awareness-posted`
+### Milestone E2: `feat/media-awareness-posted` (PR #99)
 
 Build the first robust user-scoped memory primitive for already-used media.
 
