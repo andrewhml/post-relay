@@ -14,10 +14,15 @@ from post_relay.media_selection import (
     apply_draft_crop_feedback,
     build_draft_media_plan,
 )
-from post_relay.repository import list_active_approvals, list_candidate_groups
+from post_relay.repository import (
+    create_r2_staged_object_record,
+    get_draft,
+    list_active_approvals,
+    list_candidate_groups,
+    list_r2_staged_objects,
+)
 from post_relay.approvals import approve_draft_content, submit_draft_for_review
 from post_relay.state import DraftState
-from post_relay.repository import get_draft
 
 
 runner = CliRunner()
@@ -96,6 +101,26 @@ def test_apply_draft_crop_feedback_invalidates_active_approvals(tmp_path: Path):
     assert result.invalidated_approval_count == 1
     assert list_active_approvals(connection, draft.id) == []
     assert get_draft(connection, draft.id).status == DraftState.NEEDS_EDITS.value
+
+
+def test_apply_draft_crop_feedback_marks_existing_staged_media_stale(tmp_path: Path):
+    connection, draft, _folder = _build_fixture_draft(tmp_path)
+    create_r2_staged_object_record(
+        connection,
+        draft_id=draft.id,
+        kind="draft_media",
+        source_path="/tmp/old-export.jpg",
+        bucket="post-relay-publish",
+        object_key="post-relay/staging/drafts/1/publish-exports/feed_portrait_3x4/media/01-old-export.jpg",
+        public_url="https://peddocks.net/post-relay/staging/drafts/1/publish-exports/feed_portrait_3x4/media/01-old-export.jpg",
+    )
+
+    apply_draft_crop_feedback(connection, draft.id, crop_edits={1: {"anchor": "C3"}})
+
+    assert list_r2_staged_objects(connection, draft.id, status="uploaded") == []
+    stale_records = list_r2_staged_objects(connection, draft.id, status="stale")
+    assert len(stale_records) == 1
+    assert stale_records[0].cleanup_reason == "material post crop feedback edit; restage publish exports before publishing"
 
 
 def test_apply_draft_crop_feedback_rejects_unknown_number_or_anchor(tmp_path: Path):

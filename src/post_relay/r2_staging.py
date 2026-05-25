@@ -6,7 +6,7 @@ from typing import Optional
 
 from post_relay.config import R2StagingConfig
 from post_relay.publish_exports import list_publish_export_media_paths
-from post_relay.repository import get_candidate_group, get_draft, list_candidate_group_photo_paths
+from post_relay.repository import get_candidate_group, get_draft, list_candidate_group_photo_items, list_candidate_group_photo_paths
 
 
 class DraftNotFound(ValueError):
@@ -14,6 +14,10 @@ class DraftNotFound(ValueError):
 
 
 class R2StagingConfigError(ValueError):
+    pass
+
+
+class R2PublishExportsRequired(ValueError):
     pass
 
 
@@ -97,6 +101,12 @@ def plan_r2_staging_for_draft(
         if export_paths:
             media_paths = export_paths
             selected_publish_export_profile = publish_export_profile
+        elif _selected_media_has_crop_feedback(connection, draft.candidate_group_id):
+            raise R2PublishExportsRequired(
+                "Post has crop feedback, but no publish exports were found for "
+                f"{publish_export_profile}. Run `post-relay drafts publish-exports render --post-id {draft.id} "
+                f"--profile {publish_export_profile}` before R2 staging so the final post uses the approved crops."
+            )
     prefix = _normalize_prefix(config.prefix)
     bucket = config.bucket or "<unconfigured>"
     public_base_url = (config.public_base_url or "").rstrip("/")
@@ -156,6 +166,16 @@ def _validate_r2_staging_config(config: R2StagingConfig) -> None:
         raise R2StagingConfigError("R2 staging public_base_url is required for dry-run URL planning.")
     if not config.bucket:
         raise R2StagingConfigError("R2 staging bucket is required for dry-run planning.")
+
+
+def _selected_media_has_crop_feedback(connection, candidate_group_id: int) -> bool:
+    return any(
+        item.crop_ratio is not None
+        or item.crop_anchor_x is not None
+        or item.crop_anchor_y is not None
+        or item.crop_tightness is not None
+        for item in list_candidate_group_photo_items(connection, candidate_group_id, included_only=True)
+    )
 
 
 def _plan_review_artifact_items(

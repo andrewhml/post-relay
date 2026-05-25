@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import pytest
 from PIL import Image
 from typer.testing import CliRunner
 
@@ -8,9 +9,10 @@ from post_relay.config import PhotoSource, PostRelayConfig, PublishExportsConfig
 from post_relay.db import connect_db, initialize_db
 from post_relay.drafts import create_draft_from_candidate
 from post_relay.indexer import index_photo_sources
+from post_relay.media_selection import apply_draft_crop_feedback
 from post_relay.publish_exports import render_publish_exports_for_draft
 from post_relay.repository import list_candidate_groups
-from post_relay.r2_staging import plan_r2_staging_for_draft
+from post_relay.r2_staging import R2PublishExportsRequired, plan_r2_staging_for_draft
 
 
 def _write_image(path: Path, size: tuple[int, int], color: str) -> None:
@@ -145,6 +147,26 @@ def test_r2_staging_prefers_publish_exports_when_available(tmp_path: Path):
     assert all(Path(item.source_path).is_file() for item in plan.media_items)
     assert all(path.as_posix() not in [item.source_path for item in plan.media_items] for path in source_paths)
     assert "Publish exports: feed_portrait_3x4" in plan.to_text()
+
+
+def test_r2_staging_requires_publish_exports_after_crop_feedback(tmp_path: Path):
+    connection, draft, _source_root, _source_paths = _build_mixed_carousel_draft(tmp_path)
+    export_config = PublishExportsConfig(root=tmp_path / "publish_exports")
+    apply_draft_crop_feedback(connection, draft.id, crop_edits={1: {"anchor": "B2", "tightness_delta": -0.1}})
+    r2_config = R2StagingConfig(
+        bucket="post-relay-publish",
+        public_base_url="https://peddocks.net",
+        prefix="post-relay/staging",
+    )
+
+    with pytest.raises(R2PublishExportsRequired, match="publish exports"):
+        plan_r2_staging_for_draft(
+            connection,
+            draft.id,
+            r2_config,
+            publish_export_root=export_config.root,
+            publish_export_profile="feed_portrait_3x4",
+        )
 
 
 def test_cli_publish_exports_render_prints_exported_dimensions_and_warnings(tmp_path: Path):
