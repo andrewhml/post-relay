@@ -12,6 +12,7 @@ from post_relay.repository import (
     invalidate_active_approvals,
     list_active_approvals,
     list_candidate_group_photo_items,
+    mark_r2_staged_objects_stale_for_draft,
     update_candidate_group_photo_crop,
     update_candidate_group_photo_item,
     update_draft_content,
@@ -260,6 +261,12 @@ def apply_draft_crop_feedback(connection, draft_id: int, *, crop_edits: dict[int
         updated_draft = update_draft_content(connection, draft.id, status=status)
         if updated_draft is None:
             raise DraftNotFound(f"Post #{draft_id} was not found")
+    mark_r2_staged_objects_stale_for_draft(
+        connection,
+        draft.id,
+        reason="material post crop feedback edit; restage publish exports before publishing",
+        kind="draft_media",
+    )
     connection.commit()
 
     refreshed = _number_items(list_candidate_group_photo_items(connection, draft.candidate_group_id))

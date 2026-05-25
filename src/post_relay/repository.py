@@ -1636,6 +1636,30 @@ def mark_r2_staged_object_deleted(
     return _r2_staged_object_from_row(row)
 
 
+def mark_r2_staged_objects_stale_for_draft(
+    connection,
+    draft_id: int,
+    *,
+    reason: Optional[str] = None,
+    kind: Optional[str] = None,
+) -> int:
+    kind_clause = "and kind = ?" if kind is not None else ""
+    params: tuple[object, ...]
+    if kind is not None:
+        params = (reason, draft_id, kind)
+    else:
+        params = (reason, draft_id)
+    cursor = connection.execute(
+        f"""
+        update r2_staged_objects
+        set status = 'stale', cleanup_reason = ?
+        where draft_id = ? and status = 'uploaded' {kind_clause}
+        """,
+        params,
+    )
+    return int(cursor.rowcount or 0)
+
+
 def list_unresolved_context_questions(connection, draft_id: int) -> list[ContextQuestionRecord]:
     rows = connection.execute(
         """

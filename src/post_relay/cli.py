@@ -163,6 +163,7 @@ from post_relay.repository import (
 )
 from post_relay.r2_staging import (
     DraftNotFound as R2StagingDraftNotFound,
+    R2PublishExportsRequired,
     R2StagingConfigError,
     plan_r2_staging_for_draft,
 )
@@ -2117,7 +2118,7 @@ def drafts_r2_stage_plan(
         )
     except R2StagingDraftNotFound as error:
         raise typer.BadParameter(str(error), param_hint="--post-id") from error
-    except R2StagingConfigError as error:
+    except (R2StagingConfigError, R2PublishExportsRequired) as error:
         raise typer.BadParameter(str(error), param_hint="--config") from error
     typer.echo(plan.to_text())
 
@@ -2146,7 +2147,7 @@ def drafts_r2_stage_upload(
         )
     except R2StagingDraftNotFound as error:
         raise typer.BadParameter(str(error), param_hint="--post-id") from error
-    except (R2StagingConfigError, R2StagingUploadError) as error:
+    except (R2StagingConfigError, R2PublishExportsRequired, R2StagingUploadError) as error:
         raise typer.BadParameter(str(error), param_hint="--config/--execute") from error
     typer.echo(result.to_text())
 
