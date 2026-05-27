@@ -92,6 +92,7 @@ from post_relay.final_publish_preview import build_final_publish_preview
 from post_relay.indexer import index_photo_sources
 from post_relay.location_tags import (
     DraftNotFound as LocationTagDraftNotFound,
+    UnverifiedLocationTagSource,
     build_location_candidate_review,
     set_draft_location_tag,
     skip_draft_location_tag,
@@ -2305,6 +2306,8 @@ def drafts_location_tag_set(
         )
     except LocationTagDraftNotFound as error:
         raise typer.BadParameter(str(error), param_hint="--post-id") from error
+    except UnverifiedLocationTagSource as error:
+        raise typer.BadParameter(str(error), param_hint="--source") from error
     invalidated_count = active_before - len(list_active_approvals(connection, draft_id))
     typer.echo(
         f"Resolved Meta location tag for post #{tag.draft_id}: location_id={tag.page_id} ({tag.name})."

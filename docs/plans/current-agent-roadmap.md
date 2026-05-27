@@ -891,13 +891,13 @@ Current local result: `14 passed` focused; `174 passed` full suite.
 - Validated the official `graph.facebook.com` content publishing shape: feed image and carousel parent container creation accept `location_id=<LOCATION_PAGE_ID>`; the official lookup route is read-only `GET /pages/search?q=...&fields=id,name,location,link`.
 - Added resolved draft location tags in SQLite, stored separately from freeform `drafts.location_text` so prose is never converted into an inferred tag id.
 - Added `drafts location-candidates --post-id ... [--query ...]` so the bot can ask for a more specific place when context is vague, or use read-only Page search to present ranked candidate tags without setting anything.
-- Added `drafts location-tag-set --post-id ... --page-id ... --name ...` to persist an explicitly selected Facebook Page id; setting/changing the tag invalidates active approvals and moves approved drafts back to `needs_edits`.
+- Added `drafts location-tag-set --post-id ... --page-id ... --name ... --source pages/search` to persist an explicitly selected Facebook Page id returned by Graph Page search; setting/changing the tag invalidates active approvals and moves approved drafts back to `needs_edits`.
 - Updated final publish preview to render `Location handling: resolved Meta location tag` plus the exact `location_id` payload when a resolved tag exists; otherwise freeform location text remains local/review-only.
 - Updated single-image and carousel publish execution to include `location_id` only from a resolved stored tag. Carousel child containers do not receive location ids; only the image container or carousel parent container does.
 - Updated the Instagram capability matrix from `needs_validation` to `publishable_when_resolved` while keeping arbitrary/freeform `location_tag` metadata out of generic publishable filtering.
 - Added tests for official page-search request construction, location candidate clarification/ranking, approval invalidation, CLI persistence, final preview payload rendering, carousel publish params, and local-only freeform location behavior.
 
-**Safety rule:** `location_text` is still local/review-only. Post Relay sends a Meta location tag only when a reviewed Facebook Page `location_id` is explicitly stored on the draft and approvals have been reacquired after that material edit. Do not infer or fabricate location ids from captions, folder names, or user prose.
+**Safety rule:** `location_text` is still local/review-only. Post Relay sends a Meta location tag only when a reviewed Facebook Page `location_id` returned by official Graph `pages/search` is explicitly stored on the draft and approvals have been reacquired after that material edit. Do not infer or fabricate location ids from captions, folder names, user prose, public Facebook URLs, or scraped `fb://profile` ids; if Graph search cannot verify the tag, use the explicit skip flow instead.
 
 **Verification:**
 

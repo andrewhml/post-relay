@@ -219,8 +219,8 @@ Common local commands:
 .venv/bin/post-relay drafts guided-package-plan --post-id 1 --location "Seoul, South Korea" --story-angle "night market alleys" --mood cinematic --audience-hook "food and light" --db data/post_relay.sqlite
 .venv/bin/post-relay drafts guided-package-accept --post-id 1 --caption-index 1 --location "Seoul, South Korea" --story-angle "night market alleys" --mood cinematic --audience-hook "food and light" --db data/post_relay.sqlite
 .venv/bin/post-relay drafts location-candidates --post-id 1 --query "Seoul South Korea" --db data/post_relay.sqlite --env-file .env
-.venv/bin/post-relay drafts location-tag-set --post-id 1 --page-id FACEBOOK_PAGE_ID --name "Seoul, Korea" --db data/post_relay.sqlite
-# Or explicitly bypass the Instagram location tag when you intend to publish without one:
+.venv/bin/post-relay drafts location-tag-set --post-id 1 --page-id FACEBOOK_PAGE_ID_FROM_PAGES_SEARCH --name "Seoul, Korea" --source pages/search --db data/post_relay.sqlite
+# Or explicitly bypass the Instagram location tag when Graph pages/search cannot verify a publishable location:
 .venv/bin/post-relay drafts location-tag-skip --post-id 1 --reason "No reliable Meta Page match" --db data/post_relay.sqlite
 .venv/bin/post-relay drafts final-preview-artifact render --post-id 1 --config config/photo_sources.yaml --db data/post_relay.sqlite
 .venv/bin/post-relay drafts publish-exports render --post-id 1 --profile feed_portrait_3x4 --config config/photo_sources.yaml --db data/post_relay.sqlite
@@ -255,7 +255,7 @@ Execute live Meta publish only when due and explicitly authorized:
 - Invalidate approvals after material edits.
 - Create Meta containers only from guarded execute paths.
 - Treat freeform location text, alt text, rationale, collaborators, music, and story/reel-only metadata as local/review-only unless a later milestone validates official support.
-- If a post has freeform location context, choose a reviewed Meta/Facebook Page `location_id` with `drafts location-tag-set` or explicitly bypass it with `drafts location-tag-skip`; Post Relay will warn in final previews and scheduled publish plans when no publishable location tag will be sent.
+- If a post has freeform location context, choose a reviewed Meta/Facebook Page `location_id` returned by Graph `pages/search` with `drafts location-tag-set --source pages/search`, or explicitly bypass it with `drafts location-tag-skip`; Post Relay will reject public Facebook URLs/manual scraped ids as resolved location sources and will warn in final previews and scheduled publish plans when no publishable location tag will be sent.
 
 ## Development
 
