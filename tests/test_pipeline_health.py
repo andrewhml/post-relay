@@ -77,6 +77,28 @@ def test_cli_pipeline_health_is_local_advisory_only(tmp_path: Path):
     assert "No automatic posting, scheduling, approval, messaging, upload, or analytics collection was performed." in result.output
 
 
+def test_pipeline_health_ignores_invalidated_approvals_on_posted_drafts(tmp_path: Path):
+    connection = connect_db(tmp_path / "post_relay.sqlite")
+    initialize_db(connection)
+    connection.execute(
+        """
+        insert into drafts (id, post_type, status)
+        values (1, 'carousel', 'posted')
+        """
+    )
+    connection.execute(
+        """
+        insert into approvals (draft_id, approval_type, approved_by, invalidated_at, invalidation_reason)
+        values (1, 'draft', 'andrew', '2026-06-01T09:00:00-07:00', 'old correction')
+        """
+    )
+    connection.commit()
+
+    health = build_pipeline_health(connection)
+
+    assert health.blocked_posts == []
+
+
 def _seed_pipeline_rows(connection):
     connection.execute(
         "insert into photo_sources (id, name, root, source_type) values (1, 'processed', '/tmp/photos', 'local')"
