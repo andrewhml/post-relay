@@ -22,6 +22,7 @@ from post_relay.account_preferences import (
     render_account_preferences_agent_brief,
     upsert_account_preferences,
 )
+from post_relay.agent_checkins import render_agent_checkin_plan
 from post_relay.analytics_feedback import (
     DEFAULT_INSIGHT_METRICS,
     PublishedPostSnapshotNotReady,
@@ -236,6 +237,7 @@ dm_app = typer.Typer(help="Private DM simulation commands.")
 discord_app = typer.Typer(help="Discord DM integration commands.")
 opportunities_app = typer.Typer(help="Local post opportunity commands.")
 analytics_app = typer.Typer(help="Post-publish analytics and feedback commands.")
+agent_app = typer.Typer(help="Local agent planning commands.")
 goals_app = typer.Typer(help="User/agent goal artifact commands.")
 preferences_app = typer.Typer(help="Durable account preference commands.")
 recommendations_app = typer.Typer(help="Local advisory recommendation commands.")
@@ -255,6 +257,7 @@ app.add_typer(dm_app, name="dm")
 app.add_typer(discord_app, name="discord")
 app.add_typer(opportunities_app, name="opportunities")
 app.add_typer(analytics_app, name="analytics")
+app.add_typer(agent_app, name="agent")
 app.add_typer(goals_app, name="goals")
 app.add_typer(preferences_app, name="preferences")
 app.add_typer(recommendations_app, name="recommendations")
@@ -447,6 +450,16 @@ def preferences_agent_brief(
     connection = connect_db(db)
     initialize_db(connection)
     typer.echo(render_account_preferences_agent_brief(connection, account_key=account_key))
+
+
+@agent_app.command("checkin-plan")
+def agent_checkin_plan(
+    db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
+) -> None:
+    """Draft a useful local agent check-in without sending a message."""
+    connection = connect_db(db)
+    initialize_db(connection)
+    typer.echo(render_agent_checkin_plan(connection))
 
 
 @pipeline_app.command("health")
