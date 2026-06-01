@@ -60,6 +60,63 @@ def test_upsert_account_preferences_persists_review_flow_and_versions(tmp_path: 
     assert versions[1].change_note == "style tightened"
 
 
+def test_upsert_account_preferences_persists_growth_posture_and_cadence(tmp_path: Path):
+    connection = connect_db(tmp_path / "post_relay.sqlite")
+    initialize_db(connection)
+
+    saved = upsert_account_preferences(
+        connection,
+        account_key="andrew",
+        goal_type="growth",
+        growth_mode="growth_push",
+        primary_success_metric="followers",
+        target_monthly_reels=10,
+        target_monthly_carousels=4,
+        target_weekly_posts=3,
+        agent_checkin_cadence="weekly",
+        comfort_zone_push_enabled=True,
+        max_push_level="medium",
+        preferred_growth_experiments=["reel_cadence_push", "carousel_text_overlay"],
+        blocked_growth_experiments=["trend_chasing"],
+        reviewed_by="andrew",
+        change_note="growth posture",
+    )
+
+    active = get_active_account_preferences(connection, account_key="andrew")
+    versions = list_account_preference_versions(connection, saved.id)
+
+    assert active is not None
+    assert active.goal_type == "growth"
+    assert active.growth_mode == "growth_push"
+    assert active.primary_success_metric == "followers"
+    assert active.target_monthly_reels == 10
+    assert active.target_monthly_carousels == 4
+    assert active.target_weekly_posts == 3
+    assert active.agent_checkin_cadence == "weekly"
+    assert active.comfort_zone_push_enabled is True
+    assert active.max_push_level == "medium"
+    assert active.preferred_growth_experiments == ["reel_cadence_push", "carousel_text_overlay"]
+    assert active.blocked_growth_experiments == ["trend_chasing"]
+    assert versions[-1].snapshot["growth_mode"] == "growth_push"
+    assert versions[-1].snapshot["target_monthly_reels"] == 10
+
+
+def test_account_preference_growth_posture_validation_rejects_unknown_values(tmp_path: Path):
+    connection = connect_db(tmp_path / "post_relay.sqlite")
+    initialize_db(connection)
+
+    try:
+        upsert_account_preferences(connection, growth_mode="viral_at_all_costs")
+    except ValueError as error:
+        message = str(error)
+    else:  # pragma: no cover - assertion guard
+        raise AssertionError("expected ValueError")
+
+    assert "growth_mode" in message
+    assert "conservative" in message
+    assert get_active_account_preferences(connection) is None
+
+
 def test_render_account_preferences_agent_brief_includes_transferable_operating_order(tmp_path: Path):
     connection = connect_db(tmp_path / "post_relay.sqlite")
     initialize_db(connection)
@@ -70,6 +127,17 @@ def test_render_account_preferences_agent_brief_includes_transferable_operating_
         require_goal_and_audience_for_copy=True,
         copy_collaboration_required=True,
         final_preview_requires_locked_copy=True,
+        goal_type="growth",
+        growth_mode="growth_push",
+        primary_success_metric="saves",
+        target_monthly_reels=10,
+        target_monthly_carousels=4,
+        target_weekly_posts=3,
+        agent_checkin_cadence="weekly",
+        comfort_zone_push_enabled=True,
+        max_push_level="medium",
+        preferred_growth_experiments=["reel_cadence_push"],
+        blocked_growth_experiments=["trend_chasing"],
         writing_style_notes=["saveable route tone", "avoid em dashes"],
         reviewed_by="andrew",
     )
@@ -84,6 +152,16 @@ def test_render_account_preferences_agent_brief_includes_transferable_operating_
     assert "4. final_preview" in brief
     assert "Goal/audience required before copy-heavy advice: yes" in brief
     assert "Final preview requires locked copy/supporting text: yes" in brief
+    assert "Goal type: growth" in brief
+    assert "Growth mode: growth_push" in brief
+    assert "Primary success metric: saves" in brief
+    assert "Target monthly reels: 10" in brief
+    assert "Target monthly carousels: 4" in brief
+    assert "Target weekly posts: 3" in brief
+    assert "Agent check-in cadence: weekly" in brief
+    assert "Comfort-zone push: enabled (max medium)" in brief
+    assert "Preferred growth experiments: reel_cadence_push" in brief
+    assert "Blocked growth experiments: trend_chasing" in brief
     assert "- saveable route tone" in brief
     assert "No Discord, R2, or Meta network calls were made." in brief
 
@@ -123,6 +201,27 @@ def test_cli_preferences_set_show_and_agent_brief_are_local_only(tmp_path: Path)
             "--require-goal-and-audience-for-copy",
             "--copy-collaboration-required",
             "--final-preview-requires-locked-copy",
+            "--goal-type",
+            "growth",
+            "--growth-mode",
+            "growth_push",
+            "--primary-success-metric",
+            "followers",
+            "--target-monthly-reels",
+            "10",
+            "--target-monthly-carousels",
+            "4",
+            "--target-weekly-posts",
+            "3",
+            "--agent-checkin-cadence",
+            "weekly",
+            "--comfort-zone-push",
+            "--max-push-level",
+            "medium",
+            "--preferred-growth-experiment",
+            "reel_cadence_push",
+            "--blocked-growth-experiment",
+            "trend_chasing",
             "--style-note",
             "avoid em dashes",
             "--reviewed-by",
@@ -140,6 +239,9 @@ def test_cli_preferences_set_show_and_agent_brief_are_local_only(tmp_path: Path)
     assert show_result.exit_code == 0
     assert "Account preferences for andrew" in show_result.output
     assert "selection_sheet → crop_sheet → copy_collaboration → final_preview" in show_result.output
+    assert "Growth mode: growth_push" in show_result.output
+    assert "Target monthly reels: 10" in show_result.output
     assert "avoid em dashes" in show_result.output
     assert brief_result.exit_code == 0
     assert "Goal/audience required before copy-heavy advice: yes" in brief_result.output
+    assert "Comfort-zone push: enabled (max medium)" in brief_result.output

@@ -158,6 +158,30 @@ The active goal artifact gives the agent a durable north star for proactive sugg
 .venv/bin/post-relay goals agent-brief --db data/post_relay.sqlite
 ```
 
+Durable account preferences store the review workflow plus account growth posture for future recommendations and portable friend/beta-user behavior:
+
+```bash
+.venv/bin/post-relay preferences set --db data/post_relay.sqlite \
+  --review-step selection_sheet \
+  --review-step crop_sheet \
+  --review-step copy_collaboration \
+  --review-step final_preview \
+  --goal-type growth \
+  --growth-mode growth_push \
+  --primary-success-metric followers \
+  --target-monthly-reels 10 \
+  --target-monthly-carousels 4 \
+  --target-weekly-posts 3 \
+  --agent-checkin-cadence weekly \
+  --comfort-zone-push \
+  --max-push-level medium \
+  --preferred-growth-experiment reel_cadence_push \
+  --blocked-growth-experiment trend_chasing \
+  --reviewed-by YOUR_NAME
+.venv/bin/post-relay preferences show --db data/post_relay.sqlite
+.venv/bin/post-relay preferences agent-brief --db data/post_relay.sqlite
+```
+
 Early recommendation milestones should stay advisory and deterministic: rank candidate groups, explain why a set is promising, suggest post type/caption angle/schedule windows, and reduce unnecessary context questions by reusing the active goal and prior accepted context. They should not mutate posts, approvals, schedules, Discord state, R2 staging, or Meta state; read-only Meta collection remains behind explicit analytics `--execute` commands and recommendation commands should consume stored local snapshots by default. Schedule recommendations must show already scheduled posts before proposing a new slot and must not schedule automatically.
 
 ## Optional R2 staging
