@@ -32,9 +32,18 @@ If these files conflict, prefer the newest concrete implementation facts in `REA
 
 ## Completed milestones
 
-### Current branch / Milestone: `feat/growth-coach-recommendations`
+### Current branch / Milestone: `feat/pipeline-health`
 
 Implemented in this branch:
+- Adds `post-relay pipeline health` as a local/no-network pipeline status report.
+- Reports counts by draft stage, candidate groups without posts, invalidated approvals as blocked tasks, cadence risk from durable account preferences, user-needed reviews, and agent-preparable next work.
+- Prints explicit no-mutation language and does not create posts, approve, schedule, publish, upload, message, collect analytics, or call Meta/R2/Discord.
+
+**Next after merge:** Start `feat/agent-checkin-plan`: add a no-network `post-relay agent checkin-plan` command that turns pipeline health/growth posture into a draft check-in message without sending anything.
+
+### PR #103 / Milestone: `feat/growth-coach-recommendations` (merged)
+
+Implemented:
 - Adds `post-relay recommendations growth-coach` as a local/no-network planner.
 - Reads the active user goal, account growth posture, cadence targets, candidate/post counts, scheduled queue count, published snapshots, insight snapshots, and follower snapshots.
 - Emits safe/growth/stretch paths with rationale, tradeoffs, comfort-zone delta, and a next safe command.

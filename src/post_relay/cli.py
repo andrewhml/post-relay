@@ -144,6 +144,7 @@ from post_relay.publishing import (
     prepare_single_image_publish_validation,
     resolve_staged_r2_publish_image_urls,
 )
+from post_relay.pipeline_health import render_pipeline_health
 from post_relay.opportunity_checks import execute_opportunity_checks, plan_opportunity_checks
 from post_relay.publish_exports import (
     DraftNotFound as PublishExportDraftNotFound,
@@ -238,6 +239,7 @@ analytics_app = typer.Typer(help="Post-publish analytics and feedback commands."
 goals_app = typer.Typer(help="User/agent goal artifact commands.")
 preferences_app = typer.Typer(help="Durable account preference commands.")
 recommendations_app = typer.Typer(help="Local advisory recommendation commands.")
+pipeline_app = typer.Typer(help="Local pipeline health commands.")
 draft_questions_app = typer.Typer(help="Post context question commands.")
 draft_artifacts_app = typer.Typer(help="Post review artifact commands.")
 draft_final_preview_artifact_app = typer.Typer(help="Post final preview artifact commands.")
@@ -256,6 +258,7 @@ app.add_typer(analytics_app, name="analytics")
 app.add_typer(goals_app, name="goals")
 app.add_typer(preferences_app, name="preferences")
 app.add_typer(recommendations_app, name="recommendations")
+app.add_typer(pipeline_app, name="pipeline")
 drafts_app.add_typer(draft_questions_app, name="questions")
 drafts_app.add_typer(draft_artifacts_app, name="artifacts")
 drafts_app.add_typer(draft_final_preview_artifact_app, name="final-preview-artifact")
@@ -444,6 +447,16 @@ def preferences_agent_brief(
     connection = connect_db(db)
     initialize_db(connection)
     typer.echo(render_account_preferences_agent_brief(connection, account_key=account_key))
+
+
+@pipeline_app.command("health")
+def pipeline_health(
+    db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
+) -> None:
+    """Report local pipeline stage health without mutating workflow state."""
+    connection = connect_db(db)
+    initialize_db(connection)
+    typer.echo(render_pipeline_health(connection))
 
 
 @recommendations_app.command("signals")
