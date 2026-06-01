@@ -7,11 +7,13 @@ from post_relay.cli import app
 from post_relay.db import connect_db, initialize_db
 from post_relay.recommendations import (
     build_caption_style_recommendations,
+    build_growth_coach_recommendations,
     build_schedule_recommendations,
     build_signal_baseline,
     record_caption_feedback,
     render_caption_feedback_result,
     render_caption_style_recommendations,
+    render_growth_coach_recommendations,
     render_schedule_recommendations,
     render_signal_baseline,
 )
@@ -98,6 +100,109 @@ def test_cli_recommendations_signals_is_local_advisory_only(tmp_path: Path):
     assert "Post lifecycle states:" in result.output
     assert "ready_to_publish: 1" in result.output
     assert "No Discord, R2, or Meta network calls were made." in result.output
+
+
+def test_build_growth_coach_recommendations_uses_goal_posture_and_local_evidence(tmp_path: Path):
+    connection = connect_db(tmp_path / "post_relay.sqlite")
+    initialize_db(connection)
+    upsert_active_user_goal(
+        connection,
+        title="Travel account north star",
+        goal_statement="Grow with saveable route carousels and practical reels.",
+        target_audience="Travelers planning city walks.",
+        content_pillars=["city guides"],
+        desired_cadence="3 posts per week",
+        success_metrics=["followers", "saves"],
+        strategy_notes="Recommend the next safe post plus one stretch experiment.",
+        constraints=["avoid places not pictured"],
+        reviewed_by="andrew",
+    )
+    upsert_account_preferences(
+        connection,
+        account_key="default",
+        goal_type="growth",
+        growth_mode="growth_push",
+        primary_success_metric="followers",
+        target_monthly_reels=10,
+        target_monthly_carousels=4,
+        target_weekly_posts=3,
+        agent_checkin_cadence="weekly",
+        comfort_zone_push_enabled=True,
+        max_push_level="medium",
+        preferred_growth_experiments=["reel_cadence_push"],
+        blocked_growth_experiments=["trend_chasing"],
+        reviewed_by="andrew",
+    )
+    _seed_signal_rows(connection)
+
+    plan = build_growth_coach_recommendations(connection)
+
+    assert plan.active_goal_title == "Travel account north star"
+    assert plan.growth_mode == "growth_push"
+    assert plan.primary_success_metric == "followers"
+    assert "target 10 reels/month" in plan.cadence_gap
+    assert "published reels this month: 0" in plan.cadence_gap
+    assert "candidate groups: 2" in plan.evidence_used
+    assert plan.safe_path.label == "safe"
+    assert plan.growth_path.label == "growth"
+    assert plan.stretch_path.label == "stretch"
+    assert plan.growth_path.comfort_zone_delta == "medium"
+    assert "reel_cadence_push" in " ".join(plan.stretch_path.rationale)
+    assert plan.mutation_statement == (
+        "No Discord, R2, or Meta network calls were made. No posts, approvals, "
+        "schedules, opportunities, publish attempts, or analytics rows were mutated."
+    )
+
+
+def test_render_growth_coach_recommendations_is_advisory_and_actionable(tmp_path: Path):
+    connection = connect_db(tmp_path / "post_relay.sqlite")
+    initialize_db(connection)
+    _seed_signal_rows(connection)
+    upsert_account_preferences(
+        connection,
+        account_key="default",
+        growth_mode="balanced",
+        primary_success_metric="saves",
+        target_monthly_carousels=4,
+        comfort_zone_push_enabled=True,
+        max_push_level="low",
+        preferred_growth_experiments=["carousel_first_slide_context"],
+    )
+
+    rendered = render_growth_coach_recommendations(connection)
+
+    assert "Growth coach recommendations" in rendered
+    assert "Account posture:" in rendered
+    assert "Safe path:" in rendered
+    assert "Growth path:" in rendered
+    assert "Stretch path:" in rendered
+    assert "Comfort-zone delta: low" in rendered
+    assert "Evidence used:" in rendered
+    assert "Next safe command:" in rendered
+    assert "No automatic posting, scheduling, approval, messaging, upload, or analytics collection was performed." in rendered
+    assert "No Discord, R2, or Meta network calls were made." in rendered
+
+
+def test_cli_recommendations_growth_coach_is_local_advisory_only(tmp_path: Path):
+    db_path = tmp_path / "post_relay.sqlite"
+    connection = connect_db(db_path)
+    initialize_db(connection)
+    _seed_signal_rows(connection)
+    before_posts = connection.execute("select count(*) from drafts").fetchone()[0]
+    before_approvals = connection.execute("select count(*) from approvals").fetchone()[0]
+    before_scheduled = connection.execute("select count(*) from drafts where scheduled_for is not null").fetchone()[0]
+
+    result = runner.invoke(app, ["recommendations", "growth-coach", "--db", str(db_path)])
+
+    after_posts = connection.execute("select count(*) from drafts").fetchone()[0]
+    after_approvals = connection.execute("select count(*) from approvals").fetchone()[0]
+    after_scheduled = connection.execute("select count(*) from drafts where scheduled_for is not null").fetchone()[0]
+    assert result.exit_code == 0
+    assert before_posts == after_posts == 3
+    assert before_approvals == after_approvals == 2
+    assert before_scheduled == after_scheduled == 1
+    assert "Growth coach recommendations" in result.output
+    assert "No automatic posting, scheduling, approval, messaging, upload, or analytics collection was performed." in result.output
 
 
 def test_build_schedule_recommendations_surfaces_queue_and_avoids_conflicts(tmp_path: Path):

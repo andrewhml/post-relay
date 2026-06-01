@@ -32,9 +32,19 @@ If these files conflict, prefer the newest concrete implementation facts in `REA
 
 ## Completed milestones
 
-### Current branch / Milestone: `feat/growth-posture-preferences`
+### Current branch / Milestone: `feat/growth-coach-recommendations`
 
 Implemented in this branch:
+- Adds `post-relay recommendations growth-coach` as a local/no-network planner.
+- Reads the active user goal, account growth posture, cadence targets, candidate/post counts, scheduled queue count, published snapshots, insight snapshots, and follower snapshots.
+- Emits safe/growth/stretch paths with rationale, tradeoffs, comfort-zone delta, and a next safe command.
+- Prints explicit no-mutation language and does not create posts, approve, schedule, publish, upload, message, collect analytics, or call Meta/R2/Discord.
+
+**Next after merge:** Start `feat/pipeline-health`: add a local/no-network `post-relay pipeline health` command that reports counts by stage, blocked/user-needed reviews, cadence risk, and agent-preparable next work.
+
+### PR #102 / Milestone: `feat/growth-posture-preferences` (merged)
+
+Implemented:
 - Extends durable `account_preferences` with growth posture fields: `goal_type`, `growth_mode`, `primary_success_metric`, target reels/carousels/posts cadence, agent check-in cadence, comfort-zone push settings, and preferred/blocked growth experiments.
 - Adds versioned snapshots for those fields so preference changes remain portable and auditable.
 - Extends `post-relay preferences set/show/agent-brief` with the growth posture fields while keeping review-order/copy-collaboration preferences intact.

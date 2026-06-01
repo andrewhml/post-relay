@@ -325,26 +325,34 @@ Verification:
 .venv/bin/python -m pytest -q
 ```
 
-### Milestone 3: `feat/growth-coach-recommendations`
+### Milestone 3: `feat/growth-coach-recommendations` (completed in this branch)
 
-Add a local/no-network command:
+Adds a local/no-network command:
 
 ```bash
 post-relay recommendations growth-coach --db data/post_relay.sqlite
 ```
 
-Initial output:
+Delivered output:
 
 - active goal
 - account posture
 - cadence target and current month/week gap
-- safe recommendation
-- growth recommendation
-- stretch recommendation
-- comfort-zone delta
+- safe path
+- growth path
+- stretch path
+- comfort-zone delta per path
 - evidence used
-- next safe command
+- warnings from sparse local evidence
+- next safe command per path
 - explicit no-network/no-mutation statement
+
+Verification:
+
+```bash
+.venv/bin/python -m pytest tests/test_recommendation_signals.py::test_build_growth_coach_recommendations_uses_goal_posture_and_local_evidence tests/test_recommendation_signals.py::test_render_growth_coach_recommendations_is_advisory_and_actionable tests/test_recommendation_signals.py::test_cli_recommendations_growth_coach_is_local_advisory_only -q
+.venv/bin/python -m pytest -q
+```
 
 ### Milestone 4: `feat/pipeline-health`
 

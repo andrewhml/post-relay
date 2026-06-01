@@ -187,6 +187,7 @@ from post_relay.recommendations import (
     render_candidate_rankings,
     render_caption_feedback_result,
     render_caption_style_recommendations,
+    render_growth_coach_recommendations,
     render_schedule_recommendations,
     render_signal_baseline,
 )
@@ -466,6 +467,16 @@ def recommendations_candidates(
     connection = connect_db(db)
     initialize_db(connection)
     typer.echo(render_candidate_rankings(connection, limit=limit, include_used=include_used, user_key=user_key))
+
+
+@recommendations_app.command("growth-coach")
+def recommendations_growth_coach(
+    db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
+) -> None:
+    """Suggest safe/growth/stretch next moves from local goal and posture data."""
+    connection = connect_db(db)
+    initialize_db(connection)
+    typer.echo(render_growth_coach_recommendations(connection))
 
 
 @recommendations_app.command("schedule")
