@@ -161,7 +161,7 @@ The active goal artifact gives the agent a durable north star for proactive sugg
 .venv/bin/post-relay goals agent-brief --db data/post_relay.sqlite
 ```
 
-Durable account preferences store the review workflow plus account growth posture for future recommendations and portable friend/beta-user behavior:
+Durable account preferences store the review workflow plus account growth posture and opt-in check-in preferences for future recommendations and portable friend/beta-user behavior:
 
 ```bash
 .venv/bin/post-relay preferences set --db data/post_relay.sqlite \
@@ -176,6 +176,12 @@ Durable account preferences store the review workflow plus account growth postur
   --target-monthly-carousels 4 \
   --target-weekly-posts 3 \
   --agent-checkin-cadence weekly \
+  --checkin-delivery-destination discord_dm \
+  --checkin-trigger-policy meaningful_plus_weekly \
+  --checkin-timezone America/New_York \
+  --checkin-working-hours-start 09:00 \
+  --checkin-working-hours-end 17:00 \
+  --checkin-run-planners \
   --comfort-zone-push \
   --max-push-level medium \
   --preferred-growth-experiment reel_cadence_push \

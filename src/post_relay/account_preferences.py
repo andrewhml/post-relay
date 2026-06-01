@@ -22,6 +22,8 @@ VALID_SUCCESS_METRICS = {
     "satisfaction",
 }
 VALID_CHECKIN_CADENCES = {"daily", "twice_weekly", "weekly", "monthly", "goal_adaptive", "off"}
+VALID_CHECKIN_DESTINATIONS = {"discord_dm", "discord_home", "whatsapp", "local_only"}
+VALID_CHECKIN_TRIGGER_POLICIES = {"meaningful_only", "meaningful_plus_weekly", "weekly", "manual"}
 VALID_PUSH_LEVELS = {"low", "medium", "high"}
 _VALID_REVIEW_STEPS = set(DEFAULT_REVIEW_FLOW_ORDER)
 
@@ -46,6 +48,12 @@ class AccountPreferenceRecord:
     max_push_level: Optional[str]
     preferred_growth_experiments: list[str]
     blocked_growth_experiments: list[str]
+    checkin_delivery_destination: Optional[str]
+    checkin_trigger_policy: Optional[str]
+    checkin_timezone: Optional[str]
+    checkin_working_hours_start: Optional[str]
+    checkin_working_hours_end: Optional[str]
+    checkin_run_planners: bool
     reviewed_by: Optional[str]
     status: str
 
@@ -80,6 +88,12 @@ def upsert_account_preferences(
     max_push_level: Optional[str] = None,
     preferred_growth_experiments: Optional[Sequence[str]] = None,
     blocked_growth_experiments: Optional[Sequence[str]] = None,
+    checkin_delivery_destination: Optional[str] = None,
+    checkin_trigger_policy: Optional[str] = None,
+    checkin_timezone: Optional[str] = None,
+    checkin_working_hours_start: Optional[str] = None,
+    checkin_working_hours_end: Optional[str] = None,
+    checkin_run_planners: bool = False,
     reviewed_by: Optional[str] = None,
     change_note: Optional[str] = None,
 ) -> AccountPreferenceRecord:
@@ -90,6 +104,11 @@ def upsert_account_preferences(
     growth_mode = _normalize_choice("growth_mode", growth_mode, VALID_GROWTH_MODES)
     primary_success_metric = _normalize_choice("primary_success_metric", primary_success_metric, VALID_SUCCESS_METRICS)
     agent_checkin_cadence = _normalize_choice("agent_checkin_cadence", agent_checkin_cadence, VALID_CHECKIN_CADENCES)
+    checkin_delivery_destination = _normalize_choice("checkin_delivery_destination", checkin_delivery_destination, VALID_CHECKIN_DESTINATIONS)
+    checkin_trigger_policy = _normalize_choice("checkin_trigger_policy", checkin_trigger_policy, VALID_CHECKIN_TRIGGER_POLICIES)
+    checkin_timezone = _clean_optional(checkin_timezone)
+    checkin_working_hours_start = _normalize_time("checkin_working_hours_start", checkin_working_hours_start)
+    checkin_working_hours_end = _normalize_time("checkin_working_hours_end", checkin_working_hours_end)
     max_push_level = _normalize_choice("max_push_level", max_push_level, VALID_PUSH_LEVELS)
     target_monthly_reels = _normalize_optional_nonnegative_int("target_monthly_reels", target_monthly_reels)
     target_monthly_carousels = _normalize_optional_nonnegative_int("target_monthly_carousels", target_monthly_carousels)
@@ -106,8 +125,11 @@ def upsert_account_preferences(
                 writing_style_notes_json, goal_type, growth_mode, primary_success_metric,
                 target_monthly_reels, target_monthly_carousels, target_weekly_posts,
                 agent_checkin_cadence, comfort_zone_push_enabled, max_push_level,
-                preferred_growth_experiments_json, blocked_growth_experiments_json, reviewed_by
-            ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                preferred_growth_experiments_json, blocked_growth_experiments_json,
+                checkin_delivery_destination, checkin_trigger_policy, checkin_timezone,
+                checkin_working_hours_start, checkin_working_hours_end, checkin_run_planners,
+                reviewed_by
+            ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 account_key,
@@ -127,6 +149,12 @@ def upsert_account_preferences(
                 max_push_level,
                 json.dumps(preferred_growth_experiments_list),
                 json.dumps(blocked_growth_experiments_list),
+                checkin_delivery_destination,
+                checkin_trigger_policy,
+                checkin_timezone,
+                checkin_working_hours_start,
+                checkin_working_hours_end,
+                int(checkin_run_planners),
                 _clean_optional(reviewed_by),
             ),
         )
@@ -152,6 +180,12 @@ def upsert_account_preferences(
                 max_push_level = ?,
                 preferred_growth_experiments_json = ?,
                 blocked_growth_experiments_json = ?,
+                checkin_delivery_destination = ?,
+                checkin_trigger_policy = ?,
+                checkin_timezone = ?,
+                checkin_working_hours_start = ?,
+                checkin_working_hours_end = ?,
+                checkin_run_planners = ?,
                 reviewed_by = ?,
                 updated_at = current_timestamp
             where id = ?
@@ -173,6 +207,12 @@ def upsert_account_preferences(
                 max_push_level,
                 json.dumps(preferred_growth_experiments_list),
                 json.dumps(blocked_growth_experiments_list),
+                checkin_delivery_destination,
+                checkin_trigger_policy,
+                checkin_timezone,
+                checkin_working_hours_start,
+                checkin_working_hours_end,
+                int(checkin_run_planners),
                 _clean_optional(reviewed_by),
                 preference_id,
             ),
@@ -198,6 +238,8 @@ def get_active_account_preferences(
                target_monthly_reels, target_monthly_carousels, target_weekly_posts,
                agent_checkin_cadence, comfort_zone_push_enabled, max_push_level,
                preferred_growth_experiments_json, blocked_growth_experiments_json,
+               checkin_delivery_destination, checkin_trigger_policy, checkin_timezone,
+               checkin_working_hours_start, checkin_working_hours_end, checkin_run_planners,
                reviewed_by, status
         from account_preferences
         where account_key = ? and status = 'active'
@@ -249,6 +291,11 @@ def render_account_preferences(preferences: Optional[AccountPreferenceRecord]) -
         f"- Comfort-zone push: {_format_comfort_zone(preferences)}",
         f"- Preferred growth experiments: {_format_list(preferences.preferred_growth_experiments)}",
         f"- Blocked growth experiments: {_format_list(preferences.blocked_growth_experiments)}",
+        "Check-in preferences:",
+        f"- Check-in delivery: {_format_optional(preferences.checkin_delivery_destination)}",
+        f"- Check-in trigger policy: {_format_optional(preferences.checkin_trigger_policy)}",
+        f"- Check-in working hours: {_format_checkin_window(preferences)}",
+        f"- Check-in planner execution: {_enabled_disabled(preferences.checkin_run_planners)}",
         "Writing style notes:",
     ]
     if preferences.writing_style_notes:
@@ -283,6 +330,12 @@ def render_account_preferences_agent_brief(connection, *, account_key: str = DEF
             max_push_level=None,
             preferred_growth_experiments=[],
             blocked_growth_experiments=[],
+            checkin_delivery_destination=None,
+            checkin_trigger_policy=None,
+            checkin_timezone=None,
+            checkin_working_hours_start=None,
+            checkin_working_hours_end=None,
+            checkin_run_planners=False,
             reviewed_by=None,
             status="default",
         )
@@ -308,6 +361,10 @@ def render_account_preferences_agent_brief(connection, *, account_key: str = DEF
             f"Comfort-zone push: {_format_comfort_zone(preferences)}",
             f"Preferred growth experiments: {_format_list(preferences.preferred_growth_experiments)}",
             f"Blocked growth experiments: {_format_list(preferences.blocked_growth_experiments)}",
+            f"Check-in delivery: {_format_optional(preferences.checkin_delivery_destination)}",
+            f"Check-in trigger policy: {_format_optional(preferences.checkin_trigger_policy)}",
+            f"Check-in working hours: {_format_checkin_window(preferences)}",
+            f"Check-in planner execution: {_enabled_disabled(preferences.checkin_run_planners)}",
             "Writing style notes:",
         ]
     )
@@ -347,6 +404,12 @@ def preference_guidance_lines(preferences: Optional[AccountPreferenceRecord]) ->
         max_push_level=None,
         preferred_growth_experiments=[],
         blocked_growth_experiments=[],
+        checkin_delivery_destination=None,
+        checkin_trigger_policy=None,
+        checkin_timezone=None,
+        checkin_working_hours_start=None,
+        checkin_working_hours_end=None,
+        checkin_run_planners=False,
         reviewed_by=None,
         status="default",
     )
@@ -374,6 +437,8 @@ def _get_account_preference_by_id(connection, preference_id: int) -> Optional[Ac
                target_monthly_reels, target_monthly_carousels, target_weekly_posts,
                agent_checkin_cadence, comfort_zone_push_enabled, max_push_level,
                preferred_growth_experiments_json, blocked_growth_experiments_json,
+               checkin_delivery_destination, checkin_trigger_policy, checkin_timezone,
+               checkin_working_hours_start, checkin_working_hours_end, checkin_run_planners,
                reviewed_by, status
         from account_preferences
         where id = ?
@@ -412,6 +477,12 @@ def _record_account_preference_version(
         "max_push_level": preferences.max_push_level,
         "preferred_growth_experiments": preferences.preferred_growth_experiments,
         "blocked_growth_experiments": preferences.blocked_growth_experiments,
+        "checkin_delivery_destination": preferences.checkin_delivery_destination,
+        "checkin_trigger_policy": preferences.checkin_trigger_policy,
+        "checkin_timezone": preferences.checkin_timezone,
+        "checkin_working_hours_start": preferences.checkin_working_hours_start,
+        "checkin_working_hours_end": preferences.checkin_working_hours_end,
+        "checkin_run_planners": preferences.checkin_run_planners,
         "reviewed_by": preferences.reviewed_by,
         "status": preferences.status,
     }
@@ -444,8 +515,14 @@ def _row_to_account_preferences(row) -> AccountPreferenceRecord:
         max_push_level=row[15],
         preferred_growth_experiments=_normalize_list(json.loads(row[16] or "[]")),
         blocked_growth_experiments=_normalize_list(json.loads(row[17] or "[]")),
-        reviewed_by=row[18],
-        status=row[19],
+        checkin_delivery_destination=row[18],
+        checkin_trigger_policy=row[19],
+        checkin_timezone=row[20],
+        checkin_working_hours_start=row[21],
+        checkin_working_hours_end=row[22],
+        checkin_run_planners=bool(row[23]),
+        reviewed_by=row[24],
+        status=row[25],
     )
 
 
@@ -494,6 +571,20 @@ def _normalize_optional_nonnegative_int(name: str, value: Optional[int]) -> Opti
     return normalized
 
 
+def _normalize_time(name: str, value: Optional[str]) -> Optional[str]:
+    cleaned = _clean_optional(value)
+    if cleaned is None:
+        return None
+    parts = cleaned.split(":")
+    if len(parts) != 2 or not all(part.isdigit() for part in parts):
+        raise ValueError(f"{name} must use HH:MM 24-hour format")
+    hour = int(parts[0])
+    minute = int(parts[1])
+    if hour > 23 or minute > 59:
+        raise ValueError(f"{name} must use HH:MM 24-hour format")
+    return f"{hour:02d}:{minute:02d}"
+
+
 def _format_optional(value) -> str:
     return str(value) if value not in (None, "") else "<not set>"
 
@@ -507,6 +598,23 @@ def _format_comfort_zone(preferences: AccountPreferenceRecord) -> str:
         return "disabled"
     max_push = preferences.max_push_level or "unspecified"
     return f"enabled (max {max_push})"
+
+
+def _format_checkin_window(preferences: AccountPreferenceRecord) -> str:
+    start = preferences.checkin_working_hours_start
+    end = preferences.checkin_working_hours_end
+    timezone = preferences.checkin_timezone
+    if start and end and timezone:
+        return f"{start}-{end} {timezone}"
+    if start and end:
+        return f"{start}-{end} <timezone not set>"
+    if timezone:
+        return f"working hours in {timezone}"
+    return "<not set>"
+
+
+def _enabled_disabled(value: bool) -> str:
+    return "enabled" if value else "disabled"
 
 
 def _growth_posture_guidance_parts(preferences: AccountPreferenceRecord) -> list[str]:

@@ -36,11 +36,21 @@ def test_build_agent_checkin_plan_prioritizes_cadence_and_user_review(tmp_path: 
         target_weekly_posts=3,
         target_monthly_reels=10,
         agent_checkin_cadence="weekly",
+        checkin_delivery_destination="discord_dm",
+        checkin_trigger_policy="meaningful_plus_weekly",
+        checkin_timezone="America/New_York",
+        checkin_working_hours_start="09:00",
+        checkin_working_hours_end="17:00",
+        checkin_run_planners=True,
     )
 
     plan = build_agent_checkin_plan(connection)
 
     assert plan.recommended_checkin_cadence == "weekly"
+    assert plan.delivery_destination == "discord_dm"
+    assert plan.trigger_policy == "meaningful_plus_weekly"
+    assert plan.working_hours == "09:00-17:00 America/New_York"
+    assert plan.planners_enabled is True
     assert plan.trigger_reason.startswith("cadence risk:")
     assert plan.user_action_requested == "Review Post 2 or approve the suggested next pipeline action."
     assert "Travel account north star" in plan.draft_message
@@ -59,6 +69,10 @@ def test_render_agent_checkin_plan_is_no_send_and_actionable(tmp_path: Path):
 
     assert "Agent check-in plan" in rendered
     assert "Recommended check-in cadence:" in rendered
+    assert "Delivery destination:" in rendered
+    assert "Trigger policy:" in rendered
+    assert "Working hours:" in rendered
+    assert "Read-only planners may run:" in rendered
     assert "Trigger reason:" in rendered
     assert "Draft message:" in rendered
     assert "User action requested:" in rendered
