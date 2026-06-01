@@ -354,22 +354,30 @@ Verification:
 .venv/bin/python -m pytest -q
 ```
 
-### Milestone 4: `feat/pipeline-health`
+### Milestone 4: `feat/pipeline-health` (completed in this branch)
 
-Add a local/no-network command:
+Adds a local/no-network command:
 
 ```bash
 post-relay pipeline health --db data/post_relay.sqlite
 ```
 
-Initial output:
+Delivered output:
 
 - counts by pipeline stage
-- blocked posts/tasks
-- cadence risk
+- candidate groups without posts
+- blocked posts/tasks from invalidated approvals
+- cadence risk from durable account posture targets
 - user-needed reviews
 - agent-preparable next work
 - no-network/no-mutation statement
+
+Verification:
+
+```bash
+.venv/bin/python -m pytest tests/test_pipeline_health.py -q
+.venv/bin/python -m pytest -q
+```
 
 ### Milestone 5: `feat/agent-checkin-plan`
 
