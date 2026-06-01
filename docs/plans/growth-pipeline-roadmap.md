@@ -379,7 +379,7 @@ Verification:
 .venv/bin/python -m pytest -q
 ```
 
-### Milestone 5: `feat/agent-checkin-plan` (completed in this branch)
+### Milestone 5: `feat/agent-checkin-plan` (completed / merged PR #105)
 
 Adds a no-network planner before cron/gateway automation:
 
@@ -404,11 +404,45 @@ Verification:
 .venv/bin/python -m pytest -q
 ```
 
-### Milestone 6: opt-in scheduled check-ins
+### Milestone 6a: `feat/scheduled-checkin-preferences` (completed in this branch)
 
-Stop here until Andrew explicitly authorizes destination, cadence, quiet-hours/spam guardrails, and side-effect scope.
+Andrew authorized the initial scheduled check-in preference shape:
 
-Only after the local planner is useful and the user authorizes it:
+- destination is a user/account preference; Andrew's value is `discord_dm`
+- triggers are meaningful content gaps/no upcoming scheduled posts plus a regular weekly check-in
+- weekly check-ins should include progress and post-performance context from stored local data
+- delivery should start with the user's timezone working hours
+- scheduled check-ins may run read-only planners before composing the message
+
+Delivered data model and local planner behavior:
+
+- `account_preferences.checkin_delivery_destination`
+- `account_preferences.checkin_trigger_policy`
+- `account_preferences.checkin_timezone`
+- `account_preferences.checkin_working_hours_start`
+- `account_preferences.checkin_working_hours_end`
+- `account_preferences.checkin_run_planners`
+- `preferences set/show/agent-brief` rendering for those fields
+- `agent checkin-plan` output now includes delivery destination, trigger policy, working hours, and planner permission while still sending nothing
+
+Example preference command:
+
+```bash
+post-relay preferences set --db data/post_relay.sqlite \
+  --agent-checkin-cadence weekly \
+  --checkin-delivery-destination discord_dm \
+  --checkin-trigger-policy meaningful_plus_weekly \
+  --checkin-timezone America/New_York \
+  --checkin-working-hours-start 09:00 \
+  --checkin-working-hours-end 17:00 \
+  --checkin-run-planners
+```
+
+This branch still creates no Hermes cron/gateway job and sends no messages.
+
+### Milestone 6b: opt-in scheduled check-in delivery
+
+Only after the durable preferences are merged and the first delivery mode is confirmed:
 
 - create/update Hermes cron or gateway job
 - send only specific, useful check-ins

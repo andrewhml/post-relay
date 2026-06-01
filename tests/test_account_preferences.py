@@ -78,6 +78,12 @@ def test_upsert_account_preferences_persists_growth_posture_and_cadence(tmp_path
         max_push_level="medium",
         preferred_growth_experiments=["reel_cadence_push", "carousel_text_overlay"],
         blocked_growth_experiments=["trend_chasing"],
+        checkin_delivery_destination="discord_dm",
+        checkin_trigger_policy="meaningful_plus_weekly",
+        checkin_timezone="America/New_York",
+        checkin_working_hours_start="09:00",
+        checkin_working_hours_end="17:00",
+        checkin_run_planners=True,
         reviewed_by="andrew",
         change_note="growth posture",
     )
@@ -97,8 +103,15 @@ def test_upsert_account_preferences_persists_growth_posture_and_cadence(tmp_path
     assert active.max_push_level == "medium"
     assert active.preferred_growth_experiments == ["reel_cadence_push", "carousel_text_overlay"]
     assert active.blocked_growth_experiments == ["trend_chasing"]
+    assert active.checkin_delivery_destination == "discord_dm"
+    assert active.checkin_trigger_policy == "meaningful_plus_weekly"
+    assert active.checkin_timezone == "America/New_York"
+    assert active.checkin_working_hours_start == "09:00"
+    assert active.checkin_working_hours_end == "17:00"
+    assert active.checkin_run_planners is True
     assert versions[-1].snapshot["growth_mode"] == "growth_push"
     assert versions[-1].snapshot["target_monthly_reels"] == 10
+    assert versions[-1].snapshot["checkin_delivery_destination"] == "discord_dm"
 
 
 def test_account_preference_growth_posture_validation_rejects_unknown_values(tmp_path: Path):
@@ -138,6 +151,12 @@ def test_render_account_preferences_agent_brief_includes_transferable_operating_
         max_push_level="medium",
         preferred_growth_experiments=["reel_cadence_push"],
         blocked_growth_experiments=["trend_chasing"],
+        checkin_delivery_destination="discord_dm",
+        checkin_trigger_policy="meaningful_plus_weekly",
+        checkin_timezone="America/New_York",
+        checkin_working_hours_start="09:00",
+        checkin_working_hours_end="17:00",
+        checkin_run_planners=True,
         writing_style_notes=["saveable route tone", "avoid em dashes"],
         reviewed_by="andrew",
     )
@@ -162,6 +181,10 @@ def test_render_account_preferences_agent_brief_includes_transferable_operating_
     assert "Comfort-zone push: enabled (max medium)" in brief
     assert "Preferred growth experiments: reel_cadence_push" in brief
     assert "Blocked growth experiments: trend_chasing" in brief
+    assert "Check-in delivery: discord_dm" in brief
+    assert "Check-in trigger policy: meaningful_plus_weekly" in brief
+    assert "Check-in working hours: 09:00-17:00 America/New_York" in brief
+    assert "Check-in planner execution: enabled" in brief
     assert "- saveable route tone" in brief
     assert "No Discord, R2, or Meta network calls were made." in brief
 
@@ -222,6 +245,17 @@ def test_cli_preferences_set_show_and_agent_brief_are_local_only(tmp_path: Path)
             "reel_cadence_push",
             "--blocked-growth-experiment",
             "trend_chasing",
+            "--checkin-delivery-destination",
+            "discord_dm",
+            "--checkin-trigger-policy",
+            "meaningful_plus_weekly",
+            "--checkin-timezone",
+            "America/New_York",
+            "--checkin-working-hours-start",
+            "09:00",
+            "--checkin-working-hours-end",
+            "17:00",
+            "--checkin-run-planners",
             "--style-note",
             "avoid em dashes",
             "--reviewed-by",
@@ -241,7 +275,13 @@ def test_cli_preferences_set_show_and_agent_brief_are_local_only(tmp_path: Path)
     assert "selection_sheet → crop_sheet → copy_collaboration → final_preview" in show_result.output
     assert "Growth mode: growth_push" in show_result.output
     assert "Target monthly reels: 10" in show_result.output
+    assert "Check-in delivery: discord_dm" in show_result.output
+    assert "Check-in trigger policy: meaningful_plus_weekly" in show_result.output
+    assert "Check-in working hours: 09:00-17:00 America/New_York" in show_result.output
+    assert "Check-in planner execution: enabled" in show_result.output
     assert "avoid em dashes" in show_result.output
     assert brief_result.exit_code == 0
     assert "Goal/audience required before copy-heavy advice: yes" in brief_result.output
     assert "Comfort-zone push: enabled (max medium)" in brief_result.output
+    assert "Check-in delivery: discord_dm" in brief_result.output
+    assert "Check-in planner execution: enabled" in brief_result.output

@@ -32,14 +32,22 @@ If these files conflict, prefer the newest concrete implementation facts in `REA
 
 ## Completed milestones
 
-### Current branch / Milestone: `feat/agent-checkin-plan`
+### Current branch / Milestone: `feat/scheduled-checkin-preferences`
 
 Implemented in this branch:
+- Extends durable `account_preferences` with opt-in check-in destination, trigger policy, timezone, working-hours window, and read-only planner execution scope.
+- Andrew's intended default can be represented as Discord DM delivery, `meaningful_plus_weekly` trigger policy, user-timezone working hours, and read-only planners enabled.
+- Updates `post-relay agent checkin-plan` to render delivery destination, trigger policy, working hours, and whether read-only planners may run while still sending nothing.
+- Preserves local/no-network/no-mutation behavior; this branch does not create Hermes cron/gateway jobs or send Discord/WhatsApp messages.
+
+**Next after merge:** Start a separate scheduled delivery implementation only after confirming whether the first cron should target Andrew's Discord DM directly or remain local-file dry-run for one cycle.
+
+### PR #105 / Milestone: `feat/agent-checkin-plan` (merged)
+
+Implemented:
 - Adds `post-relay agent checkin-plan` as a local/no-network draft-message planner before any cron/gateway automation.
 - Reads pipeline health, active goal, and durable account check-in cadence to choose a trigger reason, draft message, user action requested, and why the check-in is useful now.
 - Prints explicit no-send/no-mutation language and does not create cron jobs, send Discord/WhatsApp messages, approve, schedule, publish, upload, collect analytics, or call Meta/R2/Discord.
-
-**Stop point after merge:** Scheduled/proactive check-ins require Andrew to opt in to destination, cadence, quiet-hours/spam guardrails, and side-effect scope before any Hermes cron or gateway delivery job is created.
 
 ### PR #104 / Milestone: `feat/pipeline-health` (merged)
 

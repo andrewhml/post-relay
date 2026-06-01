@@ -351,6 +351,12 @@ SCHEMA_STATEMENTS = [
         max_push_level text,
         preferred_growth_experiments_json text not null default '[]',
         blocked_growth_experiments_json text not null default '[]',
+        checkin_delivery_destination text,
+        checkin_trigger_policy text,
+        checkin_timezone text,
+        checkin_working_hours_start text,
+        checkin_working_hours_end text,
+        checkin_run_planners integer not null default 0,
         reviewed_by text,
         status text not null default 'active',
         created_at text not null default current_timestamp,
@@ -417,6 +423,12 @@ def initialize_db(connection: sqlite3.Connection) -> None:
     _ensure_column(connection, "account_preferences", "max_push_level", "text")
     _ensure_column(connection, "account_preferences", "preferred_growth_experiments_json", "text not null default '[]'")
     _ensure_column(connection, "account_preferences", "blocked_growth_experiments_json", "text not null default '[]'")
+    _ensure_column(connection, "account_preferences", "checkin_delivery_destination", "text")
+    _ensure_column(connection, "account_preferences", "checkin_trigger_policy", "text")
+    _ensure_column(connection, "account_preferences", "checkin_timezone", "text")
+    _ensure_column(connection, "account_preferences", "checkin_working_hours_start", "text")
+    _ensure_column(connection, "account_preferences", "checkin_working_hours_end", "text")
+    _ensure_column(connection, "account_preferences", "checkin_run_planners", "integer not null default 0")
     connection.commit()
 
 
