@@ -8,12 +8,13 @@ Before making changes, read these files in order:
 
 1. `README.md` — current project status, validated Meta setup facts, local CLI commands.
 2. `docs/plans/current-agent-roadmap.md` — current completed milestones, next milestones, and execution rules.
-3. `docs/plans/postrelay-agent-operating-baseline.md` — specialized content curator/social media manager prompt and skill baseline.
-4. `docs/plans/discord-dm-conversation-orchestration.md` — private-DM-first conversation, user-initiated-first rollout, and later opportunity trigger plan.
-5. `docs/plans/discord-photo-selection-before-carousel-smoke.md` — Discord selection/review plan before live carousel publish.
-6. `implementation-plan.md` — high-level phase plan from MVP through publishing and optimization.
-7. `technical-design.md` — product architecture, safety rules, and component responsibilities.
-8. `requirements.md` and `setup-checklist.md` — original requirements and setup notes.
+3. `docs/plans/growth-pipeline-roadmap.md` — long-term goal-driven content pipeline, account data, agent check-in, and GUI direction.
+4. `docs/plans/postrelay-agent-operating-baseline.md` — specialized content curator/social media manager prompt and skill baseline.
+5. `docs/plans/discord-dm-conversation-orchestration.md` — private-DM-first conversation, user-initiated-first rollout, and later opportunity trigger plan.
+6. `docs/plans/discord-photo-selection-before-carousel-smoke.md` — Discord selection/review plan before live carousel publish.
+7. `implementation-plan.md` — high-level phase plan from MVP through publishing and optimization.
+8. `technical-design.md` — product architecture, safety rules, and component responsibilities.
+9. `requirements.md` and `setup-checklist.md` — original requirements and setup notes.
 
 ## Project goal
 
@@ -35,7 +36,7 @@ Post Relay is a local-first Instagram travel content workflow for Andrew's `andr
 - Post context questions can be generated/listed locally and included in post previews.
 - Post content direction can be submitted for review, approved for queueing, and invalidated by material edits.
 - Dry-run Discord preview payloads can be generated locally with ordered existing image paths and missing-file reporting.
-- Local post review artifacts can be rendered in gated stages with `drafts artifacts render --stage select|crop`; generated thumbnails/contact sheets are written under the configured artifact root without modifying source media. Crop artifacts require explicit media selection first for multi-media posts, while single-image/video posts can skip selection and go straight to crop. Final preview artifacts require accepted copy/metadata.
+- Local post review artifacts can be rendered in gated stages with `drafts artifacts render --stage select|crop`; generated thumbnails/contact sheets are written under the configured artifact root without modifying source media. The durable default review order is selection sheet → crop sheet → copy collaboration → final preview. Crop artifacts require explicit media selection and confirmed ordering first for multi-media posts, while single-image/video posts can skip selection and go straight to crop. Do not render or send crop sheets before the user has picked the media/order because unselected images waste review and rendering cycles. Final preview artifacts require locked copy plus supporting text/metadata; do not render or send the final sheet while caption, hashtags, alt text, location/supporting copy, or other approval text is still in flux.
 - Oversized post review artifact renders are blocked by a bounded planning layer that classifies large media sets and returns DM-safe narrowing/sample guidance before a full contact sheet is rendered.
 - DM intake candidate matching uses local folder/year/filename descriptors and simple aliases to prefer specific matched sets over generic large folders while keeping rationale source-path-safe.
 - No-network R2 staging plans can be generated with `drafts r2-stage-plan`; plans use sanitized object keys/public URLs, preserve included post media order, and report missing local files before upload exists.
@@ -43,7 +44,7 @@ Post Relay is a local-first Instagram travel content workflow for Andrew's `andr
 - Numbered post media plans and edits can be applied locally with `drafts media-plan` and `drafts media-edit`; lead/cover, keep/remove, and post-type changes update candidate media ordering/roles/inclusion and invalidate active approvals.
 - Crop/center feedback can be applied locally with `drafts crop-feedback` using the designed A1-E5 grid vocabulary (`--shift 3:B2`, `--center 5`, `--tighten 6`, `--loosen 9`, `--ratio 3:4:5`); persisted crop edits are rendered in contact sheets/final previews and invalidate active approvals.
 - Warm-dark Pillow-rendered contact sheets and final post preview artifacts now follow the `assets/contact sheet/` React/CSS design references; the React files remain design contracts, while CLI/Discord artifacts are static local images.
-- Local guided post packages can be generated and accepted with `drafts guided-package-plan`/`drafts guided-package-accept`; accepted packages persist caption, hashtags, confirmed location text, local alt text/accessibility notes, and audited rationale without fabricating unconfirmed facts.
+- Local guided post packages can be generated and accepted with `drafts guided-package-plan`/`drafts guided-package-accept`; accepted packages persist caption, hashtags, confirmed location text, local alt text/accessibility notes, and audited rationale without fabricating unconfirmed facts. Account-level preferences are durable app data (`preferences set/show/agent-brief`) so review order, goal/audience requirements, and writing-style notes transfer to other users/accounts. The agent should collaborate with the user on copy after selection/crop review, use the active account goal and target audience, learn the user's writing-style preferences from revisions/feedback over time, and ask to set an account-level goal/audience before giving copy-heavy recommendations when those fields are missing. Recommendation guidance should also surface Instagram-native growth practices when relevant: reels cadence, carousel reach, first-3-second reel hooks, timely keywords/hashtags, relevant captions, topics/places, audio, and minimum quality baselines.
 - Local Discord-style X-from-Y photo selection can be modeled without network calls using `drafts discord-selection-plan`/`drafts discord-selection-preview`/`drafts discord-selection-apply`; selection application reuses the same media-selection rules and approval invalidation as `drafts media-edit`.
 - Queue-approved posts can be scheduled locally and moved through final publish approval without live API calls.
 - Guarded single-image/carousel publish validation can use either explicit public HTTPS `--image-url` values or recorded uploaded R2 staged media via `--from-staged-r2`, preserving dry-run defaults, double approval, schedule enforcement, and explicit `--execute` publish safeguards.

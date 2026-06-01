@@ -294,7 +294,7 @@ The original design expected local files. The current implementation uses SQLite
 - `data/post_relay.sqlite` — default local SQLite database for indexed media, candidates, drafts, approvals, publish attempts, staged R2 records, post-publish snapshots, and insight snapshots
 - configured processed Lightroom/year folders — immutable source of truth for source media
 - configured review artifact root — thumbnails/contact sheets and local review packages
-- configured publish export root — immutable-source Instagram-ready publish assets such as 4:5 feed exports
+- configured publish export root — immutable-source Instagram-ready publish assets such as 3:4 feed/profile exports (`1080x1440`), with 4:5 retained only as a compatibility option
 - configured R2 prefix — disposable temporary public staging objects for Meta-bound media URLs
 - `.env` or local secret store — tokens/app secrets (not committed)
 

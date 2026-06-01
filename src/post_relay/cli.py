@@ -14,6 +14,14 @@ from post_relay.approvals import (
     edit_draft_content,
     submit_draft_for_review,
 )
+from post_relay.account_preferences import (
+    DEFAULT_REVIEW_FLOW_ORDER,
+    get_active_account_preferences,
+    list_account_preference_versions,
+    render_account_preferences,
+    render_account_preferences_agent_brief,
+    upsert_account_preferences,
+)
 from post_relay.analytics_feedback import (
     DEFAULT_INSIGHT_METRICS,
     PublishedPostSnapshotNotReady,
@@ -227,6 +235,7 @@ discord_app = typer.Typer(help="Discord DM integration commands.")
 opportunities_app = typer.Typer(help="Local post opportunity commands.")
 analytics_app = typer.Typer(help="Post-publish analytics and feedback commands.")
 goals_app = typer.Typer(help="User/agent goal artifact commands.")
+preferences_app = typer.Typer(help="Durable account preference commands.")
 recommendations_app = typer.Typer(help="Local advisory recommendation commands.")
 draft_questions_app = typer.Typer(help="Post context question commands.")
 draft_artifacts_app = typer.Typer(help="Post review artifact commands.")
@@ -244,6 +253,7 @@ app.add_typer(discord_app, name="discord")
 app.add_typer(opportunities_app, name="opportunities")
 app.add_typer(analytics_app, name="analytics")
 app.add_typer(goals_app, name="goals")
+app.add_typer(preferences_app, name="preferences")
 app.add_typer(recommendations_app, name="recommendations")
 drafts_app.add_typer(draft_questions_app, name="questions")
 drafts_app.add_typer(draft_artifacts_app, name="artifacts")
@@ -354,6 +364,63 @@ def goals_agent_brief(db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQL
     connection = connect_db(db)
     initialize_db(connection)
     typer.echo(render_user_goal_agent_brief(connection))
+
+
+@preferences_app.command("set")
+def preferences_set(
+    db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
+    account_key: str = typer.Option("default", "--account-key", help="Portable account/user preference scope."),
+    review_step: Optional[list[str]] = typer.Option(None, "--review-step", help="Review flow step in desired order."),
+    require_goal_and_audience_for_copy: bool = typer.Option(True, "--require-goal-and-audience-for-copy/--no-require-goal-and-audience-for-copy", help="Require goal/audience before copy-heavy advice."),
+    copy_collaboration_required: bool = typer.Option(True, "--copy-collaboration-required/--no-copy-collaboration-required", help="Require copy collaboration before approval."),
+    final_preview_requires_locked_copy: bool = typer.Option(True, "--final-preview-requires-locked-copy/--no-final-preview-requires-locked-copy", help="Only render final preview after copy/supporting text locks."),
+    style_note: Optional[list[str]] = typer.Option(None, "--style-note", help="Durable writing-style preference or note."),
+    reviewed_by: Optional[str] = typer.Option(None, "--reviewed-by", help="Person who reviewed/agreed to these preferences."),
+    change_note: Optional[str] = typer.Option(None, "--change-note", help="Audit note for this preference version."),
+) -> None:
+    """Create or update durable account-level review/copy preferences."""
+    connection = connect_db(db)
+    initialize_db(connection)
+    try:
+        preferences = upsert_account_preferences(
+            connection,
+            account_key=account_key,
+            review_flow_order=review_step or DEFAULT_REVIEW_FLOW_ORDER,
+            require_goal_and_audience_for_copy=require_goal_and_audience_for_copy,
+            copy_collaboration_required=copy_collaboration_required,
+            final_preview_requires_locked_copy=final_preview_requires_locked_copy,
+            writing_style_notes=style_note or [],
+            reviewed_by=reviewed_by,
+            change_note=change_note,
+        )
+    except ValueError as error:
+        raise typer.BadParameter(str(error)) from error
+    versions = list_account_preference_versions(connection, preferences.id)
+    typer.echo(f"Saved account preferences #{preferences.id} ({preferences.account_key}) version {versions[-1].version_number}.")
+    typer.echo("These preferences are local durable app data for portable account behavior; they do not mutate posts, approvals, schedules, or publish state.")
+    typer.echo("No Discord, R2, or Meta network calls were made.")
+
+
+@preferences_app.command("show")
+def preferences_show(
+    db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
+    account_key: str = typer.Option("default", "--account-key", help="Portable account/user preference scope."),
+) -> None:
+    """Show durable account-level review/copy preferences."""
+    connection = connect_db(db)
+    initialize_db(connection)
+    typer.echo(render_account_preferences(get_active_account_preferences(connection, account_key=account_key)))
+
+
+@preferences_app.command("agent-brief")
+def preferences_agent_brief(
+    db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
+    account_key: str = typer.Option("default", "--account-key", help="Portable account/user preference scope."),
+) -> None:
+    """Render compact account-preference guidance for agent recommendations."""
+    connection = connect_db(db)
+    initialize_db(connection)
+    typer.echo(render_account_preferences_agent_brief(connection, account_key=account_key))
 
 
 @recommendations_app.command("signals")
@@ -1896,7 +1963,7 @@ def drafts_crop_feedback(
 @draft_final_preview_artifact_app.command("render")
 def drafts_final_preview_artifact_render(
     draft_id: int = typer.Option(..., "--post-id", "--draft-id", help="Post id (legacy --draft-id alias)."),
-    ratio: str = typer.Option("4:5", "--ratio", help="Locked preview ratio, e.g. 4:5 or 1:1."),
+    ratio: str = typer.Option("3:4", "--ratio", help="Locked preview ratio; defaults to the Instagram feed/profile 3:4 target."),
     config_path: Path = typer.Option(Path("config/photo_sources.yaml"), "--config", help="Photo source and review artifact config path."),
     db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
 ) -> None:

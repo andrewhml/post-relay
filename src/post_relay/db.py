@@ -331,6 +331,35 @@ SCHEMA_STATEMENTS = [
         foreign key(goal_id) references user_goals(id)
     )
     """,
+    """
+    create table if not exists account_preferences (
+        id integer primary key,
+        account_key text not null default 'default',
+        review_flow_order_json text not null default '["selection_sheet", "crop_sheet", "copy_collaboration", "final_preview"]',
+        require_goal_and_audience_for_copy integer not null default 1,
+        copy_collaboration_required integer not null default 1,
+        final_preview_requires_locked_copy integer not null default 1,
+        writing_style_notes_json text not null default '[]',
+        reviewed_by text,
+        status text not null default 'active',
+        created_at text not null default current_timestamp,
+        updated_at text not null default current_timestamp,
+        unique(account_key, status)
+    )
+    """,
+    """
+    create table if not exists account_preference_versions (
+        id integer primary key,
+        account_preference_id integer not null,
+        version_number integer not null,
+        snapshot_json text not null,
+        changed_by text,
+        change_note text,
+        created_at text not null default current_timestamp,
+        unique(account_preference_id, version_number),
+        foreign key(account_preference_id) references account_preferences(id)
+    )
+    """,
 ]
 
 

@@ -62,7 +62,7 @@ def render_final_post_preview_artifact(
     draft_id: int,
     config: ReviewArtifactsConfig,
     *,
-    ratio: float = 0.8,
+    ratio: float = 3 / 4,
 ) -> FinalPostPreviewArtifactPackage:
     draft = get_draft(connection, draft_id)
     if draft is None:

@@ -142,7 +142,7 @@ def test_dm_next_action_includes_caption_style_advice_for_drafting_post_without_
     assert root.as_posix() not in text
 
 
-def test_dm_next_action_routes_drafting_post_to_photo_selection_and_guided_package(tmp_path: Path):
+def test_dm_next_action_routes_drafting_post_to_selection_first_then_crop_before_copy(tmp_path: Path):
     connection, draft, root = _create_draft(tmp_path)
 
     plan = build_dm_next_action_plan(connection, draft_id=draft.id, target_count=3)
@@ -151,13 +151,15 @@ def test_dm_next_action_routes_drafting_post_to_photo_selection_and_guided_packa
     assert plan.action == "media_selection"
     assert plan.draft_id == draft.id
     assert "Send/prepare a private DM photo selection prompt" in text
+    assert "Review flow order: selection_sheet → crop_sheet → copy_collaboration → final_preview" in text
     assert "contact-sheet-select.png" in text
     assert "contact-sheet-crop.png" in text
     assert "final-post-preview.png" in text
-    assert "defer contact-sheet-crop.png and final-post-preview.png until the selection is settled" in text
+    assert "defer contact-sheet-crop.png until media/order is selected" in text
+    assert "defer copy collaboration until crop review is ready" in text
     assert f"post-relay drafts artifacts render --post-id {draft.id} --stage select" in text
     assert f"post-relay discord dm-selection-send --post-id {draft.id} --target-count 3" in text
-    assert "drafts guided-package-plan" in text
+    assert "drafts guided-package-plan" not in text
     assert root.as_posix() not in text
 
 
