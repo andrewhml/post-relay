@@ -2,6 +2,7 @@ from pathlib import Path
 
 from typer.testing import CliRunner
 
+from post_relay.account_preferences import upsert_account_preferences
 from post_relay.cli import app
 from post_relay.db import connect_db, initialize_db
 from post_relay.recommendations import (
@@ -227,6 +228,47 @@ def test_render_caption_style_recommendations_is_advisory(tmp_path: Path):
     assert "Lead with a concrete hook" in rendered
     assert "No caption was rewritten or saved." in rendered
     assert "No Discord, R2, or Meta network calls were made." in rendered
+
+
+def test_render_caption_style_recommendations_applies_durable_account_preferences(tmp_path: Path):
+    connection = connect_db(tmp_path / "post_relay.sqlite")
+    initialize_db(connection)
+    _seed_caption_style_rows(connection)
+    upsert_account_preferences(
+        connection,
+        account_key="default",
+        review_flow_order=["selection_sheet", "crop_sheet", "copy_collaboration", "final_preview"],
+        require_goal_and_audience_for_copy=True,
+        copy_collaboration_required=True,
+        final_preview_requires_locked_copy=True,
+        writing_style_notes=["human travel voice", "avoid em dashes"],
+        reviewed_by="andrew",
+    )
+
+    rendered = render_caption_style_recommendations(connection, post_id=4)
+
+    assert "Account preference guidance:" in rendered
+    assert "Review flow order: selection_sheet → crop_sheet → copy_collaboration → final_preview" in rendered
+    assert "Copy should be collaborative and use the active goal/audience before finalizing." in rendered
+    assert "Final preview should wait until caption, hashtags, alt text, and supporting text are locked." in rendered
+    assert "human travel voice" in rendered
+    assert "avoid em dashes" in rendered
+
+
+def test_caption_style_recommendations_include_instagram_growth_best_practices(tmp_path: Path):
+    connection = connect_db(tmp_path / "post_relay.sqlite")
+    initialize_db(connection)
+    _seed_caption_style_rows(connection)
+
+    plan = build_caption_style_recommendations(connection, post_id=4)
+    rendered = render_caption_style_recommendations(connection, post_id=4)
+
+    assert any("10 or more reels per month" in guidance for guidance in plan.platform_best_practice_guidance)
+    assert any("Carousels typically get better reach than single photo posts" in guidance for guidance in plan.platform_best_practice_guidance)
+    assert any("relevant captions" in guidance for guidance in plan.platform_best_practice_guidance)
+    assert "Instagram growth guidance:" in rendered
+    assert "Add topics and places" in rendered
+    assert "minimum resolution of 720p" in rendered
 
 
 def test_cli_recommendations_caption_style_is_local_advisory_only(tmp_path: Path):

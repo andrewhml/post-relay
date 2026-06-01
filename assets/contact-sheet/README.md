@@ -60,4 +60,4 @@ Cells of a 5×5 grid overlaid on each photo are addressed as letter+digit
 - `shift C to B2` — change `ax`,`ay`
 - `center D` — set to C3
 - `tighten F` / `loosen F` — adjust `tight`
-- `set carousel to 4:5` — change the locked carousel ratio
+- `set carousel to 3:4` — change the locked carousel ratio to the current feed/profile default; use `4:5` only as an explicit compatibility override

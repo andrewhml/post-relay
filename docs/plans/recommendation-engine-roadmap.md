@@ -226,6 +226,18 @@ Delivered behavior:
 
 Use the new setup path operationally only after explicit authorization, or continue improving recommendation quality with local qualitative feedback and stored analytics.
 
+Immediate product feedback to preserve in the next DM/review-loop milestone:
+
+1. **Artifact gates should save user and compute effort.** The durable default review order is selection sheet → crop sheet → copy collaboration → final preview. Send/render the selection sheet first. Do not send a crop sheet until the user has selected the exact images and order for the post; otherwise the system spends crop/render/review cycles on media that may not be used. Do not send a final preview sheet until caption, hashtags, alt text, location/supporting text, and other approval copy are locked.
+2. **Copy is a collaborative workflow, not a one-shot generator.** The agent should work with the user on caption/supporting copy after media selection and crop review, while using the active account goal and target audience as the north star. It should build style guidance from accepted copy, revisions, explicit feedback, and durable account preferences over time rather than overwriting the user's voice.
+3. **Goal/audience onboarding is required before copy-heavy advice.** If a user has not set an account-level goal or audience, the agent should ask them to define those before recommending a first post angle or writing final copy.
+
+Implemented next recommendation-engine slice in this branch: added durable `account_preferences` / `account_preference_versions` app tables plus `post-relay preferences set/show/agent-brief`. Caption-style recommendations now include account-preference guidance so review order and writing-style notes are app data instead of agent memory only.
+
+Implemented Instagram growth-guidance slice in this branch: caption-style recommendations now include platform-native best-practice guidance from Instagram's Creation best-practices screen: 10+ reels/month for follower growth, carousel reach/context slides, first-3-second reel hooks, timely event keywords/hashtags, relevant captions, topics/places, audio, and minimum quality baselines. This remains advisory/no-network and should be personalized against active goals, stored feedback, and local analytics before it becomes automatic scoring.
+
+First growth-pipeline roadmap slice in this branch: added `docs/plans/growth-pipeline-roadmap.md` to define the broader goal-driven content operating system direction before code. The next code slice should add durable growth/account-posture preferences, then local/no-network `recommendations growth-coach`, pipeline health, and check-in planning before any opt-in gateway automation.
+
 ## Safety rules
 
 - Recommendation commands are local-first, no-network, and advisory by default.

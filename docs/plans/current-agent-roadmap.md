@@ -711,11 +711,12 @@ As of the first live carousel smoke, the local-first workflow is past the origin
 This handoff refresh follows the chat artifact refresh PR #62, contact-sheet design v2 hardening PR #64, and DM operating-loop hardening PR #65, all merged to `main`.
 
 1. Use `analytics feedback-summary` plus `analytics follower-summary` as deterministic advisory baselines when planning the next reviewed post.
-2. Andrew validated the refreshed Stage 1/Stage 2/Stage 3 assets in a real Discord chat against the upcoming post; continue the upcoming-post operation through the Discord agent rather than adding more artifact design work first.
-3. Current engineering branch/PR: `feat/proactive-opportunity-dm-controls` / PR #66, focused on rendering safe proactive opportunity DM copy plus explicit local mark-sent controls without sending Discord, R2, or Meta requests.
-4. After that, choose between `feat/video-reel-validation` or `feat/local-media-discovery-enrichment`.
-5. Keep recommendation and follower-growth feedback advisory-only until several real posts and account snapshots provide enough signal.
-6. Keep live-safe defaults: no Discord sends, no R2 `--execute`, and no Meta `--execute` unless explicitly authorized in the active session.
+2. Treat `docs/plans/growth-pipeline-roadmap.md` as the first product-architecture step for making Post Relay a goal-driven content operating system: account posture, stored evidence, safe/growth/stretch paths, pipeline health, no-network check-in planning, and only later opt-in gateway check-ins.
+3. Andrew validated the refreshed Stage 1/Stage 2/Stage 3 assets in a real Discord chat against the upcoming post; continue the upcoming-post operation through the Discord agent rather than adding more artifact design work first.
+4. Current engineering branch/PR: `feat/proactive-opportunity-dm-controls` / PR #66, focused on rendering safe proactive opportunity DM copy plus explicit local mark-sent controls without sending Discord, R2, or Meta requests.
+5. After the growth-pipeline docs baseline, the next recommendation-engine code slice should be `feat/growth-posture-preferences`, followed by local/no-network `recommendations growth-coach` and pipeline health planners.
+6. Keep recommendation and follower-growth feedback advisory-only until several real posts and account snapshots provide enough signal.
+7. Keep live-safe defaults: no Discord sends, no R2 `--execute`, and no Meta `--execute` unless explicitly authorized in the active session.
 
 ## Recent completed milestones and current roadmap
 
@@ -837,7 +838,7 @@ Current local result: `14 passed` focused; `174 passed` full suite.
 
 **Next-session start here:**
 1. First verify the current baseline: `.venv/bin/python -m pytest -q` should report the full suite passing.
-2. Move next to Milestone 26 `feat/publish-export-profiles` to generate Instagram-optimized publish assets, especially 4:5 portrait carousel exports, before future real posts.
+2. Move next to Milestone 26 `feat/publish-export-profiles` to generate Instagram-optimized publish assets, especially 3:4 (`1080x1440`) portrait carousel exports for current feed/profile presentation, before future real posts.
 3. Keep live-safe defaults: no Discord sends, no R2 `--execute`, and no Meta `--execute` in tests or docs examples unless explicitly labeled as requiring Andrew's active-session authorization.
 
 **Verification:**
@@ -852,22 +853,22 @@ Current local result: `14 passed` focused; `174 passed` full suite.
 **Goal:** Generate Instagram-optimized publish assets from immutable source media before R2 staging/Meta publish, especially for portrait carousel posts.
 
 **Required behavior:**
-- Add export profiles for feed publishing, starting with `feed_portrait_4x5` (`1080x1350` or a configurable higher-resolution 4:5 equivalent), `feed_square` (`1080x1080`), and a landscape-in-portrait-carousel treatment.
+- Add export profiles for feed publishing, prioritizing `feed_portrait_3x4` (`1080x1440`) for current feed/profile presentation while retaining `feed_portrait_4x5` (`1080x1350`) and `feed_square` (`1080x1080`) as compatibility/comparison options.
 - Preserve source media immutability: write exported publish assets under a generated artifact/export root, never over source Lightroom/NAS files.
 - For carousel posts, choose a consistent aspect ratio based on the lead image and warn when included media have mixed orientations/aspect ratios.
-- For portrait images like the Mt. Cook set (`~2:3`, ratio `0.667`), create intentional 4:5 crops or fits instead of leaving crop decisions to Instagram.
+- For portrait images like the Mt. Cook set (`~2:3`, ratio `0.667`), create intentional 3:4 crops or fits instead of leaving crop decisions to Instagram.
 - For landscape images inside a portrait carousel, support a deliberate treatment: smart crop, blurred/extended background, or clean mat/canvas. The selected treatment must be visible in the preview and approved before staging.
 - Add a publish-preview contact sheet using the actual exported images and dimensions, not the original source files.
 - R2 staging for publish should use exported publish assets when present; review artifacts/contact sheets remain separate from publish assets.
 - Add tests for dimensions, aspect ratio decisions, source immutability, mixed-orientation warnings, R2 plan resolution using exported assets, and dry-run output.
 
 **Delivered behavior in branch:**
-- Added `drafts publish-exports render --profile feed_portrait_4x5`, which renders immutable-source local publish assets under the configured `publish_exports.root`.
-- Added `feed_portrait_4x5` (`1080x1350`) and `feed_square` (`1080x1080`) profile definitions, with portrait center-crop behavior and a clean-mat treatment for landscape images inside portrait exports.
+- Added `drafts publish-exports render --profile feed_portrait_3x4`, which renders immutable-source local publish assets under the configured `publish_exports.root` and is the default publish-export profile.
+- Added `feed_portrait_3x4` (`1080x1440`), `feed_portrait_4x5` (`1080x1350`), and `feed_square` (`1080x1080`) profile definitions, with portrait center-crop behavior and a clean-mat treatment for landscape images inside portrait exports.
 - Added mixed-orientation warnings so carousel export review explicitly flags landscape/portrait sets before staging.
 - Added a publish preview contact sheet built from the exported publish files rather than source Lightroom/NAS media.
 - Updated R2 staging planning/upload so publish media use exported assets when a matching export package is present; review artifacts stay separate and optional.
-- Added tests covering 4:5 dimensions, treatment decisions, source immutability, mixed-orientation warnings, R2 exported asset resolution, and CLI dry-run output.
+- Added tests covering 3:4 and compatibility 4:5 dimensions, treatment decisions, source immutability, mixed-orientation warnings, R2 exported asset resolution, and CLI dry-run output.
 
 **Safety rule:** Publish exports perform no Discord sends, no R2 upload/cleanup, and no Meta publishing calls. Source processed media must remain immutable; exported publish files are generated under `publish_exports.root` only.
 
@@ -891,13 +892,13 @@ Current local result: `14 passed` focused; `174 passed` full suite.
 - Validated the official `graph.facebook.com` content publishing shape: feed image and carousel parent container creation accept `location_id=<LOCATION_PAGE_ID>`; the official lookup route is read-only `GET /pages/search?q=...&fields=id,name,location,link`.
 - Added resolved draft location tags in SQLite, stored separately from freeform `drafts.location_text` so prose is never converted into an inferred tag id.
 - Added `drafts location-candidates --post-id ... [--query ...]` so the bot can ask for a more specific place when context is vague, or use read-only Page search to present ranked candidate tags without setting anything.
-- Added `drafts location-tag-set --post-id ... --page-id ... --name ...` to persist an explicitly selected Facebook Page id; setting/changing the tag invalidates active approvals and moves approved drafts back to `needs_edits`.
+- Added `drafts location-tag-set --post-id ... --page-id ... --name ... --source pages/search` to persist an explicitly selected Facebook Page id returned by Graph Page search; setting/changing the tag invalidates active approvals and moves approved drafts back to `needs_edits`.
 - Updated final publish preview to render `Location handling: resolved Meta location tag` plus the exact `location_id` payload when a resolved tag exists; otherwise freeform location text remains local/review-only.
 - Updated single-image and carousel publish execution to include `location_id` only from a resolved stored tag. Carousel child containers do not receive location ids; only the image container or carousel parent container does.
 - Updated the Instagram capability matrix from `needs_validation` to `publishable_when_resolved` while keeping arbitrary/freeform `location_tag` metadata out of generic publishable filtering.
 - Added tests for official page-search request construction, location candidate clarification/ranking, approval invalidation, CLI persistence, final preview payload rendering, carousel publish params, and local-only freeform location behavior.
 
-**Safety rule:** `location_text` is still local/review-only. Post Relay sends a Meta location tag only when a reviewed Facebook Page `location_id` is explicitly stored on the draft and approvals have been reacquired after that material edit. Do not infer or fabricate location ids from captions, folder names, or user prose.
+**Safety rule:** `location_text` is still local/review-only. Post Relay sends a Meta location tag only when a reviewed Facebook Page `location_id` returned by official Graph `pages/search` is explicitly stored on the draft and approvals have been reacquired after that material edit. Do not infer or fabricate location ids from captions, folder names, user prose, public Facebook URLs, or scraped `fb://profile` ids; if Graph search cannot verify the tag, use the explicit skip flow instead.
 
 **Verification:**
 
@@ -1179,6 +1180,7 @@ Current branch result: `59 passed` focused; `248 passed` full suite.
 
 **Delivered behavior in branch so far:**
 - Drafting/needs-edits next-action output now leads with local Stage 1 selection artifact rendering (`drafts artifacts render --stage select`) before the live-capable DM selection send command, and explicitly defers crop/final artifacts until selection and copy/metadata gates are satisfied.
+- Follow-up feedback is now encoded as durable app behavior: the default review flow is selection sheet → crop sheet → copy collaboration → final preview, and account-level preferences live in SQLite via `preferences set/show/agent-brief` so review order, copy prerequisites, and writing-style notes are portable to other users/accounts.
 - Ready-to-publish next-action output now suggests no-network final preview and scheduled publish preflight commands without `--execute`; live Meta execution remains a separate active-session authorization step.
 
 **Safety rule:** `dm next-action` remains advisory/local-only. It must not send Discord messages, mutate post state, call R2, call Meta, or imply live publish authorization. Any Meta `--execute` command must be typed intentionally only after Andrew explicitly authorizes it in the active session.

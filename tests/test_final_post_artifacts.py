@@ -77,8 +77,8 @@ def test_render_final_post_preview_artifact_uses_selected_order_and_dark_design(
     assert package.preview_path.endswith("final-post-preview.png")
     assert Path(package.preview_path).is_file()
     assert package.ordered_files == ["02-lanterns.jpg", "01-market.jpg"]
-    assert package.ratio_label == "4:5"
-    assert package.metadata_tags == ["LOCATION · Gwangjang Market, Seoul", "TYPE · CAROUSEL", "RATIO · 4:5"]
+    assert package.ratio_label == "3:4"
+    assert package.metadata_tags == ["LOCATION · Gwangjang Market, Seoul", "TYPE · CAROUSEL", "RATIO · 3:4"]
     assert "Final Post Preview Artifact" in package.to_text()
     assert "02-lanterns.jpg" in package.to_text()
     assert "Metadata:" in package.to_text()
@@ -214,4 +214,6 @@ review_artifacts:
     assert result.exit_code == 0
     assert "Final Post Preview Artifact" in result.output
     assert "final-post-preview.png" in result.output
+    assert "Locked ratio: 3:4" in result.output
+    assert "RATIO · 3:4" in result.output
     assert (artifact_root / f"draft-{draft.id}" / "final-post-preview.png").is_file()

@@ -239,7 +239,7 @@ Post Relay is intentionally guarded:
 - Content approval and final publish approval are separate gates.
 - Material edits invalidate active approvals.
 - Scheduled publish execution checks due time before creating Meta containers.
-- Freeform location text is local/review-only; only an explicitly reviewed Meta Page `location_id` may be sent as a publish location tag.
+- Freeform location text is local/review-only; only an explicitly reviewed Meta Page `location_id` returned by Graph `pages/search` may be sent as a publish location tag. Public Facebook URLs and manually scraped page/profile ids are not accepted as resolved location sources; skip the tag when Graph search cannot verify it.
 
 ## 8. Current onboarding modes
 

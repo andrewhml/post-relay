@@ -199,7 +199,7 @@ Assert:
 - Renderer outputs high-DPI `final-post-preview.png` under a generated artifact root, e.g. `data/review_artifacts/draft-N/final-post-preview.png` or a new configured chat artifact root.
 - Slides are rendered in included media order.
 - The first slide/lead has an amber lead marker.
-- All slides use one locked ratio, defaulting to 4:5 for carousel/feed preview unless explicitly overridden.
+- All slides use one locked ratio, defaulting to the current Instagram feed/profile target of 3:4 (`1080x1440`) unless explicitly overridden; keep 4:5 as a compatibility override only.
 - Caption appears below the slides in the rendered artifact metadata/text object.
 - No Discord, R2, or Meta calls are made.
 

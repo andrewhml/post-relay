@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Mapping, Optional
 
+from post_relay.meta_graph import MetaGraphRequestError
 from post_relay.repository import (
     DraftLocationTagRecord,
     get_candidate_group,
@@ -17,6 +18,14 @@ from post_relay.state import DraftState, transition_draft_state
 
 class DraftNotFound(ValueError):
     """Raised when a location tag action targets a missing draft."""
+
+
+class UnverifiedLocationTagSource(ValueError):
+    """Raised when a location tag did not come from a verified Graph Page search result."""
+
+
+class LocationPageSearchUnavailable(ValueError):
+    """Raised when official Graph Page search cannot verify location tag candidates."""
 
 
 @dataclass(frozen=True)
@@ -92,6 +101,16 @@ class DraftLocationCandidateReview:
                 ]
             )
             return "\n".join(lines)
+        if self.status == "search_unavailable":
+            lines.extend(
+                [
+                    "Could not verify Meta location tags through official Graph pages/search.",
+                    "Do not use public Facebook URLs or manually scraped page/profile ids as a fallback location_id.",
+                    "Fix Meta permissions and rerun pages/search, or run drafts location-tag-skip with a reviewed reason.",
+                    "No location tag was set.",
+                ]
+            )
+            return "\n".join(lines)
         if not self.candidates:
             lines.append("Candidates: <none>")
         else:
@@ -139,7 +158,16 @@ def build_location_candidate_review(
             candidates=[],
             context=context,
         )
-    search_result = search_location_pages(client, resolved_query)
+    try:
+        search_result = search_location_pages(client, resolved_query)
+    except LocationPageSearchUnavailable:
+        return DraftLocationCandidateReview(
+            draft_id=draft.id,
+            query=resolved_query,
+            status="search_unavailable",
+            candidates=[],
+            context=context,
+        )
     ranked = _rank_candidates(search_result.candidates, resolved_query)[:max_candidates]
     return DraftLocationCandidateReview(
         draft_id=draft.id,
@@ -219,7 +247,15 @@ def _location_label(location: Mapping[str, Any]) -> str:
 
 
 def search_location_pages(client, query: str) -> LocationPageSearchResult:
-    payload = client.search_pages(query=query, fields="id,name,location,link")
+    try:
+        payload = client.search_pages(query=query, fields="id,name,location,link")
+    except LocationPageSearchUnavailable:
+        raise
+    except MetaGraphRequestError as exc:
+        raise LocationPageSearchUnavailable(
+            "Meta Graph pages/search is unavailable; fix pages_read_engagement/Page Public Metadata access "
+            "and rerun official search, or explicitly skip the Meta location tag."
+        ) from exc
     candidates: list[LocationPageCandidate] = []
     for item in payload.get("data") or []:
         if not isinstance(item, Mapping):
@@ -250,6 +286,10 @@ def set_draft_location_tag(
     name: str,
     source: str,
 ) -> DraftLocationTagRecord:
+    if not _is_verified_location_tag_source(source):
+        raise UnverifiedLocationTagSource(
+            "source must come from Graph pages/search; public Facebook page URLs are not safe location_id sources."
+        )
     draft = get_draft(connection, draft_id)
     if draft is None:
         raise DraftNotFound(f"Post #{draft_id} was not found")
@@ -269,6 +309,11 @@ def set_draft_location_tag(
     )
     connection.commit()
     return tag
+
+
+def _is_verified_location_tag_source(source: str) -> bool:
+    normalized = source.strip().lower()
+    return normalized == "pages/search" or normalized.startswith("pages/search:")
 
 
 def skip_draft_location_tag(

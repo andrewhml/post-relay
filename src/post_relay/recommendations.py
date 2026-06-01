@@ -7,6 +7,7 @@ import re
 from pathlib import Path
 from typing import Optional
 
+from post_relay.account_preferences import get_active_account_preferences, preference_guidance_lines
 from post_relay.user_goals import get_active_user_goal
 
 
@@ -99,6 +100,8 @@ class CaptionStyleRecommendationPlan:
     published_snapshot_count: int
     insight_snapshot_count: int
     caption_feedback_count: int
+    account_preference_guidance: list[str]
+    platform_best_practice_guidance: list[str]
     local_patterns: list[str]
     recommended_direction: list[str]
     guardrails: list[str]
@@ -421,6 +424,7 @@ def build_caption_style_recommendations(connection, *, post_id: Optional[int] = 
     published_snapshot_count = _count(connection, "published_post_snapshots")
     insight_snapshot_count = _count(connection, "media_insight_snapshots")
     caption_feedback = _caption_feedback_rows(connection, post_id=post_id)
+    account_preferences = get_active_account_preferences(connection)
     example_captions = _published_caption_examples(connection) + accepted_captions
     local_patterns = _caption_local_patterns(
         accepted_caption_count=len(accepted_captions),
@@ -445,6 +449,8 @@ def build_caption_style_recommendations(connection, *, post_id: Optional[int] = 
         published_snapshot_count=published_snapshot_count,
         insight_snapshot_count=insight_snapshot_count,
         caption_feedback_count=len(caption_feedback),
+        account_preference_guidance=preference_guidance_lines(account_preferences),
+        platform_best_practice_guidance=_instagram_growth_best_practice_guidance(),
         local_patterns=local_patterns,
         recommended_direction=recommended_direction,
         guardrails=guardrails,
@@ -465,6 +471,14 @@ def render_caption_style_recommendations(connection, *, post_id: Optional[int] =
     lines.append(f"- Published snapshots: {plan.published_snapshot_count}")
     lines.append(f"- Insight snapshots: {plan.insight_snapshot_count}")
     lines.append(f"- Caption feedback rows: {plan.caption_feedback_count}")
+    lines.append("")
+    lines.append("Account preference guidance:")
+    for guidance in plan.account_preference_guidance:
+        lines.append(f"- {guidance}")
+    lines.append("")
+    lines.append("Instagram growth guidance:")
+    for guidance in plan.platform_best_practice_guidance:
+        lines.append(f"- {guidance}")
     lines.append("")
     lines.append("Observed local patterns:")
     for pattern in plan.local_patterns:
@@ -748,6 +762,19 @@ def _caption_recommended_direction(goal, current_caption: str, example_captions:
         directions.append("Expand the current caption with one specific why-this-moment-matters detail.")
     directions.append("Keep the caption human and specific; avoid generic travel-superlative filler.")
     return directions
+
+
+def _instagram_growth_best_practice_guidance() -> list[str]:
+    return [
+        "Reach more new people with reels: accounts with the greatest follower growth rates create 10 or more reels per month.",
+        "Capture attention with carousels: Carousels typically get better reach than single photo posts; consider text on the first slide to set context and keep people scrolling.",
+        "Make every second count for reels: share something funny, relatable, or unexpected in the first 3 seconds, then keep attention through the end.",
+        "Be first to cover current events when relevant: share a timely point of view and include keywords and hashtags related to the event in the caption.",
+        "Connect through relevant captions: captions should relate to the content and encourage people to join in.",
+        "Add topics and places: relevant locations or trending hashtags can help reach people interested in those topics or locations.",
+        "Amplify content with audio: add audio to reels or posts, and consider trending audio when it fits the moment.",
+        "Keep it high-quality: use well-lit media; reels should have a minimum resolution of 720p and a minimum frame rate of 30 frames per second.",
+    ]
 
 
 def _caption_starts_with_hook(caption: str) -> bool:

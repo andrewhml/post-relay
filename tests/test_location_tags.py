@@ -11,6 +11,8 @@ from post_relay.drafts import create_draft_from_candidate
 from post_relay.final_publish_preview import build_final_publish_preview
 from post_relay.indexer import index_photo_sources
 from post_relay.location_tags import (
+    LocationPageSearchUnavailable,
+    UnverifiedLocationTagSource,
     build_location_candidate_review,
     search_location_pages,
     set_draft_location_tag,
@@ -151,6 +153,31 @@ def test_drafts_location_candidates_cli_dry_run_prompts_for_clarification(tmp_pa
     assert "No Meta network calls were made." in result.output
 
 
+def test_location_candidate_review_handles_meta_pages_search_permission_failure_without_setting_tag(tmp_path: Path):
+    connection, draft, _candidate = _build_ready_carousel(tmp_path)
+
+    class FailingClient:
+        def search_pages(self, *, query: str, fields: str):
+            raise LocationPageSearchUnavailable(
+                "Meta Graph pages/search is unavailable: missing pages_read_engagement permission"
+            )
+
+    review = build_location_candidate_review(
+        connection,
+        draft.id,
+        query="Milford Sound New Zealand",
+        client=FailingClient(),
+    )
+
+    assert review.status == "search_unavailable"
+    assert review.candidates == []
+    rendered = review.to_text()
+    assert "Could not verify Meta location tags" in rendered
+    assert "No location tag was set." in rendered
+    assert "run drafts location-tag-skip" in rendered
+    assert get_draft_location_tag(connection, draft.id) is None
+
+
 def test_location_page_search_uses_official_pages_search_read_route():
     requested = []
 
@@ -238,6 +265,53 @@ def test_drafts_location_tag_set_cli_persists_resolved_page_and_warns_reapproval
     initialize_db(reopened)
     assert get_draft_location_tag(reopened, draft.id).name == "Seoul, Korea"
     assert get_draft(reopened, draft.id).status == DraftState.NEEDS_EDITS.value
+
+
+def test_location_tag_set_rejects_public_facebook_url_source_without_pages_search_verification(tmp_path: Path):
+    connection, draft, _candidate = _build_ready_carousel(tmp_path)
+
+    try:
+        set_draft_location_tag(
+            connection,
+            draft.id,
+            page_id="100067240312496",
+            name="Milford Sound, Fiordland",
+            source="https://www.facebook.com/milford.sound.fiordland/",
+        )
+    except UnverifiedLocationTagSource as error:
+        assert "must come from Graph pages/search" in str(error)
+    else:  # pragma: no cover - defensive assertion for the RED test
+        raise AssertionError("manual Facebook URL source should not be treated as a resolved location tag")
+
+    assert get_draft_location_tag(connection, draft.id) is None
+    assert get_draft(connection, draft.id).status == DraftState.READY_TO_PUBLISH.value
+
+
+def test_drafts_location_tag_set_cli_rejects_public_facebook_url_source(tmp_path: Path):
+    connection, draft, _candidate = _build_ready_carousel(tmp_path)
+    db_path = tmp_path / "post_relay.sqlite"
+    connection.close()
+
+    result = runner.invoke(
+        app,
+        [
+            "drafts",
+            "location-tag-set",
+            "--post-id",
+            str(draft.id),
+            "--page-id",
+            "100067240312496",
+            "--name",
+            "Milford Sound, Fiordland",
+            "--source",
+            "https://www.facebook.com/milford.sound.fiordland/",
+            "--db",
+            str(db_path),
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "must come from Graph pages/search" in result.output
 
 
 def test_skipping_location_tag_records_explicit_bypass_without_clearing_location_context(tmp_path: Path):

@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from typing import Optional
 
+from post_relay.account_preferences import get_active_account_preferences, preference_guidance_lines
 from post_relay.repository import (
     DraftRecord,
     ConversationThreadRecord,
@@ -179,23 +180,42 @@ def _plan_for_draft(
     status = draft.status
 
     if status in {DraftState.DRAFTING.value, DraftState.NEEDS_EDITS.value}:
-        summary = "Send/prepare a private DM photo selection prompt, then build the guided caption package after selection is settled."
+        preference_lines = preference_guidance_lines(get_active_account_preferences(connection))
+        if draft.media_selection_confirmed_at is None:
+            summary = "Send/prepare a private DM photo selection prompt, then render the crop sheet only after media/order is selected."
+            return DmNextActionPlan(
+                action="media_selection",
+                summary=summary,
+                command=(
+                    f"post-relay drafts artifacts render --post-id {draft.id} --stage select --config config/photo_sources.yaml --db data/post_relay.sqlite && "
+                    f"post-relay discord dm-selection-send --post-id {draft.id} "
+                    f"--target-count {min(max(target_count, 1), max(media_count, 1))} --db data/post_relay.sqlite"
+                ),
+                draft_id=draft.id,
+                thread_id=thread.id if thread else None,
+                status=status,
+                rationale=[
+                    f"Post has {media_count} included candidate photo(s).",
+                    "Review flow order: " + preference_lines[0].split(": ", 1)[1],
+                    "Render only contact-sheet-select.png for Stage 1 selection; defer contact-sheet-crop.png until media/order is selected.",
+                    "defer copy collaboration until crop review is ready, then lock copy/supporting text before final-post-preview.png.",
+                ],
+                safety_notes=_base_safety_notes(),
+            )
+        summary = "Render/prepare the crop sheet for selected media before starting copy collaboration."
         return DmNextActionPlan(
-            action="media_selection",
+            action="crop_review",
             summary=summary,
-            command=(
-                f"post-relay drafts artifacts render --post-id {draft.id} --stage select --config config/photo_sources.yaml --db data/post_relay.sqlite && "
-                f"post-relay discord dm-selection-send --post-id {draft.id} "
-                f"--target-count {min(max(target_count, 1), max(media_count, 1))} --db data/post_relay.sqlite"
-            ),
+            command=f"post-relay drafts artifacts render --post-id {draft.id} --stage crop --config config/photo_sources.yaml --db data/post_relay.sqlite",
             draft_id=draft.id,
             thread_id=thread.id if thread else None,
             status=status,
             rationale=[
-                f"Post has {media_count} included candidate photo(s).",
-                "Photo ordering/lead choice should be reviewed before final copy and content approval.",
-                "Render only contact-sheet-select.png for Stage 1 selection; defer contact-sheet-crop.png and final-post-preview.png until the selection is settled.",
-                f"After selection, draft copy locally with: post-relay drafts guided-package-plan --post-id {draft.id} --db data/post_relay.sqlite",
+                f"Post has {media_count} selected/included candidate photo(s).",
+                "Review flow order: " + preference_lines[0].split(": ", 1)[1],
+                "Media/order is selected; crop review should happen before copy collaboration.",
+                f"After crop review, collaborate on copy with: post-relay drafts guided-package-plan --post-id {draft.id} --db data/post_relay.sqlite",
+                "Final preview should wait until caption, hashtags, alt text, location/supporting text, and other approval copy are locked.",
             ],
             safety_notes=_base_safety_notes(),
         )
