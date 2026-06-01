@@ -95,6 +95,7 @@ def _blocked_posts(connection) -> list[str]:
         from drafts d
         join approvals a on a.draft_id = d.id
         where a.invalidated_at is not null
+          and d.status not in ('posted', 'published')
         order by d.id asc
         limit 10
         """
