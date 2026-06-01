@@ -22,7 +22,11 @@ from post_relay.account_preferences import (
     render_account_preferences_agent_brief,
     upsert_account_preferences,
 )
-from post_relay.agent_checkins import render_agent_checkin_plan
+from post_relay.agent_checkins import (
+    build_scheduled_checkin_delivery,
+    render_agent_checkin_plan,
+    render_scheduled_checkin_delivery,
+)
 from post_relay.analytics_feedback import (
     DEFAULT_INSIGHT_METRICS,
     PublishedPostSnapshotNotReady,
@@ -472,6 +476,22 @@ def agent_checkin_plan(
     connection = connect_db(db)
     initialize_db(connection)
     typer.echo(render_agent_checkin_plan(connection))
+
+
+@agent_app.command("scheduled-checkin")
+def agent_scheduled_checkin(
+    db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
+    now: Optional[str] = typer.Option(None, "--now", help="ISO timestamp for deterministic working-hours checks."),
+    weekly_checkin: bool = typer.Option(False, "--weekly-checkin", help="Force the regular weekly progress/performance check-in path."),
+    cron_output: bool = typer.Option(False, "--cron-output", help="Print nothing when there is no sendable check-in, for silent cron scripts."),
+) -> None:
+    """Render a cron-safe scheduled check-in payload without sending it directly."""
+    connection = connect_db(db)
+    initialize_db(connection)
+    delivery = build_scheduled_checkin_delivery(connection, now_iso=now, weekly_checkin=weekly_checkin)
+    rendered = render_scheduled_checkin_delivery(delivery, cron_output=cron_output)
+    if rendered:
+        typer.echo(rendered)
 
 
 @pipeline_app.command("health")

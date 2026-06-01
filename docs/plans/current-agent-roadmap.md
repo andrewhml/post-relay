@@ -32,9 +32,20 @@ If these files conflict, prefer the newest concrete implementation facts in `REA
 
 ## Completed milestones
 
-### Current branch / Milestone: `feat/scheduled-checkin-preferences`
+### Current branch / Milestone: `feat/scheduled-checkin-delivery`
 
 Implemented in this branch:
+- Adds `post-relay agent scheduled-checkin` as a cron-safe scheduled check-in payload command.
+- Honors durable check-in destination, trigger policy, timezone, working-hours window, and read-only planner scope.
+- `--cron-output` prints nothing when there is no meaningful trigger, so script-only Hermes cron jobs can stay silent.
+- `--weekly-checkin` emits the regular weekly progress/performance check-in inside working hours.
+- The command renders sendable text for Hermes cron delivery but does not send directly and does not mutate posts, approvals, schedules, analytics rows, R2, Meta, or Discord.
+
+**Next after merge:** Create Hermes cron jobs: one meaningful-trigger weekday working-hours check that is silent on no-op, and one weekly progress/performance check-in delivered to Andrew's Discord DM.
+
+### PR #106 / Milestone: `feat/scheduled-checkin-preferences` (merged)
+
+Implemented:
 - Extends durable `account_preferences` with opt-in check-in destination, trigger policy, timezone, working-hours window, and read-only planner execution scope.
 - Andrew's intended default can be represented as Discord DM delivery, `meaningful_plus_weekly` trigger policy, user-timezone working hours, and read-only planners enabled.
 - Updates `post-relay agent checkin-plan` to render delivery destination, trigger policy, working hours, and whether read-only planners may run while still sending nothing.

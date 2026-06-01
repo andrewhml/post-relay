@@ -404,7 +404,7 @@ Verification:
 .venv/bin/python -m pytest -q
 ```
 
-### Milestone 6a: `feat/scheduled-checkin-preferences` (completed in this branch)
+### Milestone 6a: `feat/scheduled-checkin-preferences` (completed / merged PR #106)
 
 Andrew authorized the initial scheduled check-in preference shape:
 
@@ -440,14 +440,32 @@ post-relay preferences set --db data/post_relay.sqlite \
 
 This branch still creates no Hermes cron/gateway job and sends no messages.
 
-### Milestone 6b: opt-in scheduled check-in delivery
+### Milestone 6b: `feat/scheduled-checkin-delivery` (completed in this branch)
 
-Only after the durable preferences are merged and the first delivery mode is confirmed:
+Adds a cron-safe payload command:
 
-- create/update Hermes cron or gateway job
-- send only specific, useful check-ins
-- keep publish/schedule/approval actions separate
-- report when no useful check-in exists rather than sending filler
+```bash
+post-relay agent scheduled-checkin --db data/post_relay.sqlite --cron-output
+post-relay agent scheduled-checkin --db data/post_relay.sqlite --weekly-checkin --cron-output
+```
+
+Behavior:
+
+- reads durable check-in destination, trigger policy, timezone, working-hours window, and planner scope
+- sends text to stdout only when a check-in is useful
+- with `--cron-output`, prints nothing when no check-in should be delivered, allowing script-only Hermes cron jobs to stay silent
+- meaningful-trigger checks fire for cadence risks, unscheduled/content gaps, pending user reviews, or blocked work
+- weekly checks include progress and post-performance summaries from stored local snapshots/insights/account metrics
+- direct app command does not call Discord/WhatsApp/R2/Meta and does not mutate posts, approvals, schedules, analytics rows, opportunities, or publish attempts
+
+### Milestone 6c: Hermes cron delivery
+
+After PR merge:
+
+- create a script-only Hermes cron job for weekday meaningful-trigger checks that delivers non-empty stdout to Andrew's Discord DM
+- create a weekly script-only Hermes cron job using `--weekly-checkin`
+- keep stdout empty when there is no useful check-in
+- keep delivery separate from post approval, scheduling, publishing, analytics collection, and Meta/R2 calls
 
 ### Milestone 7: analytics learning loop
 
