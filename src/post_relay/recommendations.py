@@ -77,6 +77,30 @@ class ScheduleRecommendationPlan:
 
 
 @dataclass(frozen=True)
+class GrowthCoachPath:
+    label: str
+    title: str
+    rationale: list[str]
+    tradeoffs: list[str]
+    comfort_zone_delta: str
+    next_safe_command: str
+
+
+@dataclass(frozen=True)
+class GrowthCoachRecommendationPlan:
+    active_goal_title: Optional[str]
+    growth_mode: Optional[str]
+    primary_success_metric: Optional[str]
+    cadence_gap: str
+    evidence_used: list[str]
+    warnings: list[str]
+    safe_path: GrowthCoachPath
+    growth_path: GrowthCoachPath
+    stretch_path: GrowthCoachPath
+    mutation_statement: str = NO_MUTATION_STATEMENT
+
+
+@dataclass(frozen=True)
 class CaptionFeedbackResult:
     id: int
     post_id: int
@@ -364,7 +388,79 @@ def render_schedule_recommendations(connection, *, now: Optional[str] = None, li
     lines.append(plan.mutation_statement)
     return "\n".join(lines)
 
+def build_growth_coach_recommendations(connection) -> GrowthCoachRecommendationPlan:
+    goal = get_active_user_goal(connection)
+    preferences = get_active_account_preferences(connection)
+    counts = {
+        "candidate_groups": _count(connection, "candidate_groups"),
+        "posts_total": _count(connection, "drafts"),
+        "selected_media": _count_selected_media(connection),
+        "published_snapshots": _count(connection, "published_post_snapshots"),
+        "insight_snapshots": _count(connection, "media_insight_snapshots"),
+        "follower_snapshots": _count(connection, "account_metric_snapshots"),
+        "scheduled_posts": _count(connection, "drafts", "scheduled_for is not null"),
+    }
+    cadence_gap = _growth_cadence_gap(connection, preferences)
+    evidence_used = [
+        f"active goal: {goal.title if goal else '<missing>'}",
+        f"growth mode: {preferences.growth_mode if preferences and preferences.growth_mode else '<unset>'}",
+        f"primary success metric: {preferences.primary_success_metric if preferences and preferences.primary_success_metric else '<unset>'}",
+        f"candidate groups: {counts['candidate_groups']}",
+        f"posts total: {counts['posts_total']}",
+        f"selected media: {counts['selected_media']}",
+        f"scheduled posts: {counts['scheduled_posts']}",
+        f"published snapshots: {counts['published_snapshots']}",
+        f"insight snapshots: {counts['insight_snapshots']}",
+        f"follower snapshots: {counts['follower_snapshots']}",
+    ]
+    warnings = _growth_coach_warnings(goal, preferences, counts)
+    return GrowthCoachRecommendationPlan(
+        active_goal_title=goal.title if goal else None,
+        growth_mode=preferences.growth_mode if preferences else None,
+        primary_success_metric=preferences.primary_success_metric if preferences else None,
+        cadence_gap=cadence_gap,
+        evidence_used=evidence_used,
+        warnings=warnings,
+        safe_path=_safe_growth_path(goal, preferences, counts),
+        growth_path=_growth_path(goal, preferences, counts),
+        stretch_path=_stretch_path(goal, preferences, counts),
+    )
 
+
+def render_growth_coach_recommendations(connection) -> str:
+    plan = build_growth_coach_recommendations(connection)
+    lines = ["Growth coach recommendations", "Local goal/posture planning guidance; advisory only."]
+    lines.append(f"Active goal: {plan.active_goal_title or '<missing>'}")
+    lines.append("Account posture:")
+    lines.append(f"- Growth mode: {plan.growth_mode or '<unset>'}")
+    lines.append(f"- Primary success metric: {plan.primary_success_metric or '<unset>'}")
+    lines.append(f"- Cadence gap: {plan.cadence_gap}")
+    lines.append("")
+    lines.append("Evidence used:")
+    for evidence in plan.evidence_used:
+        lines.append(f"- {evidence}")
+    lines.append("")
+    lines.append("Warnings:")
+    if plan.warnings:
+        for warning in plan.warnings:
+            lines.append(f"- {warning}")
+    else:
+        lines.append("- No growth-coach warnings from stored local signals.")
+    for path in [plan.safe_path, plan.growth_path, plan.stretch_path]:
+        lines.append("")
+        lines.append(f"{path.label.title()} path: {path.title}")
+        lines.append("Rationale:")
+        for rationale in path.rationale:
+            lines.append(f"- {rationale}")
+        lines.append("Tradeoffs:")
+        for tradeoff in path.tradeoffs:
+            lines.append(f"- {tradeoff}")
+        lines.append(f"Comfort-zone delta: {path.comfort_zone_delta}")
+        lines.append(f"Next safe command: {path.next_safe_command}")
+    lines.append("")
+    lines.append("No automatic posting, scheduling, approval, messaging, upload, or analytics collection was performed.")
+    lines.append(plan.mutation_statement)
+    return "\n".join(lines)
 
 def record_caption_feedback(
     connection,
@@ -641,6 +737,122 @@ def _rank_candidate(row, goal_terms: set[str], analytics_sparse: bool, *, includ
         warnings=warnings,
         next_safe_command=next_safe_command,
     )
+
+
+def _growth_cadence_gap(connection, preferences) -> str:
+    if preferences is None:
+        return "No growth posture preferences are stored yet."
+    parts: list[str] = []
+    if preferences.target_monthly_reels is not None:
+        current = _count_published_snapshots_by_post_type(connection, "reel")
+        gap = max(preferences.target_monthly_reels - current, 0)
+        parts.append(f"target {preferences.target_monthly_reels} reels/month; published reels this month: {current}; gap: {gap}")
+    if preferences.target_monthly_carousels is not None:
+        current = _count_published_snapshots_by_post_type(connection, "carousel")
+        gap = max(preferences.target_monthly_carousels - current, 0)
+        parts.append(
+            f"target {preferences.target_monthly_carousels} carousels/month; published carousels this month: {current}; gap: {gap}"
+        )
+    if preferences.target_weekly_posts is not None:
+        current = _count(connection, "drafts", "scheduled_for is not null")
+        gap = max(preferences.target_weekly_posts - current, 0)
+        parts.append(f"target {preferences.target_weekly_posts} posts/week; currently scheduled posts: {current}; gap: {gap}")
+    return "; ".join(parts) if parts else "No cadence targets are stored yet."
+
+
+def _growth_coach_warnings(goal, preferences, counts: dict[str, int]) -> list[str]:
+    warnings: list[str] = []
+    if goal is None:
+        warnings.append("Active goal is missing; create a goal before trusting growth-coach suggestions.")
+    if preferences is None:
+        warnings.append("Growth posture preferences are missing; set preferences before pushing outside the safe path.")
+    elif not preferences.growth_mode:
+        warnings.append("Growth mode is unset; treating growth and stretch paths as gentle advisory options.")
+    if counts["candidate_groups"] == 0:
+        warnings.append("No candidate groups are available; build candidates before selecting a next post.")
+    if counts["published_snapshots"] < 3 or counts["insight_snapshots"] < 3:
+        warnings.append("Performance history is sparse; use platform priors and local review evidence conservatively.")
+    if counts["follower_snapshots"] < 2:
+        warnings.append("Follower trend history is sparse; avoid claiming follower-growth causality.")
+    return warnings
+
+
+def _safe_growth_path(goal, preferences, counts: dict[str, int]) -> GrowthCoachPath:
+    if goal is None:
+        return GrowthCoachPath(
+            label="safe",
+            title="Set or confirm the account goal before choosing the next post.",
+            rationale=["The coach should use the active goal as its north star before ranking content."],
+            tradeoffs=["Slower than posting immediately, but prevents generic recommendations."],
+            comfort_zone_delta="none",
+            next_safe_command="post-relay goals init --db data/post_relay.sqlite --title ... --statement ...",
+        )
+    if counts["candidate_groups"] == 0:
+        return GrowthCoachPath(
+            label="safe",
+            title="Build local candidates before making a content choice.",
+            rationale=["No candidate groups are stored, so the safest action is to create the local review pool."],
+            tradeoffs=["This is setup work rather than a growth experiment."],
+            comfort_zone_delta="none",
+            next_safe_command="post-relay candidates build --db data/post_relay.sqlite",
+        )
+    return GrowthCoachPath(
+        label="safe",
+        title="Pick the strongest local candidate and continue the reviewed workflow.",
+        rationale=[
+            "Uses existing local candidates and keeps the user in the selection → crop → copy → final preview workflow.",
+            "Maintains creative control before any schedule or publish step.",
+        ],
+        tradeoffs=["Lowest novelty; may not stretch format cadence or follower-growth learning."],
+        comfort_zone_delta="none",
+        next_safe_command="post-relay recommendations candidates --limit 3 --db data/post_relay.sqlite",
+    )
+
+
+def _growth_path(goal, preferences, counts: dict[str, int]) -> GrowthCoachPath:
+    delta = preferences.max_push_level if preferences and preferences.comfort_zone_push_enabled and preferences.max_push_level else "low"
+    rationale = ["Keeps recommendations local and advisory while using stored growth posture." ]
+    title = "Turn the next candidate into a stronger growth-format post."
+    if preferences and preferences.target_monthly_reels:
+        title = "Prioritize a reel-ready candidate to close the monthly reels gap."
+        rationale.append("Instagram guidance says accounts with stronger follower growth often publish 10+ reels per month.")
+    elif preferences and preferences.target_monthly_carousels:
+        title = "Prioritize a saveable carousel with clear first-slide context."
+        rationale.append("Carousel reach is a platform prior and fits local travel-guide content when the media supports it.")
+    if goal and goal.success_metrics:
+        rationale.append("Active success metrics: " + ", ".join(goal.success_metrics) + ".")
+    return GrowthCoachPath(
+        label="growth",
+        title=title,
+        rationale=rationale,
+        tradeoffs=["More growth-oriented than the safe path, but still requires manual review before copy, schedule, or publish."],
+        comfort_zone_delta=delta,
+        next_safe_command="post-relay recommendations caption-style --db data/post_relay.sqlite",
+    )
+
+
+def _stretch_path(goal, preferences, counts: dict[str, int]) -> GrowthCoachPath:
+    preferred = preferences.preferred_growth_experiments if preferences else []
+    blocked = preferences.blocked_growth_experiments if preferences else []
+    experiment = preferred[0] if preferred else "first_slide_context_or_reel_hook_test"
+    rationale = [f"Try one reviewed experiment: {experiment}."]
+    if blocked:
+        rationale.append("Avoid blocked experiments: " + ", ".join(blocked) + ".")
+    if not (preferences and preferences.comfort_zone_push_enabled):
+        rationale.append("Comfort-zone push is not enabled, so keep this as an optional planning idea only.")
+    delta = preferences.max_push_level if preferences and preferences.comfort_zone_push_enabled and preferences.max_push_level else "optional"
+    return GrowthCoachPath(
+        label="stretch",
+        title="Run one explicitly reviewed growth experiment without changing live state.",
+        rationale=rationale,
+        tradeoffs=["Highest novelty and highest review burden; skip it if it would dilute the post's real story."],
+        comfort_zone_delta=delta,
+        next_safe_command="post-relay drafts questions generate --post-id <post-id> --db data/post_relay.sqlite",
+    )
+
+
+def _count_published_snapshots_by_post_type(connection, post_type: str) -> int:
+    return _count(connection, "published_post_snapshots", f"post_type = '{post_type}'")
 
 
 def _draft_exists(connection, post_id: int) -> bool:
