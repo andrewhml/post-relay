@@ -32,14 +32,21 @@ If these files conflict, prefer the newest concrete implementation facts in `REA
 
 ## Completed milestones
 
-### Current branch / Milestone: `feat/pipeline-health`
+### Current branch / Milestone: `feat/agent-checkin-plan`
 
 Implemented in this branch:
+- Adds `post-relay agent checkin-plan` as a local/no-network draft-message planner before any cron/gateway automation.
+- Reads pipeline health, active goal, and durable account check-in cadence to choose a trigger reason, draft message, user action requested, and why the check-in is useful now.
+- Prints explicit no-send/no-mutation language and does not create cron jobs, send Discord/WhatsApp messages, approve, schedule, publish, upload, collect analytics, or call Meta/R2/Discord.
+
+**Stop point after merge:** Scheduled/proactive check-ins require Andrew to opt in to destination, cadence, quiet-hours/spam guardrails, and side-effect scope before any Hermes cron or gateway delivery job is created.
+
+### PR #104 / Milestone: `feat/pipeline-health` (merged)
+
+Implemented:
 - Adds `post-relay pipeline health` as a local/no-network pipeline status report.
 - Reports counts by draft stage, candidate groups without posts, invalidated approvals as blocked tasks, cadence risk from durable account preferences, user-needed reviews, and agent-preparable next work.
 - Prints explicit no-mutation language and does not create posts, approve, schedule, publish, upload, message, collect analytics, or call Meta/R2/Discord.
-
-**Next after merge:** Start `feat/agent-checkin-plan`: add a no-network `post-relay agent checkin-plan` command that turns pipeline health/growth posture into a draft check-in message without sending anything.
 
 ### PR #103 / Milestone: `feat/growth-coach-recommendations` (merged)
 

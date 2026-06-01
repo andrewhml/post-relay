@@ -379,24 +379,34 @@ Verification:
 .venv/bin/python -m pytest -q
 ```
 
-### Milestone 5: `feat/agent-checkin-plan`
+### Milestone 5: `feat/agent-checkin-plan` (completed in this branch)
 
-Add a no-network planner before cron/gateway automation:
+Adds a no-network planner before cron/gateway automation:
 
 ```bash
 post-relay agent checkin-plan --db data/post_relay.sqlite
 ```
 
-Initial output:
+Delivered output:
 
-- recommended check-in cadence
-- trigger reason
-- draft message
+- recommended check-in cadence from durable account preferences, defaulting to manual when unset
+- trigger reason selected from cadence risk, pending user review, blocked work, or agent-preparable work
+- draft message scoped to the active goal and current local pipeline state
 - user action requested
 - why it is useful now
 - explicit statement that no message was sent
+- no-network/no-mutation statement
+
+Verification:
+
+```bash
+.venv/bin/python -m pytest tests/test_agent_checkins.py -q
+.venv/bin/python -m pytest -q
+```
 
 ### Milestone 6: opt-in scheduled check-ins
+
+Stop here until Andrew explicitly authorizes destination, cadence, quiet-hours/spam guardrails, and side-effect scope.
 
 Only after the local planner is useful and the user authorizes it:
 
