@@ -17,19 +17,31 @@ Future agents should read these files before implementing:
 1. `AGENTS.md`
 2. `README.md`
 3. `docs/plans/current-agent-roadmap.md`
-4. `docs/plans/product-onboarding-roadmap.md`
-5. `docs/setup-own-instance.md`
-6. `docs/plans/postrelay-agent-operating-baseline.md`
-7. `docs/plans/discord-dm-conversation-orchestration.md`
-8. `docs/plans/discord-photo-selection-before-carousel-smoke.md`
-9. `implementation-plan.md`
-10. `technical-design.md`
-11. `requirements.md`
-12. `setup-checklist.md`
+4. `docs/plans/growth-pipeline-roadmap.md`
+5. `docs/plans/product-onboarding-roadmap.md`
+6. `docs/setup-own-instance.md`
+7. `docs/plans/postrelay-agent-operating-baseline.md`
+8. `docs/plans/discord-dm-conversation-orchestration.md`
+9. `docs/plans/discord-photo-selection-before-carousel-smoke.md`
+10. `implementation-plan.md`
+11. `technical-design.md`
+12. `requirements.md`
+13. `setup-checklist.md`
 
 If these files conflict, prefer the newest concrete implementation facts in `README.md`, `AGENTS.md`, and this roadmap, then reconcile by updating docs in the same PR.
 
 ## Completed milestones
+
+### Current branch / Milestone: `feat/growth-posture-preferences`
+
+Implemented in this branch:
+- Extends durable `account_preferences` with growth posture fields: `goal_type`, `growth_mode`, `primary_success_metric`, target reels/carousels/posts cadence, agent check-in cadence, comfort-zone push settings, and preferred/blocked growth experiments.
+- Adds versioned snapshots for those fields so preference changes remain portable and auditable.
+- Extends `post-relay preferences set/show/agent-brief` with the growth posture fields while keeping review-order/copy-collaboration preferences intact.
+- Feeds compact growth posture guidance into local caption-style recommendation output as advisory context.
+- Preserves local/no-network behavior: no Discord, R2, Meta, post lifecycle, approval, schedule, opportunity, or publish-attempt mutations.
+
+**Next after merge:** Start `feat/growth-coach-recommendations`: add a local/no-network `post-relay recommendations growth-coach` command that reads active goal, account posture, cadence targets, local evidence, and emits safe/growth/stretch paths with comfort-zone delta and next safe command.
 
 ### PR #99 / Milestone: `feat/media-awareness-posted`
 

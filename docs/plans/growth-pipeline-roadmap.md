@@ -295,17 +295,35 @@ Verification:
 .venv/bin/python -m pytest -q
 ```
 
-### Milestone 2: `feat/growth-posture-preferences`
+### Milestone 2: `feat/growth-posture-preferences` (completed in this branch)
 
 Add durable account-level planning preferences without changing live side effects.
 
-Initial scope:
+Delivered:
 
-- Extend account preferences with goal/posture/cadence/check-in/comfort-zone fields.
-- Version preference changes.
-- Include a compact `preferences agent-brief` rendering.
-- Keep existing review-order and copy-collaboration preferences intact.
-- No Discord, R2, Meta, schedule, approval, or publish mutations.
+- Extended account preferences with goal/posture/cadence/check-in/comfort-zone fields:
+  - `goal_type`
+  - `growth_mode`
+  - `primary_success_metric`
+  - `target_monthly_reels`
+  - `target_monthly_carousels`
+  - `target_weekly_posts`
+  - `agent_checkin_cadence`
+  - `comfort_zone_push_enabled`
+  - `max_push_level`
+  - `preferred_growth_experiments`
+  - `blocked_growth_experiments`
+- Versioned preference changes include those growth posture fields.
+- `preferences set`, `preferences show`, and `preferences agent-brief` render the growth posture alongside review-order and copy-collaboration preferences.
+- Caption-style recommendations include compact growth posture guidance as local advisory context.
+- No Discord, R2, Meta, schedule, approval, post lifecycle, opportunity, publish-attempt, or analytics mutations.
+
+Verification:
+
+```bash
+.venv/bin/python -m pytest tests/test_account_preferences.py tests/test_recommendation_signals.py -q
+.venv/bin/python -m pytest -q
+```
 
 ### Milestone 3: `feat/growth-coach-recommendations`
 

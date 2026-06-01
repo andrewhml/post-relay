@@ -340,6 +340,17 @@ SCHEMA_STATEMENTS = [
         copy_collaboration_required integer not null default 1,
         final_preview_requires_locked_copy integer not null default 1,
         writing_style_notes_json text not null default '[]',
+        goal_type text,
+        growth_mode text,
+        primary_success_metric text,
+        target_monthly_reels integer,
+        target_monthly_carousels integer,
+        target_weekly_posts integer,
+        agent_checkin_cadence text,
+        comfort_zone_push_enabled integer not null default 0,
+        max_push_level text,
+        preferred_growth_experiments_json text not null default '[]',
+        blocked_growth_experiments_json text not null default '[]',
         reviewed_by text,
         status text not null default 'active',
         created_at text not null default current_timestamp,
@@ -395,6 +406,17 @@ def initialize_db(connection: sqlite3.Connection) -> None:
     _ensure_column(connection, "r2_staged_objects", "deleted_at", "text")
     _ensure_column(connection, "r2_staged_objects", "cleanup_reason", "text")
     _ensure_column(connection, "draft_location_tags", "skip_reason", "text")
+    _ensure_column(connection, "account_preferences", "goal_type", "text")
+    _ensure_column(connection, "account_preferences", "growth_mode", "text")
+    _ensure_column(connection, "account_preferences", "primary_success_metric", "text")
+    _ensure_column(connection, "account_preferences", "target_monthly_reels", "integer")
+    _ensure_column(connection, "account_preferences", "target_monthly_carousels", "integer")
+    _ensure_column(connection, "account_preferences", "target_weekly_posts", "integer")
+    _ensure_column(connection, "account_preferences", "agent_checkin_cadence", "text")
+    _ensure_column(connection, "account_preferences", "comfort_zone_push_enabled", "integer not null default 0")
+    _ensure_column(connection, "account_preferences", "max_push_level", "text")
+    _ensure_column(connection, "account_preferences", "preferred_growth_experiments_json", "text not null default '[]'")
+    _ensure_column(connection, "account_preferences", "blocked_growth_experiments_json", "text not null default '[]'")
     connection.commit()
 
 

@@ -242,6 +242,17 @@ def test_render_caption_style_recommendations_applies_durable_account_preference
         copy_collaboration_required=True,
         final_preview_requires_locked_copy=True,
         writing_style_notes=["human travel voice", "avoid em dashes"],
+        goal_type="growth",
+        growth_mode="growth_push",
+        primary_success_metric="followers",
+        target_monthly_reels=10,
+        target_monthly_carousels=4,
+        target_weekly_posts=3,
+        agent_checkin_cadence="weekly",
+        comfort_zone_push_enabled=True,
+        max_push_level="medium",
+        preferred_growth_experiments=["reel_cadence_push"],
+        blocked_growth_experiments=["trend_chasing"],
         reviewed_by="andrew",
     )
 
@@ -251,6 +262,7 @@ def test_render_caption_style_recommendations_applies_durable_account_preference
     assert "Review flow order: selection_sheet → crop_sheet → copy_collaboration → final_preview" in rendered
     assert "Copy should be collaborative and use the active goal/audience before finalizing." in rendered
     assert "Final preview should wait until caption, hashtags, alt text, and supporting text are locked." in rendered
+    assert "Growth posture: growth_push optimizing followers; target 10 reels/month; target 4 carousels/month; target 3 posts/week; comfort-zone push enabled (max medium); preferred experiments: reel_cadence_push; blocked experiments: trend_chasing." in rendered
     assert "human travel voice" in rendered
     assert "avoid em dashes" in rendered
 
