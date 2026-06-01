@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, timezone
+import json
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from post_relay.account_preferences import get_active_account_preferences
 from post_relay.pipeline_health import build_pipeline_health
@@ -9,6 +12,18 @@ from post_relay.user_goals import get_active_user_goal
 
 
 NO_SEND_STATEMENT = "No Discord, WhatsApp, or other message was sent. This is only a local draft check-in plan."
+
+
+@dataclass(frozen=True)
+class ScheduledCheckinDelivery:
+    should_send: bool
+    destination: str
+    reason: str
+    message: str
+    progress_summary: str
+    performance_summary: str
+    safety_note: str
+    mutation_statement: str = NO_MUTATION_STATEMENT
 
 
 @dataclass(frozen=True)
@@ -24,6 +39,76 @@ class AgentCheckinPlan:
     why_useful_now: str
     no_send_statement: str = NO_SEND_STATEMENT
     mutation_statement: str = NO_MUTATION_STATEMENT
+
+
+def build_scheduled_checkin_delivery(
+    connection,
+    *,
+    now_iso: str | None = None,
+    weekly_checkin: bool = False,
+) -> ScheduledCheckinDelivery:
+    preferences = get_active_account_preferences(connection)
+    destination = preferences.checkin_delivery_destination if preferences and preferences.checkin_delivery_destination else "local_only"
+    trigger_policy = preferences.checkin_trigger_policy if preferences and preferences.checkin_trigger_policy else "manual"
+    health = build_pipeline_health(connection)
+    plan = build_agent_checkin_plan(connection)
+    progress_summary = _build_progress_summary(connection, health)
+    performance_summary = _build_performance_summary(connection)
+    safety_note = "No automatic posting, scheduling, approval, upload, analytics collection, R2, Meta, or workflow mutation was performed."
+
+    if not _is_within_working_hours(preferences, now_iso=now_iso):
+        return ScheduledCheckinDelivery(
+            should_send=False,
+            destination=destination,
+            reason="outside_working_hours",
+            message="",
+            progress_summary=progress_summary,
+            performance_summary=performance_summary,
+            safety_note=safety_note,
+        )
+
+    meaningful_reviews = [review for review in health.user_needed_reviews if " is scheduled;" not in review]
+    has_meaningful_trigger = bool(health.cadence_risk or meaningful_reviews or health.blocked_posts)
+    should_send_weekly = weekly_checkin and trigger_policy in {"meaningful_plus_weekly", "weekly"}
+    if not has_meaningful_trigger and not should_send_weekly:
+        return ScheduledCheckinDelivery(
+            should_send=False,
+            destination=destination,
+            reason="silent_no_meaningful_trigger",
+            message="",
+            progress_summary=progress_summary,
+            performance_summary=performance_summary,
+            safety_note=safety_note,
+        )
+
+    reason = "meaningful_trigger" if has_meaningful_trigger else "weekly_checkin"
+    message = _build_scheduled_message(plan, reason, progress_summary, performance_summary, safety_note)
+    return ScheduledCheckinDelivery(
+        should_send=True,
+        destination=destination,
+        reason=reason,
+        message=message,
+        progress_summary=progress_summary,
+        performance_summary=performance_summary,
+        safety_note=safety_note,
+    )
+
+
+def render_scheduled_checkin_delivery(delivery: ScheduledCheckinDelivery, *, cron_output: bool = False) -> str:
+    if not delivery.should_send:
+        return "" if cron_output else f"No scheduled check-in sent: {delivery.reason}"
+    return "\n".join(
+        [
+            "Post Relay check-in",
+            f"Destination preference: {delivery.destination}",
+            f"Reason: {delivery.reason}",
+            "",
+            delivery.message,
+            "",
+            delivery.safety_note,
+            delivery.mutation_statement,
+        ]
+    )
 
 
 def build_agent_checkin_plan(connection) -> AgentCheckinPlan:
@@ -141,6 +226,108 @@ def _format_working_hours(preferences) -> str:
     if timezone:
         return f"working hours in {timezone}"
     return "<not set>"
+
+
+def _build_scheduled_message(
+    plan: AgentCheckinPlan,
+    reason: str,
+    progress_summary: str,
+    performance_summary: str,
+    safety_note: str,
+) -> str:
+    return "\n".join(
+        [
+            f"Reason: {reason}",
+            plan.draft_message,
+            f"Progress: {progress_summary}",
+            f"Performance: {performance_summary}",
+            f"User action requested: {plan.user_action_requested}",
+            f"Why useful now: {plan.why_useful_now}",
+            safety_note,
+        ]
+    )
+
+
+def _build_progress_summary(connection, health) -> str:
+    published = _scalar(connection, "select count(*) from published_post_snapshots")
+    scheduled = health.stage_counts.get("scheduled", 0) + health.stage_counts.get("awaiting_publish_approval", 0)
+    in_review = len(health.user_needed_reviews)
+    candidates = health.candidate_groups_without_posts
+    return f"{published} published snapshots stored, {scheduled} upcoming/approval-ready posts, {in_review} user-needed reviews, {candidates} candidate groups not yet drafted."
+
+
+def _build_performance_summary(connection) -> str:
+    follower_row = connection.execute(
+        """
+        select follower_count, media_count, collected_at
+        from account_metric_snapshots
+        order by collected_at desc, id desc
+        limit 1
+        """
+    ).fetchone()
+    insight_row = connection.execute(
+        """
+        select metrics_json, collected_at
+        from media_insight_snapshots
+        order by collected_at desc, id desc
+        limit 1
+        """
+    ).fetchone()
+    parts: list[str] = []
+    if follower_row:
+        followers = "unknown" if follower_row[0] is None else int(follower_row[0])
+        media_count = "unknown" if follower_row[1] is None else int(follower_row[1])
+        parts.append(f"latest account snapshot: {followers} followers, {media_count} media")
+    if insight_row:
+        metrics = json.loads(insight_row[0] or "{}")
+        compact_metrics = []
+        for key in ["reach", "saved", "saves", "likes", "comments", "shares"]:
+            if key in metrics:
+                compact_metrics.append(f"{key}={metrics[key]}")
+        if compact_metrics:
+            parts.append("latest post insights: " + ", ".join(compact_metrics))
+    return "; ".join(parts) if parts else "No stored local performance snapshots yet."
+
+
+def _is_within_working_hours(preferences, *, now_iso: str | None) -> bool:
+    if not preferences:
+        return True
+    start = preferences.checkin_working_hours_start
+    end = preferences.checkin_working_hours_end
+    if not start or not end:
+        return True
+    now = _parse_now(now_iso)
+    timezone_name = preferences.checkin_timezone
+    if timezone_name:
+        try:
+            now = now.astimezone(ZoneInfo(timezone_name))
+        except ZoneInfoNotFoundError:
+            return True
+    current_minutes = now.hour * 60 + now.minute
+    start_minutes = _time_to_minutes(start)
+    end_minutes = _time_to_minutes(end)
+    if start_minutes <= end_minutes:
+        return start_minutes <= current_minutes <= end_minutes
+    return current_minutes >= start_minutes or current_minutes <= end_minutes
+
+
+def _parse_now(now_iso: str | None) -> datetime:
+    if not now_iso:
+        return datetime.now(timezone.utc).astimezone()
+    parsed = datetime.fromisoformat(now_iso)
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed
+
+
+def _time_to_minutes(value: str) -> int:
+    hour, minute = value.split(":")
+    return int(hour) * 60 + int(minute)
+
+
+def _scalar(connection, query: str) -> int:
+    row = connection.execute(query).fetchone()
+    return int(row[0] or 0)
 
 
 def _extract_post_id(text: str) -> int | None:
