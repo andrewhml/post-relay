@@ -379,6 +379,7 @@ def goals_agent_brief(db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQL
 
 @preferences_app.command("set")
 def preferences_set(
+    ctx: typer.Context,
     db: Path = typer.Option(DEFAULT_DB_PATH, "--db", help="SQLite database path."),
     account_key: str = typer.Option("default", "--account-key", help="Portable account/user preference scope."),
     review_step: Optional[list[str]] = typer.Option(None, "--review-step", help="Review flow step in desired order."),
@@ -409,6 +410,84 @@ def preferences_set(
     """Create or update durable account-level review/copy preferences."""
     connection = connect_db(db)
     initialize_db(connection)
+    existing = get_active_account_preferences(connection, account_key=account_key)
+    if existing is not None:
+        review_step = review_step if _cli_option_provided(ctx, "review_step") else existing.review_flow_order
+        require_goal_and_audience_for_copy = (
+            require_goal_and_audience_for_copy
+            if _cli_option_provided(ctx, "require_goal_and_audience_for_copy")
+            else existing.require_goal_and_audience_for_copy
+        )
+        copy_collaboration_required = (
+            copy_collaboration_required
+            if _cli_option_provided(ctx, "copy_collaboration_required")
+            else existing.copy_collaboration_required
+        )
+        final_preview_requires_locked_copy = (
+            final_preview_requires_locked_copy
+            if _cli_option_provided(ctx, "final_preview_requires_locked_copy")
+            else existing.final_preview_requires_locked_copy
+        )
+        style_note = style_note if _cli_option_provided(ctx, "style_note") else existing.writing_style_notes
+        goal_type = goal_type if _cli_option_provided(ctx, "goal_type") else existing.goal_type
+        growth_mode = growth_mode if _cli_option_provided(ctx, "growth_mode") else existing.growth_mode
+        primary_success_metric = (
+            primary_success_metric if _cli_option_provided(ctx, "primary_success_metric") else existing.primary_success_metric
+        )
+        target_monthly_reels = (
+            target_monthly_reels if _cli_option_provided(ctx, "target_monthly_reels") else existing.target_monthly_reels
+        )
+        target_monthly_carousels = (
+            target_monthly_carousels
+            if _cli_option_provided(ctx, "target_monthly_carousels")
+            else existing.target_monthly_carousels
+        )
+        target_weekly_posts = (
+            target_weekly_posts if _cli_option_provided(ctx, "target_weekly_posts") else existing.target_weekly_posts
+        )
+        agent_checkin_cadence = (
+            agent_checkin_cadence
+            if _cli_option_provided(ctx, "agent_checkin_cadence")
+            else existing.agent_checkin_cadence
+        )
+        comfort_zone_push_enabled = (
+            comfort_zone_push_enabled
+            if _cli_option_provided(ctx, "comfort_zone_push_enabled")
+            else existing.comfort_zone_push_enabled
+        )
+        max_push_level = max_push_level if _cli_option_provided(ctx, "max_push_level") else existing.max_push_level
+        preferred_growth_experiment = (
+            preferred_growth_experiment
+            if _cli_option_provided(ctx, "preferred_growth_experiment")
+            else existing.preferred_growth_experiments
+        )
+        blocked_growth_experiment = (
+            blocked_growth_experiment
+            if _cli_option_provided(ctx, "blocked_growth_experiment")
+            else existing.blocked_growth_experiments
+        )
+        checkin_delivery_destination = (
+            checkin_delivery_destination
+            if _cli_option_provided(ctx, "checkin_delivery_destination")
+            else existing.checkin_delivery_destination
+        )
+        checkin_trigger_policy = (
+            checkin_trigger_policy if _cli_option_provided(ctx, "checkin_trigger_policy") else existing.checkin_trigger_policy
+        )
+        checkin_timezone = checkin_timezone if _cli_option_provided(ctx, "checkin_timezone") else existing.checkin_timezone
+        checkin_working_hours_start = (
+            checkin_working_hours_start
+            if _cli_option_provided(ctx, "checkin_working_hours_start")
+            else existing.checkin_working_hours_start
+        )
+        checkin_working_hours_end = (
+            checkin_working_hours_end
+            if _cli_option_provided(ctx, "checkin_working_hours_end")
+            else existing.checkin_working_hours_end
+        )
+        checkin_run_planners = (
+            checkin_run_planners if _cli_option_provided(ctx, "checkin_run_planners") else existing.checkin_run_planners
+        )
     try:
         preferences = upsert_account_preferences(
             connection,
@@ -444,6 +523,11 @@ def preferences_set(
     typer.echo(f"Saved account preferences #{preferences.id} ({preferences.account_key}) version {versions[-1].version_number}.")
     typer.echo("These preferences are local durable app data for portable account behavior; they do not mutate posts, approvals, schedules, or publish state.")
     typer.echo("No Discord, R2, or Meta network calls were made.")
+
+
+def _cli_option_provided(ctx: typer.Context, parameter_name: str) -> bool:
+    source = ctx.get_parameter_source(parameter_name)
+    return bool(source and getattr(source, "name", "") != "DEFAULT")
 
 
 @preferences_app.command("show")

@@ -18,7 +18,7 @@ Post Relay is experimental and local-first. The current app supports:
 - guarded Cloudflare R2 staging upload/cleanup for selected publish media
 - official Meta/Facebook Graph read-only validation and guarded single-image/carousel publish validation
 - final Meta-bound publish previews, schedule enforcement, durable final publish approvals, and scriptless unattended publish planning
-- local post-publish snapshots, read-only insights collection behind explicit `--execute`, follower summaries, and advisory feedback summaries
+- local post-publish snapshots, read-only insights collection behind explicit `--execute`, follower summaries, advisory feedback summaries, pipeline health, and cron-safe scheduled check-in payloads that flag an empty future queue after two days
 
 Safe defaults matter: local preview workflows make no network calls, source media is not mutated, and live publishing requires explicit approval and execute flags.
 

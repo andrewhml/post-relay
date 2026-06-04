@@ -50,8 +50,8 @@ def build_scheduled_checkin_delivery(
     preferences = get_active_account_preferences(connection)
     destination = preferences.checkin_delivery_destination if preferences and preferences.checkin_delivery_destination else "local_only"
     trigger_policy = preferences.checkin_trigger_policy if preferences and preferences.checkin_trigger_policy else "manual"
-    health = build_pipeline_health(connection)
-    plan = build_agent_checkin_plan(connection)
+    health = build_pipeline_health(connection, now_iso=now_iso)
+    plan = build_agent_checkin_plan(connection, now_iso=now_iso)
     progress_summary = _build_progress_summary(connection, health)
     performance_summary = _build_performance_summary(connection)
     safety_note = "No automatic posting, scheduling, approval, upload, analytics collection, R2, Meta, or workflow mutation was performed."
@@ -111,8 +111,8 @@ def render_scheduled_checkin_delivery(delivery: ScheduledCheckinDelivery, *, cro
     )
 
 
-def build_agent_checkin_plan(connection) -> AgentCheckinPlan:
-    health = build_pipeline_health(connection)
+def build_agent_checkin_plan(connection, *, now_iso: str | None = None) -> AgentCheckinPlan:
+    health = build_pipeline_health(connection, now_iso=now_iso)
     preferences = get_active_account_preferences(connection)
     goal = get_active_user_goal(connection)
     cadence = preferences.agent_checkin_cadence if preferences and preferences.agent_checkin_cadence else "manual"
@@ -162,6 +162,9 @@ def render_agent_checkin_plan(connection) -> str:
 
 
 def _select_trigger_reason(health, *, trigger_policy: str = "manual") -> str:
+    no_future_content_risks = [risk for risk in health.cadence_risk if "no future content scheduled" in risk]
+    if no_future_content_risks:
+        return no_future_content_risks[0]
     if health.cadence_risk:
         return health.cadence_risk[0]
     if health.user_needed_reviews:

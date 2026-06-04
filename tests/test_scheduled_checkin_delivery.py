@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Optional
 
 from typer.testing import CliRunner
 
@@ -60,6 +61,56 @@ def test_scheduled_checkin_delivery_is_silent_when_no_meaningful_trigger_and_not
     assert render_scheduled_checkin_delivery(delivery, cron_output=True) == ""
 
 
+def test_scheduled_checkin_delivery_sends_when_no_future_content_after_two_days(tmp_path: Path):
+    connection = connect_db(tmp_path / "post_relay.sqlite")
+    initialize_db(connection)
+    _seed_preferences(connection, target_weekly_posts=None)
+    _seed_published_post_snapshot(connection, actual_published_at="2026-06-01T07:21:31-04:00")
+
+    delivery = build_scheduled_checkin_delivery(
+        connection,
+        now_iso="2026-06-03T10:00:00-04:00",
+        weekly_checkin=False,
+    )
+
+    assert delivery.should_send is True
+    assert delivery.reason == "meaningful_trigger"
+    assert "no future content scheduled" in delivery.message
+    assert "last published/scheduled post was 2 day(s) ago" in delivery.message
+
+
+def test_scheduled_checkin_delivery_stays_silent_when_last_post_is_recent(tmp_path: Path):
+    connection = connect_db(tmp_path / "post_relay.sqlite")
+    initialize_db(connection)
+    _seed_preferences(connection, target_weekly_posts=None)
+    _seed_published_post_snapshot(connection, actual_published_at="2026-06-02T10:30:00-04:00")
+
+    delivery = build_scheduled_checkin_delivery(
+        connection,
+        now_iso="2026-06-03T10:00:00-04:00",
+        weekly_checkin=False,
+    )
+
+    assert delivery.should_send is False
+    assert delivery.reason == "silent_no_meaningful_trigger"
+
+
+def test_scheduled_checkin_delivery_prefers_no_future_content_over_generic_weekly_target(tmp_path: Path):
+    connection = connect_db(tmp_path / "post_relay.sqlite")
+    initialize_db(connection)
+    _seed_preferences(connection, target_weekly_posts=3)
+    _seed_published_post_snapshot(connection, actual_published_at="2026-06-01T07:21:31-04:00")
+
+    delivery = build_scheduled_checkin_delivery(
+        connection,
+        now_iso="2026-06-04T10:00:00-04:00",
+        weekly_checkin=False,
+    )
+
+    assert delivery.should_send is True
+    assert "Trigger: cadence risk: no future content scheduled" in delivery.message
+
+
 def test_scheduled_checkin_delivery_weekly_checkin_sends_progress_without_urgent_trigger(tmp_path: Path):
     db_path = tmp_path / "post_relay.sqlite"
     connection = connect_db(db_path)
@@ -106,11 +157,11 @@ def test_scheduled_checkin_delivery_silent_outside_working_hours(tmp_path: Path)
     assert delivery.reason == "outside_working_hours"
 
 
-def _seed_preferences(connection):
+def _seed_preferences(connection, *, target_weekly_posts: Optional[int] = 2):
     upsert_account_preferences(
         connection,
         account_key="default",
-        target_weekly_posts=2,
+        target_weekly_posts=target_weekly_posts,
         agent_checkin_cadence="weekly",
         checkin_delivery_destination="discord_dm",
         checkin_trigger_policy="meaningful_plus_weekly",
@@ -119,6 +170,33 @@ def _seed_preferences(connection):
         checkin_working_hours_end="17:00",
         checkin_run_planners=True,
     )
+
+
+def _seed_published_post_snapshot(connection, *, actual_published_at: str):
+    connection.execute(
+        """
+        insert into drafts (id, post_type, status, scheduled_for)
+        values (1, 'carousel', 'posted', ?)
+        """,
+        (actual_published_at,),
+    )
+    connection.execute(
+        """
+        insert into publish_attempts (id, draft_id, post_type, status, published_media_id, created_at)
+        values (1, 1, 'carousel', 'published', 'media-1', ?)
+        """,
+        (actual_published_at,),
+    )
+    connection.execute(
+        """
+        insert into published_post_snapshots (
+            id, draft_id, publish_attempt_id, published_media_id, post_type,
+            media_urls_json, media_dimensions_json, actual_published_at
+        ) values (1, 1, 1, 'media-1', 'carousel', '[]', '[]', ?)
+        """,
+        (actual_published_at,),
+    )
+    connection.commit()
 
 
 def _seed_meaningful_trigger(connection):
