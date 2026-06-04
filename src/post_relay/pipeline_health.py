@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, timezone
+from typing import Optional
 
 from post_relay.account_preferences import get_active_account_preferences
 from post_relay.recommendations import NO_MUTATION_STATEMENT
@@ -17,11 +19,11 @@ class PipelineHealth:
     mutation_statement: str = NO_MUTATION_STATEMENT
 
 
-def build_pipeline_health(connection) -> PipelineHealth:
+def build_pipeline_health(connection, *, now_iso: str | None = None) -> PipelineHealth:
     stage_counts = _draft_counts_by_status(connection)
     candidate_groups_without_posts = _count_candidate_groups_without_posts(connection)
     blocked_posts = _blocked_posts(connection)
-    cadence_risk = _cadence_risk(connection, stage_counts)
+    cadence_risk = _cadence_risk(connection, stage_counts, now_iso=now_iso)
     user_needed_reviews = _user_needed_reviews(connection)
     agent_preparable_work = _agent_preparable_work(connection, candidate_groups_without_posts)
     return PipelineHealth(
@@ -103,17 +105,83 @@ def _blocked_posts(connection) -> list[str]:
     return [f"Post {int(row[0])} has invalidated approval ({row[2] or 'reason not recorded'}); current status: {row[1]}." for row in rows]
 
 
-def _cadence_risk(connection, stage_counts: dict[str, int]) -> list[str]:
+def _cadence_risk(connection, stage_counts: dict[str, int], *, now_iso: str | None = None) -> list[str]:
     preferences = get_active_account_preferences(connection)
     scheduled = stage_counts.get("scheduled", 0) + stage_counts.get("awaiting_publish_approval", 0)
     risks: list[str] = []
     if preferences and preferences.target_weekly_posts is not None and scheduled < preferences.target_weekly_posts:
         risks.append(f"cadence risk: target {preferences.target_weekly_posts} posts/week, scheduled queue has {scheduled}")
+    no_future_content_risk = _no_future_content_risk(connection, now_iso=now_iso)
+    if no_future_content_risk:
+        risks.append(no_future_content_risk)
     if preferences and preferences.target_monthly_reels is not None:
         reels = _count_published_snapshots_by_type(connection, "reel")
         if reels < preferences.target_monthly_reels:
             risks.append(f"reels cadence risk: target {preferences.target_monthly_reels} reels/month, stored published reels this month: {reels}")
     return risks
+
+
+def _no_future_content_risk(connection, *, now_iso: Optional[str] = None, due_after_days: int = 2) -> Optional[str]:
+    now_dt = _parse_iso_datetime(now_iso) if now_iso else datetime.now(timezone.utc)
+    if _future_scheduled_content_count(connection, now_dt) > 0:
+        return None
+    latest = _latest_scheduled_or_published_at(connection)
+    if latest is None:
+        return None
+    days_since_latest = max(0, (now_dt.date() - latest.date()).days)
+    if days_since_latest < due_after_days:
+        return None
+    return (
+        "cadence risk: no future content scheduled; "
+        f"last published/scheduled post was {days_since_latest} day(s) ago; threshold is {due_after_days} days"
+    )
+
+
+def _future_scheduled_content_count(connection, now_dt: datetime) -> int:
+    rows = connection.execute(
+        """
+        select scheduled_for
+        from drafts
+        where scheduled_for is not null
+          and status in ('scheduled', 'awaiting_publish_approval', 'ready_to_publish')
+        """
+    ).fetchall()
+    return sum(1 for row in rows if _parse_iso_datetime(str(row[0])) > now_dt)
+
+
+def _latest_scheduled_or_published_at(connection) -> Optional[datetime]:
+    values = [
+        str(row[0])
+        for row in connection.execute(
+            """
+            select scheduled_for
+            from drafts
+            where scheduled_for is not null
+              and status in ('scheduled', 'awaiting_publish_approval', 'ready_to_publish', 'posted', 'published')
+            """
+        ).fetchall()
+        if row[0]
+    ]
+    values.extend(
+        str(row[0])
+        for row in connection.execute(
+            """
+            select actual_published_at
+            from published_post_snapshots
+            where actual_published_at is not null
+            """
+        ).fetchall()
+        if row[0]
+    )
+    parsed = [_parse_iso_datetime(value) for value in values]
+    return max(parsed) if parsed else None
+
+
+def _parse_iso_datetime(value: str) -> datetime:
+    parsed = datetime.fromisoformat(value)
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed
 
 
 def _user_needed_reviews(connection) -> list[str]:

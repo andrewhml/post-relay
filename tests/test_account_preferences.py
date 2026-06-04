@@ -285,3 +285,64 @@ def test_cli_preferences_set_show_and_agent_brief_are_local_only(tmp_path: Path)
     assert "Comfort-zone push: enabled (max medium)" in brief_result.output
     assert "Check-in delivery: discord_dm" in brief_result.output
     assert "Check-in planner execution: enabled" in brief_result.output
+
+
+
+def test_cli_preferences_set_preserves_unspecified_existing_checkin_fields(tmp_path: Path):
+    db_path = tmp_path / "post_relay.sqlite"
+    initial = runner.invoke(
+        app,
+        [
+            "preferences",
+            "set",
+            "--db",
+            str(db_path),
+            "--account-key",
+            "andrew",
+            "--agent-checkin-cadence",
+            "weekly",
+            "--checkin-delivery-destination",
+            "discord_dm",
+            "--checkin-trigger-policy",
+            "meaningful_plus_weekly",
+            "--checkin-timezone",
+            "America/New_York",
+            "--checkin-working-hours-start",
+            "09:00",
+            "--checkin-working-hours-end",
+            "17:00",
+            "--checkin-run-planners",
+            "--reviewed-by",
+            "andrew",
+        ],
+    )
+    update = runner.invoke(
+        app,
+        [
+            "preferences",
+            "set",
+            "--db",
+            str(db_path),
+            "--account-key",
+            "andrew",
+            "--target-weekly-posts",
+            "3",
+            "--reviewed-by",
+            "andrew",
+        ],
+    )
+
+    connection = connect_db(db_path)
+    active = get_active_account_preferences(connection, account_key="andrew")
+
+    assert initial.exit_code == 0
+    assert update.exit_code == 0
+    assert active is not None
+    assert active.target_weekly_posts == 3
+    assert active.agent_checkin_cadence == "weekly"
+    assert active.checkin_delivery_destination == "discord_dm"
+    assert active.checkin_trigger_policy == "meaningful_plus_weekly"
+    assert active.checkin_timezone == "America/New_York"
+    assert active.checkin_working_hours_start == "09:00"
+    assert active.checkin_working_hours_end == "17:00"
+    assert active.checkin_run_planners is True

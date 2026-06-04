@@ -32,6 +32,15 @@ If these files conflict, prefer the newest concrete implementation facts in `REA
 
 ## Completed milestones
 
+### PR #109 / Milestone: `feat/no-future-content-checkin`
+
+Implemented in PR #109:
+- Adds a preference-independent no-future-content cadence risk to pipeline health and scheduled check-in payloads.
+- The trigger fires when no future scheduled/approval-ready content exists and the latest published or scheduled post is at least two days old.
+- Scheduled check-in copy now prefers this specific no-future-content trigger over a generic weekly-target gap when both are present.
+- Fixes `preferences set` partial updates so changing `--target-weekly-posts` preserves existing check-in destination, trigger policy, timezone, working hours, planner permission, and cadence fields.
+- Preserves local/no-network/no-mutation behavior; no Discord, R2, Meta, post lifecycle, approval, schedule, opportunity, publish-attempt, or analytics mutation is introduced.
+
 ### Current branch / Milestone: `feat/scheduled-checkin-delivery`
 
 Implemented in this branch:
