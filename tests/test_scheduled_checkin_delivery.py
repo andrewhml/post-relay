@@ -32,16 +32,30 @@ def test_scheduled_checkin_delivery_sends_meaningful_trigger_in_working_hours(tm
     assert delivery.should_send is True
     assert delivery.destination == "discord_dm"
     assert delivery.reason == "meaningful_trigger"
-    assert "cadence risk:" in delivery.message
-    assert "Progress:" in delivery.message
-    assert "Performance:" in delivery.message
-    assert "No automatic posting" in delivery.safety_note
 
     rendered = render_scheduled_checkin_delivery(delivery, cron_output=True)
-    assert "Post Relay check-in" in rendered
-    assert "Destination preference: discord_dm" in rendered
-    assert "Progress:" in rendered
-    assert "Performance:" in rendered
+    assert rendered == "\n".join(
+        [
+            "**Post Relay check-in**",
+            "",
+            "Post #1 needs your review.",
+            "",
+            "**Pipeline**",
+            "- 1 post published",
+            "- 0 scheduled",
+            "- 1 review waiting on you",
+            "- 0 candidates ready",
+            "- Latest post: 1,200 reach, 100 likes, 0 comments, 42 saves",
+            "",
+            "**Your move**",
+            "Reply `review post 1`.",
+            "",
+            "_Local-only. Nothing was posted, scheduled, uploaded, or sent to Instagram._",
+        ]
+    )
+    assert "Destination preference" not in rendered
+    assert "Reason:" not in rendered
+    assert "No automatic posting" not in rendered
 
 
 def test_scheduled_checkin_delivery_is_silent_when_no_meaningful_trigger_and_not_weekly(tmp_path: Path):
@@ -66,6 +80,7 @@ def test_scheduled_checkin_delivery_sends_when_no_future_content_after_two_days(
     initialize_db(connection)
     _seed_preferences(connection, target_weekly_posts=None)
     _seed_published_post_snapshot(connection, actual_published_at="2026-06-01T07:21:31-04:00")
+    _seed_ready_candidate(connection)
 
     delivery = build_scheduled_checkin_delivery(
         connection,
@@ -75,8 +90,29 @@ def test_scheduled_checkin_delivery_sends_when_no_future_content_after_two_days(
 
     assert delivery.should_send is True
     assert delivery.reason == "meaningful_trigger"
-    assert "no future content scheduled" in delivery.message
-    assert "last published/scheduled post was 2 day(s) ago" in delivery.message
+    rendered = render_scheduled_checkin_delivery(delivery, cron_output=True)
+    assert rendered == "\n".join(
+        [
+            "**Post Relay check-in**",
+            "",
+            "You have no future posts scheduled. Last post was 2 days ago.",
+            "",
+            "**I can prepare next**",
+            "After Road to Milford",
+            "Candidate 6",
+            "",
+            "**Pipeline**",
+            "- 1 post published",
+            "- 0 scheduled",
+            "- 0 reviews waiting on you",
+            "- 1 candidate ready",
+            "",
+            "**Your move**",
+            "Reply `prepare Milford`.",
+            "",
+            "_Local-only. Nothing was posted, scheduled, uploaded, or sent to Instagram._",
+        ]
+    )
 
 
 def test_scheduled_checkin_delivery_stays_silent_when_last_post_is_recent(tmp_path: Path):
@@ -108,7 +144,8 @@ def test_scheduled_checkin_delivery_prefers_no_future_content_over_generic_weekl
     )
 
     assert delivery.should_send is True
-    assert "Trigger: cadence risk: no future content scheduled" in delivery.message
+    assert "You have no future posts scheduled. Last post was 3 days ago." in delivery.message
+    assert "target 3 posts/week" not in delivery.message
 
 
 def test_scheduled_checkin_delivery_weekly_checkin_sends_progress_without_urgent_trigger(tmp_path: Path):
@@ -134,11 +171,14 @@ def test_scheduled_checkin_delivery_weekly_checkin_sends_progress_without_urgent
     )
 
     assert result.exit_code == 0
-    assert "Post Relay check-in" in result.output
-    assert "weekly_checkin" in result.output
-    assert "Progress:" in result.output
-    assert "Performance:" in result.output
-    assert "No automatic posting" in result.output
+    assert "**Post Relay check-in**" in result.output
+    assert "You have 2 posts scheduled." in result.output
+    assert "**Pipeline**" in result.output
+    assert "- 1 post published" in result.output
+    assert "- 2 scheduled" in result.output
+    assert "- Latest post: 1,200 reach, 100 likes, 0 comments, 42 saves" in result.output
+    assert "No automatic posting" not in result.output
+    assert "Destination preference" not in result.output
 
 
 def test_scheduled_checkin_delivery_silent_outside_working_hours(tmp_path: Path):
@@ -213,6 +253,19 @@ def _seed_meaningful_trigger(connection):
         """
         insert into drafts (id, candidate_group_id, post_type, status)
         values (1, 1, 'carousel', 'awaiting_review')
+        """
+    )
+    connection.commit()
+
+
+def _seed_ready_candidate(connection):
+    connection.execute(
+        "insert into photo_sources (id, name, root, source_type) values (6, 'processed', '/tmp/photos', 'local')"
+    )
+    connection.execute(
+        """
+        insert into candidate_groups (id, title, source_name, source_folder, post_type_recommendation)
+        values (6, 'After Road to Milford — A7406724-A7407032 first pass', 'processed', '/tmp/photos/milford', 'carousel')
         """
     )
     connection.commit()
