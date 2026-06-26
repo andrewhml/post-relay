@@ -69,6 +69,53 @@ class LocationPageSearchResult:
 
 
 @dataclass(frozen=True)
+class LocationTagProbeResult:
+    query: str
+    status: str
+    publishable_candidates: list[LocationPageCandidate]
+    non_publishable_candidates: list[LocationPageCandidate]
+    error: Optional[str] = None
+
+    def to_text(self) -> str:
+        lines = [
+            "Meta location tag probe",
+            f"Query: {self.query}",
+            "Official read route: GET /pages/search",
+        ]
+        if self.status == "search_unavailable":
+            lines.extend(
+                [
+                    "Could not run official Meta Pages search.",
+                    f"Error: {self.error or '<unknown>'}",
+                    "Fix pages_read_engagement or Page Public Metadata Access before testing location_id publishing.",
+                    "No location tag was set.",
+                    "No Instagram publish endpoints were called.",
+                ]
+            )
+            return "\n".join(lines)
+        if self.publishable_candidates:
+            lines.append("Publishable candidates:")
+            for index, candidate in enumerate(self.publishable_candidates, start=1):
+                lines.append(f"  {index}. {candidate.name} ({candidate.page_id}) — {_location_label(candidate.location)}")
+                if candidate.link:
+                    lines.append(f"     Link: {candidate.link}")
+        else:
+            lines.append("Publishable candidates: <none>")
+        if self.non_publishable_candidates:
+            lines.append("Rejected candidates without structured location:")
+            for candidate in self.non_publishable_candidates:
+                lines.append(f"  - {candidate.name} ({candidate.page_id})")
+        lines.extend(
+            [
+                "A candidate is only considered testable when Graph returns structured location data.",
+                "No location tag was set.",
+                "No Instagram publish endpoints were called.",
+            ]
+        )
+        return "\n".join(lines)
+
+
+@dataclass(frozen=True)
 class DraftLocationCandidateReview:
     draft_id: int
     query: str
@@ -248,13 +295,17 @@ def _location_label(location: Mapping[str, Any]) -> str:
 
 def search_location_pages(client, query: str) -> LocationPageSearchResult:
     try:
-        payload = client.search_pages(query=query, fields="id,name,location,link")
+        payload = client.search_pages(
+            query=query,
+            fields="id,name,location,link,verification_status,is_unclaimed",
+        )
     except LocationPageSearchUnavailable:
         raise
     except MetaGraphRequestError as exc:
         raise LocationPageSearchUnavailable(
             "Meta Graph pages/search is unavailable; fix pages_read_engagement/Page Public Metadata access "
-            "and rerun official search, or explicitly skip the Meta location tag."
+            "and rerun official search, or explicitly skip the Meta location tag. "
+            f"Graph error: {exc}"
         ) from exc
     candidates: list[LocationPageCandidate] = []
     for item in payload.get("data") or []:
@@ -276,6 +327,37 @@ def search_location_pages(client, query: str) -> LocationPageSearchResult:
             )
         )
     return LocationPageSearchResult(query=query, candidates=candidates)
+
+
+def probe_location_tag_candidates(client, query: str) -> LocationTagProbeResult:
+    try:
+        search_result = search_location_pages(client, query)
+    except LocationPageSearchUnavailable as exc:
+        return LocationTagProbeResult(
+            query=query,
+            status="search_unavailable",
+            publishable_candidates=[],
+            non_publishable_candidates=[],
+            error=str(exc),
+        )
+    ranked = _rank_candidates(search_result.candidates, query)
+    publishable = [candidate for candidate in ranked if _has_structured_location(candidate.location)]
+    rejected = [candidate for candidate in ranked if not _has_structured_location(candidate.location)]
+    return LocationTagProbeResult(
+        query=query,
+        status="publishable_candidates_found" if publishable else "no_publishable_candidates",
+        publishable_candidates=publishable,
+        non_publishable_candidates=rejected,
+    )
+
+
+def _has_structured_location(location: Mapping[str, Any]) -> bool:
+    if not location:
+        return False
+    return any(
+        location.get(field)
+        for field in ("latitude", "longitude", "city", "region", "state", "country", "street")
+    )
 
 
 def set_draft_location_tag(
