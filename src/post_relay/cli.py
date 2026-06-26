@@ -107,6 +107,7 @@ from post_relay.location_tags import (
     DraftNotFound as LocationTagDraftNotFound,
     UnverifiedLocationTagSource,
     build_location_candidate_review,
+    probe_location_tag_candidates,
     set_draft_location_tag,
     skip_draft_location_tag,
 )
@@ -1172,6 +1173,80 @@ def meta_validate_readonly(
     except MetaGraphRequestError as error:
         raise typer.BadParameter(str(error), param_hint="--env-file") from error
     typer.echo(result.to_text())
+
+
+@meta_app.command("location-probe")
+def meta_location_probe(
+    query: str = typer.Option(..., "--query", help="Place query to test with official Meta Pages search."),
+    env_file: Optional[Path] = typer.Option(Path(".env"), "--env-file", help="Private .env file path."),
+) -> None:
+    """Find and validate testable Meta location_id candidates without publishing."""
+    try:
+        config = load_meta_graph_config(env_file=env_file)
+    except MetaGraphConfigError as error:
+        raise typer.BadParameter(str(error), param_hint="--env-file") from error
+    result = probe_location_tag_candidates(MetaGraphClient(config), query)
+    typer.echo(result.to_text())
+
+
+@meta_app.command("location-probe-selfcheck")
+def meta_location_probe_selfcheck() -> None:
+    """Run a deterministic no-network self-check for location tag candidate parsing."""
+
+    class FixturePagesSearchClient:
+        def __init__(self) -> None:
+            self.calls = []
+
+        def search_pages(self, *, query: str, fields: str):
+            self.calls.append({"query": query, "fields": fields})
+            return {
+                "data": [
+                    {
+                        "id": "valid-place-id",
+                        "name": "Church of the Good Shepherd",
+                        "location": {
+                            "city": "Lake Tekapo",
+                            "country": "New Zealand",
+                            "latitude": -44.0026,
+                            "longitude": 170.4777,
+                        },
+                        "link": "https://www.facebook.com/churchofthegoodshepherd",
+                        "verification_status": "not_verified",
+                        "is_unclaimed": False,
+                    },
+                    {
+                        "id": "non-place-page-id",
+                        "name": "Lake Tekapo Photo Fans",
+                        "link": "https://www.facebook.com/laketekapophotos",
+                    },
+                ]
+            }
+
+    client = FixturePagesSearchClient()
+    result = probe_location_tag_candidates(client, "Church of the Good Shepherd Lake Tekapo")
+    expected_fields = "id,name,location,link,verification_status,is_unclaimed"
+    passed = (
+        result.status == "publishable_candidates_found"
+        and bool(result.publishable_candidates)
+        and result.publishable_candidates[0].page_id == "valid-place-id"
+        and bool(result.non_publishable_candidates)
+        and client.calls == [
+            {
+                "query": "Church of the Good Shepherd Lake Tekapo",
+                "fields": expected_fields,
+            }
+        ]
+    )
+    if not passed:
+        raise typer.Exit(code=1)
+    typer.echo("Meta location tag probe self-check: PASS")
+    typer.echo("Verified official pages/search field set: id,name,location,link,verification_status,is_unclaimed")
+    typer.echo("Verified structured-location gate: location_id=valid-place-id is testable")
+    typer.echo("Verified non-place Page rejection: non-place-page-id")
+    typer.echo("Credentials loaded: no")
+    typer.echo("Network calls made: no")
+    typer.echo("DB mutations made: no")
+    typer.echo("Instagram publish endpoints called: no")
 
 
 @meta_app.command("validate-image-publish")

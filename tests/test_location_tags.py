@@ -14,6 +14,7 @@ from post_relay.location_tags import (
     LocationPageSearchUnavailable,
     UnverifiedLocationTagSource,
     build_location_candidate_review,
+    probe_location_tag_candidates,
     search_location_pages,
     set_draft_location_tag,
     skip_draft_location_tag,
@@ -208,11 +209,68 @@ def test_location_page_search_uses_official_pages_search_read_route():
             "https://graph.facebook.com/v19.0/pages/search",
             {
                 "q": "Seoul Korea",
-                "fields": "id,name,location,link",
+                "fields": "id,name,location,link,verification_status,is_unclaimed",
                 "access_token": "secret-token",
             },
         )
     ]
+
+
+def test_location_probe_marks_only_pages_with_structured_location_as_publishable():
+    def fake_transport(method, url, params):
+        return {
+            "data": [
+                {
+                    "id": "valid-place-id",
+                    "name": "Church of the Good Shepherd",
+                    "location": {"city": "Lake Tekapo", "country": "New Zealand", "latitude": -44.0},
+                    "link": "https://www.facebook.com/churchofthegoodshepherd",
+                },
+                {
+                    "id": "fan-page-id",
+                    "name": "Church of the Good Shepherd Photos",
+                    "link": "https://www.facebook.com/not-a-place",
+                },
+            ]
+        }
+
+    client = MetaGraphClient(MetaGraphConfig(access_token="secret-token"), transport=fake_transport)
+
+    result = probe_location_tag_candidates(client, "Church of the Good Shepherd Lake Tekapo")
+
+    assert result.status == "publishable_candidates_found"
+    assert result.publishable_candidates[0].page_id == "valid-place-id"
+    assert result.non_publishable_candidates[0].page_id == "fan-page-id"
+    rendered = result.to_text()
+    assert "Publishable candidates:" in rendered
+    assert "valid-place-id" in rendered
+    assert "Rejected candidates without structured location:" in rendered
+    assert "No Instagram publish endpoints were called." in rendered
+
+
+def test_location_probe_reports_permission_blocker_without_mutating():
+    class FailingClient:
+        def search_pages(self, *, query: str, fields: str):
+            raise LocationPageSearchUnavailable("missing pages_read_engagement")
+
+    result = probe_location_tag_candidates(FailingClient(), "Lake Tekapo")
+
+    assert result.status == "search_unavailable"
+    assert result.publishable_candidates == []
+    rendered = result.to_text()
+    assert "Could not run official Meta Pages search" in rendered
+    assert "pages_read_engagement" in rendered
+
+
+def test_meta_location_probe_selfcheck_cli_runs_without_credentials_or_network():
+    result = runner.invoke(app, ["meta", "location-probe-selfcheck"])
+
+    assert result.exit_code == 0
+    assert "Meta location tag probe self-check: PASS" in result.output
+    assert "location_id=valid-place-id is testable" in result.output
+    assert "Credentials loaded: no" in result.output
+    assert "Network calls made: no" in result.output
+    assert "Instagram publish endpoints called: no" in result.output
 
 
 def test_setting_resolved_location_tag_is_separate_from_location_text_and_invalidates_approvals(tmp_path: Path):
