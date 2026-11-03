@@ -99,6 +99,35 @@ def test_pipeline_health_ignores_invalidated_approvals_on_posted_drafts(tmp_path
     assert health.blocked_posts == []
 
 
+def test_pipeline_health_ignores_superseded_invalidations_on_publish_ready_posts(tmp_path: Path):
+    connection = connect_db(tmp_path / "post_relay.sqlite")
+    initialize_db(connection)
+    connection.execute(
+        """
+        insert into drafts (id, post_type, status, scheduled_for)
+        values (1, 'carousel', 'ready_to_publish', '2026-11-04T12:30:00-05:00')
+        """
+    )
+    connection.execute(
+        """
+        insert into approvals (
+            draft_id, approval_type, approved_by, invalidated_at, invalidation_reason
+        ) values (1, 'publish', 'andrew', '2026-11-02T16:36:28-05:00', 'media changed')
+        """
+    )
+    connection.execute(
+        """
+        insert into approvals (draft_id, approval_type, approved_by)
+        values (1, 'publish', 'andrew')
+        """
+    )
+    connection.commit()
+
+    health = build_pipeline_health(connection)
+
+    assert health.blocked_posts == []
+
+
 def test_pipeline_health_counts_ready_to_publish_posts_in_scheduled_queue(tmp_path: Path):
     connection = connect_db(tmp_path / "post_relay.sqlite")
     initialize_db(connection)
