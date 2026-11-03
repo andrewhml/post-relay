@@ -181,6 +181,32 @@ def test_scheduled_checkin_delivery_weekly_checkin_sends_progress_without_urgent
     assert "Destination preference" not in result.output
 
 
+def test_scheduled_checkin_delivery_counts_ready_to_publish_posts_as_scheduled(tmp_path: Path):
+    connection = connect_db(tmp_path / "post_relay.sqlite")
+    initialize_db(connection)
+    _seed_preferences(connection, target_weekly_posts=3)
+    for draft_id in range(1, 5):
+        connection.execute(
+            """
+            insert into drafts (id, post_type, status, scheduled_for)
+            values (?, 'carousel', 'ready_to_publish', ?)
+            """,
+            (draft_id, f"2026-11-0{draft_id + 3}T11:00:00-05:00"),
+        )
+    connection.commit()
+
+    delivery = build_scheduled_checkin_delivery(
+        connection,
+        now_iso="2026-11-03T10:00:00-05:00",
+        weekly_checkin=True,
+    )
+
+    rendered = render_scheduled_checkin_delivery(delivery, cron_output=True)
+    assert "You have 4 posts scheduled." in rendered
+    assert "- 4 scheduled" in rendered
+    assert "scheduled queue has 0" not in rendered
+
+
 def test_scheduled_checkin_delivery_silent_outside_working_hours(tmp_path: Path):
     connection = connect_db(tmp_path / "post_relay.sqlite")
     initialize_db(connection)

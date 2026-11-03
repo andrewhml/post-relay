@@ -99,6 +99,30 @@ def test_pipeline_health_ignores_invalidated_approvals_on_posted_drafts(tmp_path
     assert health.blocked_posts == []
 
 
+def test_pipeline_health_counts_ready_to_publish_posts_in_scheduled_queue(tmp_path: Path):
+    connection = connect_db(tmp_path / "post_relay.sqlite")
+    initialize_db(connection)
+    upsert_account_preferences(
+        connection,
+        account_key="default",
+        target_weekly_posts=3,
+    )
+    for draft_id in range(1, 5):
+        connection.execute(
+            """
+            insert into drafts (id, post_type, status, scheduled_for)
+            values (?, 'carousel', 'ready_to_publish', ?)
+            """,
+            (draft_id, f"2026-11-0{draft_id + 3}T11:00:00-05:00"),
+        )
+    connection.commit()
+
+    health = build_pipeline_health(connection, now_iso="2026-11-03T10:00:00-05:00")
+
+    assert health.stage_counts["ready_to_publish"] == 4
+    assert not any("scheduled queue has 0" in risk for risk in health.cadence_risk)
+
+
 def _seed_pipeline_rows(connection):
     connection.execute(
         "insert into photo_sources (id, name, root, source_type) values (1, 'processed', '/tmp/photos', 'local')"

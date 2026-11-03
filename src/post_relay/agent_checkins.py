@@ -334,7 +334,11 @@ def _prepare_reply_slug(title: str) -> str:
 
 
 def _scheduled_count(health) -> int:
-    return health.stage_counts.get("scheduled", 0) + health.stage_counts.get("awaiting_publish_approval", 0)
+    return (
+        health.stage_counts.get("scheduled", 0)
+        + health.stage_counts.get("awaiting_publish_approval", 0)
+        + health.stage_counts.get("ready_to_publish", 0)
+    )
 
 
 def _plural_count(value: int, noun: str) -> str:
@@ -363,7 +367,7 @@ def _sentence_case(text: str) -> str:
 
 def _build_progress_summary(connection, health) -> str:
     published = _scalar(connection, "select count(*) from published_post_snapshots")
-    scheduled = health.stage_counts.get("scheduled", 0) + health.stage_counts.get("awaiting_publish_approval", 0)
+    scheduled = _scheduled_count(health)
     in_review = len(health.user_needed_reviews)
     candidates = health.candidate_groups_without_posts
     return f"{published} published snapshots stored, {scheduled} upcoming/approval-ready posts, {in_review} user-needed reviews, {candidates} candidate groups not yet drafted."

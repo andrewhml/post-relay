@@ -107,7 +107,11 @@ def _blocked_posts(connection) -> list[str]:
 
 def _cadence_risk(connection, stage_counts: dict[str, int], *, now_iso: str | None = None) -> list[str]:
     preferences = get_active_account_preferences(connection)
-    scheduled = stage_counts.get("scheduled", 0) + stage_counts.get("awaiting_publish_approval", 0)
+    scheduled = (
+        stage_counts.get("scheduled", 0)
+        + stage_counts.get("awaiting_publish_approval", 0)
+        + stage_counts.get("ready_to_publish", 0)
+    )
     risks: list[str] = []
     if preferences and preferences.target_weekly_posts is not None and scheduled < preferences.target_weekly_posts:
         risks.append(f"cadence risk: target {preferences.target_weekly_posts} posts/week, scheduled queue has {scheduled}")
