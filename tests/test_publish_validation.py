@@ -11,6 +11,7 @@ from post_relay.indexer import index_photo_sources
 from post_relay.meta_graph import MetaGraphClient, MetaGraphConfig
 from post_relay.publishing import (
     DraftNotReadyForImagePublish,
+    PublishContainerTimeout,
     PublishValidationError,
     UnsupportedPublishDraft,
     execute_carousel_publish_validation,
@@ -687,3 +688,422 @@ def test_execute_carousel_publish_validation_sends_hashtags_inside_parent_captio
     assert media_requests[2]["caption"] == "Kyoto garden sequence.\n\n#travelphotography #Kyoto"
     assert "location_id" not in media_requests[2]
     assert list_publish_attempts(connection, draft.id)[0].caption == "Kyoto garden sequence.\n\n#travelphotography #Kyoto"
+
+
+def _carousel_client(fake_transport):
+    return MetaGraphClient(
+        MetaGraphConfig(access_token="secret-token", instagram_account_id="17841400498120050"),
+        transport=fake_transport,
+    )
+
+
+def _fake_clock(step: float = 1.0):
+    """Return (sleep, monotonic) fakes advancing a virtual clock on every sleep."""
+    state = {"now": 0.0}
+    slept: list[float] = []
+
+    def sleep(seconds: float) -> None:
+        slept.append(seconds)
+        state["now"] += max(seconds, step)
+
+    def monotonic() -> float:
+        return state["now"]
+
+    return sleep, monotonic, slept
+
+
+def test_execute_carousel_publish_polls_until_container_finishes(tmp_path: Path):
+    connection, draft = _build_carousel_ready_draft(tmp_path, caption="Kyoto garden sequence.")
+    requested = []
+    statuses = ["IN_PROGRESS", "IN_PROGRESS", "FINISHED"]
+
+    def fake_transport(method, url, params):
+        requested.append((method, url, dict(params)))
+        media_url = "https://graph.facebook.com/v19.0/17841400498120050/media"
+        if url == media_url and params.get("image_url") == "https://example.com/temple.jpg":
+            return {"id": "child-1"}
+        if url == media_url and params.get("image_url") == "https://example.com/garden.jpg":
+            return {"id": "child-2"}
+        if url == media_url and params.get("media_type") == "CAROUSEL":
+            return {"id": "carousel-123"}
+        if url.endswith("/carousel-123"):
+            return {"id": "carousel-123", "status_code": statuses.pop(0)}
+        if url.endswith("/17841400498120050/media_publish"):
+            return {"id": "media-789"}
+        raise AssertionError(f"unexpected request: {method} {url} {params}")
+
+    sleep, monotonic, slept = _fake_clock()
+
+    result = execute_carousel_publish_validation(
+        connection,
+        draft.id,
+        image_urls=["https://example.com/temple.jpg", "https://example.com/garden.jpg"],
+        client=_carousel_client(fake_transport),
+        poll_interval_seconds=3,
+        poll_timeout_seconds=60,
+        sleep=sleep,
+        monotonic=monotonic,
+    )
+
+    assert result.status == "published"
+    assert result.status_code == "FINISHED"
+    assert result.published_media_id == "media-789"
+    assert statuses == []
+    assert slept == [3, 3]
+    status_reads = [url for method, url, _params in requested if method == "GET"]
+    assert status_reads == ["https://graph.facebook.com/v19.0/carousel-123"] * 3
+    # exactly one parent container creation, no duplicates
+    carousel_creates = [
+        params
+        for _method, url, params in requested
+        if url.endswith("/17841400498120050/media") and params.get("media_type") == "CAROUSEL"
+    ]
+    assert len(carousel_creates) == 1
+    attempts = list_publish_attempts(connection, draft.id)
+    assert len(attempts) == 1
+    assert attempts[0].status == "published"
+
+
+def test_execute_carousel_publish_does_not_sleep_when_container_is_immediately_finished(tmp_path: Path):
+    connection, draft = _build_carousel_ready_draft(tmp_path, caption="Kyoto garden sequence.")
+
+    def fake_transport(method, url, params):
+        media_url = "https://graph.facebook.com/v19.0/17841400498120050/media"
+        if url == media_url and params.get("media_type") == "CAROUSEL":
+            return {"id": "carousel-123"}
+        if url == media_url:
+            return {"id": f"child-{params['image_url'][-10:]}"}
+        if url.endswith("/carousel-123"):
+            return {"id": "carousel-123", "status_code": "FINISHED"}
+        if url.endswith("/media_publish"):
+            return {"id": "media-789"}
+        raise AssertionError(f"unexpected request: {method} {url} {params}")
+
+    sleep, monotonic, slept = _fake_clock()
+
+    result = execute_carousel_publish_validation(
+        connection,
+        draft.id,
+        image_urls=["https://example.com/temple.jpg", "https://example.com/garden.jpg"],
+        client=_carousel_client(fake_transport),
+        sleep=sleep,
+        monotonic=monotonic,
+    )
+
+    assert result.status == "published"
+    assert slept == []
+
+
+def test_execute_carousel_publish_fails_fast_on_error_container_status(tmp_path: Path):
+    connection, draft = _build_carousel_ready_draft(tmp_path, caption="Kyoto garden sequence.")
+    requested = []
+
+    def fake_transport(method, url, params):
+        requested.append((method, url, dict(params)))
+        media_url = "https://graph.facebook.com/v19.0/17841400498120050/media"
+        if url == media_url and params.get("media_type") == "CAROUSEL":
+            return {"id": "carousel-123"}
+        if url == media_url:
+            return {"id": f"child-{len(requested)}"}
+        if url.endswith("/carousel-123"):
+            return {"id": "carousel-123", "status_code": "ERROR"}
+        raise AssertionError(f"unexpected request: {method} {url} {params}")
+
+    sleep, monotonic, slept = _fake_clock()
+
+    with pytest.raises(PublishValidationError) as error:
+        execute_carousel_publish_validation(
+            connection,
+            draft.id,
+            image_urls=["https://example.com/temple.jpg", "https://example.com/garden.jpg"],
+            client=_carousel_client(fake_transport),
+            sleep=sleep,
+            monotonic=monotonic,
+        )
+
+    assert "ERROR" in str(error.value)
+    assert not isinstance(error.value, PublishContainerTimeout)
+    assert slept == []
+    assert not any(url.endswith("/media_publish") for _method, url, _params in requested)
+    attempt = list_publish_attempts(connection, draft.id)[0]
+    assert attempt.status == "failed"
+    assert attempt.container_id == "carousel-123"
+    assert get_draft(connection, draft.id).status == DraftState.FAILED.value
+
+
+def test_execute_carousel_publish_times_out_and_preserves_container_id(tmp_path: Path):
+    connection, draft = _build_carousel_ready_draft(tmp_path, caption="Kyoto garden sequence.")
+    requested = []
+
+    def fake_transport(method, url, params):
+        requested.append((method, url, dict(params)))
+        media_url = "https://graph.facebook.com/v19.0/17841400498120050/media"
+        if url == media_url and params.get("media_type") == "CAROUSEL":
+            return {"id": "carousel-123"}
+        if url == media_url:
+            return {"id": f"child-{len(requested)}"}
+        if url.endswith("/carousel-123"):
+            return {"id": "carousel-123", "status_code": "IN_PROGRESS"}
+        raise AssertionError(f"unexpected request: {method} {url} {params}")
+
+    sleep, monotonic, slept = _fake_clock()
+
+    with pytest.raises(PublishContainerTimeout) as error:
+        execute_carousel_publish_validation(
+            connection,
+            draft.id,
+            image_urls=["https://example.com/temple.jpg", "https://example.com/garden.jpg"],
+            client=_carousel_client(fake_transport),
+            poll_interval_seconds=5,
+            poll_timeout_seconds=12,
+            sleep=sleep,
+            monotonic=monotonic,
+        )
+
+    assert error.value.container_id == "carousel-123"
+    assert error.value.status_code == "IN_PROGRESS"
+    assert slept == [5, 5, 2]
+    assert not any(url.endswith("/media_publish") for _method, url, _params in requested)
+    attempt = list_publish_attempts(connection, draft.id)[0]
+    assert attempt.status == "container_timeout"
+    assert attempt.container_id == "carousel-123"
+    assert attempt.status_code == "IN_PROGRESS"
+
+
+def test_execute_carousel_publish_resumes_timed_out_container_without_recreating_it(tmp_path: Path):
+    connection, draft = _build_carousel_ready_draft(tmp_path, caption="Kyoto garden sequence.")
+    image_urls = ["https://example.com/temple.jpg", "https://example.com/garden.jpg"]
+
+    def timing_out_transport(method, url, params):
+        media_url = "https://graph.facebook.com/v19.0/17841400498120050/media"
+        if url == media_url and params.get("media_type") == "CAROUSEL":
+            return {"id": "carousel-123"}
+        if url == media_url:
+            return {"id": "child-" + params["image_url"].rsplit("/", 1)[-1]}
+        if url.endswith("/carousel-123"):
+            return {"id": "carousel-123", "status_code": "IN_PROGRESS"}
+        raise AssertionError(f"unexpected request: {method} {url} {params}")
+
+    sleep, monotonic, _slept = _fake_clock()
+    with pytest.raises(PublishContainerTimeout):
+        execute_carousel_publish_validation(
+            connection,
+            draft.id,
+            image_urls=image_urls,
+            client=_carousel_client(timing_out_transport),
+            poll_interval_seconds=5,
+            poll_timeout_seconds=5,
+            sleep=sleep,
+            monotonic=monotonic,
+        )
+
+    # The timed-out post is automatically resumable: no manual status rescue.
+    assert get_draft(connection, draft.id).status == DraftState.FAILED.value
+    resumed = []
+
+    def resuming_transport(method, url, params):
+        resumed.append((method, url, dict(params)))
+        if url.endswith("/17841400498120050/media"):
+            raise AssertionError("resume must not create another container")
+        if url.endswith("/carousel-123"):
+            return {"id": "carousel-123", "status_code": "FINISHED"}
+        if url.endswith("/17841400498120050/media_publish"):
+            return {"id": "media-789"}
+        raise AssertionError(f"unexpected request: {method} {url} {params}")
+
+    sleep, monotonic, _slept = _fake_clock()
+    result = execute_carousel_publish_validation(
+        connection,
+        draft.id,
+        image_urls=image_urls,
+        client=_carousel_client(resuming_transport),
+        sleep=sleep,
+        monotonic=monotonic,
+    )
+
+    assert result.status == "published"
+    assert result.container_id == "carousel-123"
+    assert result.published_media_id == "media-789"
+    assert result.child_container_ids == ["child-temple.jpg", "child-garden.jpg"]
+    assert [url for _method, url, _params in resumed] == [
+        "https://graph.facebook.com/v19.0/carousel-123",
+        "https://graph.facebook.com/v19.0/17841400498120050/media_publish",
+    ]
+    assert resumed[1][2]["creation_id"] == "carousel-123"
+    attempts = list_publish_attempts(connection, draft.id)
+    assert len(attempts) == 1
+    assert attempts[0].status == "published"
+    assert attempts[0].container_id == "carousel-123"
+    assert get_draft(connection, draft.id).status == DraftState.POSTED.value
+
+
+def test_execute_carousel_publish_does_not_resume_container_after_caption_change(tmp_path: Path):
+    connection, draft = _build_carousel_ready_draft(tmp_path, caption="Kyoto garden sequence.")
+    image_urls = ["https://example.com/temple.jpg", "https://example.com/garden.jpg"]
+
+    def timing_out_transport(method, url, params):
+        media_url = "https://graph.facebook.com/v19.0/17841400498120050/media"
+        if url == media_url and params.get("media_type") == "CAROUSEL":
+            return {"id": "carousel-123"}
+        if url == media_url:
+            return {"id": "child-" + params["image_url"].rsplit("/", 1)[-1]}
+        if url.endswith("/carousel-123"):
+            return {"id": "carousel-123", "status_code": "IN_PROGRESS"}
+        raise AssertionError(f"unexpected request: {method} {url} {params}")
+
+    sleep, monotonic, _slept = _fake_clock()
+    with pytest.raises(PublishContainerTimeout):
+        execute_carousel_publish_validation(
+            connection,
+            draft.id,
+            image_urls=image_urls,
+            client=_carousel_client(timing_out_transport),
+            poll_interval_seconds=5,
+            poll_timeout_seconds=5,
+            sleep=sleep,
+            monotonic=monotonic,
+        )
+
+    connection.execute(
+        "update drafts set caption = ? where id = ?",
+        ("A different caption.", draft.id),
+    )
+    connection.commit()
+
+    # A material caption edit must not auto-resume the recorded container.
+    with pytest.raises(DraftNotReadyForImagePublish):
+        execute_carousel_publish_validation(
+            connection,
+            draft.id,
+            image_urls=image_urls,
+            client=_carousel_client(timing_out_transport),
+        )
+    connection.execute(
+        "update drafts set status = ? where id = ?",
+        (DraftState.READY_TO_PUBLISH.value, draft.id),
+    )
+    connection.commit()
+
+    def fresh_transport(method, url, params):
+        media_url = "https://graph.facebook.com/v19.0/17841400498120050/media"
+        if url == media_url and params.get("media_type") == "CAROUSEL":
+            return {"id": "carousel-456"}
+        if url == media_url:
+            return {"id": "child-new-" + params["image_url"].rsplit("/", 1)[-1]}
+        if url.endswith("/carousel-456"):
+            return {"id": "carousel-456", "status_code": "FINISHED"}
+        if url.endswith("/media_publish"):
+            return {"id": "media-999"}
+        raise AssertionError(f"unexpected request: {method} {url} {params}")
+
+    sleep, monotonic, _slept = _fake_clock()
+    result = execute_carousel_publish_validation(
+        connection,
+        draft.id,
+        image_urls=image_urls,
+        client=_carousel_client(fresh_transport),
+        sleep=sleep,
+        monotonic=monotonic,
+    )
+
+    assert result.container_id == "carousel-456"
+    attempts = list_publish_attempts(connection, draft.id)
+    assert len(attempts) == 2
+    assert attempts[0].status == "container_timeout"
+    assert attempts[1].status == "published"
+
+
+def test_execute_single_image_publish_polls_until_container_finishes(tmp_path: Path):
+    connection, draft = _build_single_image_ready_draft(tmp_path, caption="Temple morning.")
+    statuses = ["IN_PROGRESS", "FINISHED"]
+    requested = []
+
+    def fake_transport(method, url, params):
+        requested.append((method, url, dict(params)))
+        if url.endswith("/17841400498120050/media"):
+            return {"id": "creation-123"}
+        if url.endswith("/creation-123"):
+            return {"id": "creation-123", "status_code": statuses.pop(0)}
+        if url.endswith("/17841400498120050/media_publish"):
+            return {"id": "media-456"}
+        raise AssertionError(f"unexpected URL: {url}")
+
+    sleep, monotonic, slept = _fake_clock()
+
+    result = execute_single_image_publish_validation(
+        connection,
+        draft.id,
+        image_url="https://example.com/test-image.jpg",
+        client=MetaGraphClient(
+            MetaGraphConfig(access_token="secret-token", instagram_account_id="17841400498120050"),
+            transport=fake_transport,
+        ),
+        poll_interval_seconds=4,
+        poll_timeout_seconds=60,
+        sleep=sleep,
+        monotonic=monotonic,
+    )
+
+    assert result.status == "published"
+    assert result.published_media_id == "media-456"
+    assert slept == [4]
+    container_creates = [url for _method, url, _params in requested if url.endswith("/17841400498120050/media")]
+    assert len(container_creates) == 1
+
+
+def test_execute_single_image_publish_timeout_preserves_container_for_resume(tmp_path: Path):
+    connection, draft = _build_single_image_ready_draft(tmp_path, caption="Temple morning.")
+
+    def fake_transport(method, url, params):
+        if url.endswith("/17841400498120050/media"):
+            return {"id": "creation-123"}
+        if url.endswith("/creation-123"):
+            return {"id": "creation-123", "status_code": "IN_PROGRESS"}
+        raise AssertionError(f"unexpected URL: {url}")
+
+    sleep, monotonic, _slept = _fake_clock()
+    with pytest.raises(PublishContainerTimeout):
+        execute_single_image_publish_validation(
+            connection,
+            draft.id,
+            image_url="https://example.com/test-image.jpg",
+            client=MetaGraphClient(
+                MetaGraphConfig(access_token="secret-token", instagram_account_id="17841400498120050"),
+                transport=fake_transport,
+            ),
+            poll_interval_seconds=5,
+            poll_timeout_seconds=5,
+            sleep=sleep,
+            monotonic=monotonic,
+        )
+
+    attempt = list_publish_attempts(connection, draft.id)[0]
+    assert attempt.status == "container_timeout"
+    assert attempt.container_id == "creation-123"
+    assert get_draft(connection, draft.id).status == DraftState.FAILED.value
+
+    def resuming_transport(method, url, params):
+        if url.endswith("/17841400498120050/media"):
+            raise AssertionError("resume must not create another container")
+        if url.endswith("/creation-123"):
+            return {"id": "creation-123", "status_code": "FINISHED"}
+        if url.endswith("/17841400498120050/media_publish"):
+            return {"id": "media-456"}
+        raise AssertionError(f"unexpected URL: {url}")
+
+    sleep, monotonic, _slept = _fake_clock()
+    result = execute_single_image_publish_validation(
+        connection,
+        draft.id,
+        image_url="https://example.com/test-image.jpg",
+        client=MetaGraphClient(
+            MetaGraphConfig(access_token="secret-token", instagram_account_id="17841400498120050"),
+            transport=resuming_transport,
+        ),
+        sleep=sleep,
+        monotonic=monotonic,
+    )
+
+    assert result.status == "published"
+    assert result.container_id == "creation-123"
+    assert len(list_publish_attempts(connection, draft.id)) == 1
